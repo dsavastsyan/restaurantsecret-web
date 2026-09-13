@@ -6,6 +6,9 @@ test('administrator manages outreach without seeing the Restaurant Guru source',
     id: 1, name: 'BEmine Grill Bar', city: 'Москва',
     instagram_url: 'https://www.instagram.com/bemine_simf/', website_url: 'https://beminegrillbar.ru/',
     status: 'new', effective_status: 'new', workflow_kind: null,
+  }, {
+    id: 2, name: 'На потом', city: 'Москва', instagram_url: null, website_url: null,
+    status: 'deferred', effective_status: 'deferred', workflow_kind: null,
   }]
 
   await page.route('**/api/admin/**', async (route) => {
@@ -30,6 +33,20 @@ test('administrator manages outreach without seeing the Restaurant Guru source',
   await expect(row.getByRole('link', { name: 'Открыть Instagram' })).toHaveAttribute('href', 'https://www.instagram.com/bemine_simf/')
   await expect(row.getByRole('link', { name: 'Открыть сайт' })).toHaveAttribute('href', 'https://beminegrillbar.ru/')
   await expect(page.getByText('Restaurant Guru')).toHaveCount(0)
+
+  const deferredRow = page.getByRole('row').filter({ hasText: 'На потом' })
+  await expect(deferredRow).toContainText('Отложено')
+  await deferredRow.getByText('Добавить меню').click()
+  await expect(deferredRow.getByRole('button', { name: 'Парсинг' })).toBeVisible()
+  await expect(deferredRow.getByRole('button', { name: 'Вручную с сайта' })).toBeVisible()
+  await expect(deferredRow.getByRole('button', { name: 'Instagram Highlights' })).toBeVisible()
+  await expect(deferredRow.getByRole('button', { name: 'Написала в Direct' })).toBeVisible()
+  await deferredRow.getByText('Добавить меню').click()
+
+  await row.getByText('Добавить меню').click()
+  await row.getByRole('button', { name: 'Отложить' }).click()
+  await expect.poll(() => requests.some(({ path, body }) => path === '/api/admin/outreach/1'
+    && body?.status === 'deferred' && body?.workflow_kind === null)).toBeTruthy()
 
   await row.getByText('Добавить меню').click()
   await row.getByRole('button', { name: 'Парсинг' }).click()

@@ -226,6 +226,7 @@
 .admin-outreach__status--ready { color: #28603b; background: #daf0df; }
 .admin-outreach__status--follow_up { color: #8a3a23; background: #fbe7dc; }
 .admin-outreach__status--awaiting_parser { color: #315f78; background: #e0eff6; }
+.admin-outreach__status--deferred { color: #55568b; background: #e8e8f7; }
 .admin-outreach__status--awaiting_manual, .admin-outreach__status--awaiting_reply, .admin-outreach__status--menu_development { color: #76571c; background: #fff0c9; }
 .admin-outreach__status--discarded { color: #7a312b; background: #f4e4e1; }
 .admin-outreach__table td:last-child > button { padding: 8px 10px; color: #fff; border: 0; border-radius: 8px; background: #65734d; font-weight: 800; }
