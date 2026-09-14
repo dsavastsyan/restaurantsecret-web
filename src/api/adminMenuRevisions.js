@@ -137,6 +137,15 @@ export const adminMenuRevisionsApi = {
     request(`/api/admin/kbju-flags/${encodeURIComponent(kind)}/${encodeURIComponent(itemId)}/approve`, {
       method: 'POST',
     }),
+  restaurantAttributeReviews: (status = 'pending') => {
+    const params = new URLSearchParams({ status })
+    return request(`/api/admin/restaurant-attribute-reviews?${params}`)
+  },
+  decideRestaurantAttributeReview: (reviewId, decision, value) =>
+    request(`/api/admin/restaurant-attribute-reviews/${encodeURIComponent(reviewId)}/decision`, {
+      method: 'POST',
+      body: value === undefined ? { decision } : { decision, value },
+    }),
   searchRestaurants: (query) => {
     const params = new URLSearchParams({ query })
     return request(`/api/admin/restaurants/search?${params}`)

@@ -43,6 +43,7 @@ const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.js
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
 const AdminProductMatches = lazy(() => import('../pages/admin/ProductMatchReview.jsx'))
 const AdminKbjuFlags = lazy(() => import('../pages/admin/KbjuFlagReview.jsx'))
+const AdminRestaurantAttributeReviews = lazy(() => import('../pages/admin/AdminRestaurantAttributeReviews.jsx'))
 const AccountLayout = lazy(() => import('../pages/account/Layout.tsx'))
 const AccountOverview = lazy(() => import('../pages/account/Overview.tsx'))
 const AccountSubscription = lazy(() => import('../pages/account/Subscription.tsx'))
@@ -153,6 +154,7 @@ function AppRoutes({ onReady }) {
           {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions/:revisionId" element={<AdminMenuRevisionDetail />} />}
           <Route path="product-matches" element={<AdminProductMatches />} />
           <Route path="kbju-flags" element={<AdminKbjuFlags />} />
+          <Route path="restaurant-reviews" element={<AdminRestaurantAttributeReviews />} />
           <Route path="*" element={<Navigate to="/admin/restaurants" replace />} />
         </Route>
       </Routes>
