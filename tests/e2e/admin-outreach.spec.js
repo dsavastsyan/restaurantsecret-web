@@ -22,6 +22,36 @@ test('admin content starts loading without waiting for the session check', async
   finishSessionCheck()
 })
 
+test('outreach status changes immediately while the server request is pending', async ({ page }) => {
+  let finishUpdate
+  const pendingUpdate = new Promise((resolve) => { finishUpdate = resolve })
+  const candidate = {
+    id: 1, name: 'Малиновка', city: 'Москва', instagram_url: null, website_url: null,
+    status: 'new', effective_status: 'new', workflow_kind: null,
+  }
+
+  await page.route('**/api/admin/**', async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path === '/api/admin/auth/me') return route.fulfill({ json: { ok: true, role: 'admin', csrf_token: 'csrf' } })
+    if (path === '/api/admin/outreach' && request.method() === 'GET') {
+      return route.fulfill({ json: { ok: true, cities: ['Москва'], candidates: [candidate] } })
+    }
+    if (path === '/api/admin/outreach/1') {
+      await pendingUpdate
+      return route.fulfill({ json: { ok: true } })
+    }
+    return route.fulfill({ json: { ok: true } })
+  })
+
+  await page.goto('/admin/outreach')
+  const row = page.getByRole('row').filter({ hasText: 'Малиновка' })
+  await row.getByText('Добавить меню').click()
+  await row.getByRole('button', { name: 'Отложить' }).click()
+  await expect(row).toContainText('Отложено')
+  finishUpdate()
+})
+
 test('administrator manages outreach without seeing the Restaurant Guru source', async ({ page }) => {
   const requests = []
   const candidates = [{
