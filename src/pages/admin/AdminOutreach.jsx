@@ -3,7 +3,7 @@ import { ExternalLink, RefreshCw, Search } from 'lucide-react'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
 
 const STATUS_LABELS = {
-  new: 'Новый', awaiting_parser: 'Ожидает парсинга', awaiting_manual: 'Ожидает добавления',
+  new: 'Новый', deferred: 'Отложено', awaiting_parser: 'Ожидает парсинга', awaiting_manual: 'Ожидает добавления',
   awaiting_reply: 'Ожидает ответа', follow_up: 'Follow-up', menu_development: 'Меню в разработке',
   ready: 'Готово', no_menu: 'Меню нет', in_person_only: 'Только лично', discarded: 'Не подходит',
 }
@@ -69,6 +69,7 @@ function CandidateActions({ candidate, busy, update }) {
       <ActionButton disabled={busy} onClick={() => save('awaiting_manual', 'manual_website')}>Вручную с сайта</ActionButton>
       <ActionButton disabled={busy} onClick={() => save('awaiting_manual', 'instagram_highlights')}>Instagram Highlights</ActionButton>
       <ActionButton disabled={busy} onClick={() => save('awaiting_reply', 'direct')}>Написала в Direct</ActionButton>
+      <ActionButton disabled={busy} onClick={() => save('deferred', null)}>Отложить</ActionButton>
       <ActionButton disabled={busy} onClick={() => save('discarded', null)}>Не подходит</ActionButton>
     </div></details>
   )
