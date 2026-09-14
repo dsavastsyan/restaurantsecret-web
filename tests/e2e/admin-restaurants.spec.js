@@ -246,7 +246,7 @@ test('administrator sees parser status, source and error without leaving the res
   await page.getByRole('tab', { name: 'Автоматическое обновление' }).click()
   await expect(page.getByRole('tab', { name: 'Все рестораны' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Задачи меню' })).toHaveCount(0)
-  await expect(page.getByRole('link', { name: 'Ревью ресторанов' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Ревью ресторанов' })).toBeVisible()
   const row = page.getByRole('row').filter({ hasText: 'Sage' })
   await expect(row.getByText('Ошибка', { exact: true })).toBeVisible()
   await expect(row.getByRole('link', { name: 'Открыть' })).toHaveAttribute('href', 'https://sage.example/menu')
@@ -256,6 +256,45 @@ test('administrator sees parser status, source and error without leaving the res
 
   await page.goto('/admin/menu-revisions')
   await expect(page).toHaveURL(/\/admin\/restaurants$/)
+})
+
+test('administrator reviews an enrichment suggestion', async ({ page }) => {
+  const decisions = []
+  await page.route('**/api/admin/**', async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path === '/api/admin/auth/me') {
+      return route.fulfill({ json: { ok: true, role: 'admin', csrf_token: 'csrf' } })
+    }
+    if (path === '/api/admin/restaurant-attribute-reviews' && request.method() === 'GET') {
+      return route.fulfill({ json: { ok: true, reviews: [{
+        id: 72,
+        restaurant_id: 3650,
+        restaurant_name: 'Сыроварня',
+        restaurant_slug: 'syrovarnya',
+        field: 'manual_coordinates',
+        suggested_value: '44.877824, 37.310663',
+        confidence: 0.8,
+        note: null,
+        status: 'pending',
+      }] } })
+    }
+    if (path === '/api/admin/restaurant-attribute-reviews/72/decision') {
+      decisions.push(request.postDataJSON())
+      return route.fulfill({ json: { ok: true } })
+    }
+    return route.fulfill({ json: { ok: true, restaurants: [] } })
+  })
+
   await page.goto('/admin/restaurant-reviews')
-  await expect(page).toHaveURL(/\/admin\/restaurants$/)
+  await expect(page.getByRole('heading', { name: 'Ревью и правки' })).toBeVisible()
+  await expect(page.getByText('Сыроварня')).toBeVisible()
+  await page.getByLabel('Значение (можно поправить перед применением)').fill('44.877900, 37.310700')
+  await page.getByRole('button', { name: 'Применить' }).click()
+
+  await expect.poll(() => decisions).toEqual([{
+    decision: 'approve',
+    value: '44.877900, 37.310700',
+  }])
+  await expect(page.getByText('Сыроварня')).toHaveCount(0)
 })
