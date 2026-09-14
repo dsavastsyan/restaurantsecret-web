@@ -20,6 +20,16 @@ function uuidv4() {
     );
 }
 
+// Search engines and other crawlers execute our client JS while rendering pages
+// (to see SPA content), which would otherwise fire real analytics events on every
+// crawl. None of that traffic is a real visitor, so we skip sending analytics for it.
+const CRAWLER_USER_AGENT_PATTERN = /bot|spider|crawl|slurp|mediapartners|facebookexternalhit|embedly|quora link preview|whatsapp|telegrambot|w3c_validator|headlesschrome/i;
+
+function isCrawlerUserAgent() {
+    if (typeof navigator === "undefined") return false;
+    return CRAWLER_USER_AGENT_PATTERN.test(navigator.userAgent || "");
+}
+
 class AnalyticsService {
     constructor() {
         this.apiUrl = PD_API_BASE;
@@ -335,6 +345,8 @@ class AnalyticsService {
     }
 
     async track(eventName, props = {}, options = {}) {
+        if (isCrawlerUserAgent()) return false;
+
         const { ignoreConsent = false, withAttribution = true } = options;
         if (!ignoreConsent && this.getConsentStatus() !== "granted") return false;
 
