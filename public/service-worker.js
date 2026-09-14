@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'static-v3';
+const STATIC_CACHE = 'static-v4';
 const API_CACHE = 'api-v3';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest'];
 const IS_LOCAL_DEVELOPMENT = ['localhost', '127.0.0.1'].includes(self.location.hostname);
@@ -52,10 +52,15 @@ self.addEventListener('fetch', (event) => {
         }
 
         // GitHub Pages returns its 404 document for SPA deep links such as
-        // /partners/dashboard. Serve the cached app shell instead so React Router
-        // can render the requested route without surfacing a failed navigation.
+        // /partners/dashboard. Refresh the app shell from the root before serving
+        // it so a direct navigation cannot keep an older deployment alive forever.
         if (networkResponse.status === 404) {
           const cache = await caches.open(STATIC_CACHE);
+          const freshShell = await fetch(new Request('/', { cache: 'reload' }));
+          if (freshShell.ok) {
+            await cache.put('/index.html', freshShell.clone());
+            return freshShell;
+          }
           const appShell = await cache.match('/index.html');
           if (appShell) return appShell;
         }
