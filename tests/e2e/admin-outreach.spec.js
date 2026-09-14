@@ -1,5 +1,27 @@
 import { expect, test } from '@playwright/test'
 
+test('admin content starts loading without waiting for the session check', async ({ page }) => {
+  let finishSessionCheck
+  const sessionCheck = new Promise((resolve) => { finishSessionCheck = resolve })
+
+  await page.route('**/api/admin/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/api/admin/auth/me') {
+      await sessionCheck
+      return route.fulfill({ json: { ok: true, role: 'admin', csrf_token: 'csrf' } })
+    }
+    if (path === '/api/admin/outreach') {
+      return route.fulfill({ json: { ok: true, cities: ['Москва'], candidates: [] } })
+    }
+    return route.fulfill({ json: { ok: true } })
+  })
+
+  await page.goto('/admin/outreach')
+  await expect(page.getByRole('heading', { name: 'Аутрич' })).toBeVisible()
+  await expect(page.getByText('Загружаем админку…')).toHaveCount(0)
+  finishSessionCheck()
+})
+
 test('administrator manages outreach without seeing the Restaurant Guru source', async ({ page }) => {
   const requests = []
   const candidates = [{
