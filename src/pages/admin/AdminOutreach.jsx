@@ -8,6 +8,8 @@ const STATUS_LABELS = {
   ready: 'Готово', no_menu: 'Меню нет', in_person_only: 'Только лично', discarded: 'Не подходит',
 }
 
+const outreachCache = new Map()
+
 function ActionButton({ children, onClick, disabled }) {
   return <button type="button" onClick={onClick} disabled={disabled}>{children}</button>
 }
@@ -88,10 +90,18 @@ export default function AdminOutreach() {
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    setLoading(true); setError('')
+    const cached = outreachCache.get(city)
+    if (cached) {
+      setCandidates(cached.candidates); setCities(cached.cities); setLoading(false)
+    } else {
+      setLoading(true)
+    }
+    setError('')
     try {
       const data = await adminMenuRevisionsApi.outreach({ city })
-      setCandidates(data.candidates || []); setCities(data.cities || [])
+      const next = { candidates: data.candidates || [], cities: data.cities || [] }
+      outreachCache.set(city, next)
+      setCandidates(next.candidates); setCities(next.cities)
     } catch (requestError) { setError(requestError.message || 'Не удалось загрузить базу аутрича.') }
     finally { setLoading(false) }
   }, [city])
@@ -106,7 +116,21 @@ export default function AdminOutreach() {
 
   const update = async (id, body) => {
     setBusyId(id); setError('')
-    try { await adminMenuRevisionsApi.updateOutreach(id, body); await load() }
+    try {
+      await adminMenuRevisionsApi.updateOutreach(id, body)
+      setCandidates((current) => {
+        const next = current.map((candidate) => candidate.id === id ? {
+          ...candidate,
+          status: body.status,
+          effective_status: body.status,
+          workflow_kind: body.workflow_kind,
+          menu_url: body.menu_url,
+        } : candidate)
+        const cached = outreachCache.get(city)
+        if (cached) outreachCache.set(city, { ...cached, candidates: next })
+        return next
+      })
+    }
     catch (requestError) { setError(requestError.message || 'Не удалось обновить статус.') }
     finally { setBusyId(null) }
   }
@@ -138,7 +162,7 @@ export default function AdminOutreach() {
             <td data-label="Instagram">{candidate.instagram_url ? <a href={candidate.instagram_url} target="_blank" rel="noreferrer">Открыть Instagram <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
             <td data-label="Сайт">{candidate.website_url ? <a href={candidate.website_url} target="_blank" rel="noreferrer">Открыть сайт <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
             <td data-label="Статус"><span className={`admin-outreach__status admin-outreach__status--${candidate.effective_status}`}>{STATUS_LABELS[candidate.effective_status]}</span></td>
-            <td data-label="Действия"><CandidateActions candidate={candidate} busy={busyId === candidate.id} update={update} /></td>
+            <td data-label="Действия"><CandidateActions key={candidate.effective_status} candidate={candidate} busy={busyId === candidate.id} update={update} /></td>
           </tr>)}
         </tbody></table>{!visible.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет.</div>}</div>
       )}

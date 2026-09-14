@@ -47,6 +47,8 @@ test('administrator manages outreach without seeing the Restaurant Guru source',
   await row.getByRole('button', { name: 'Отложить' }).click()
   await expect.poll(() => requests.some(({ path, body }) => path === '/api/admin/outreach/1'
     && body?.status === 'deferred' && body?.workflow_kind === null)).toBeTruthy()
+  await expect(row).toContainText('Отложено')
+  expect(requests.filter(({ path, method }) => path === '/api/admin/outreach' && method === 'GET')).toHaveLength(1)
 
   await row.getByText('Добавить меню').click()
   await row.getByRole('button', { name: 'Парсинг' }).click()
@@ -55,6 +57,8 @@ test('administrator manages outreach without seeing the Restaurant Guru source',
   await expect.poll(() => requests.some(({ path, body }) => path === '/api/admin/outreach/1'
     && body?.status === 'awaiting_parser' && body?.workflow_kind === 'parser'
     && body?.menu_url === 'https://beminegrillbar.ru/menu')).toBeTruthy()
+  await expect(row).toContainText('Ожидает парсинга')
+  expect(requests.filter(({ path, method }) => path === '/api/admin/outreach' && method === 'GET')).toHaveLength(1)
 
   await page.getByRole('button', { name: 'Обновить базу' }).click()
   await expect(page.getByText(/добавлено 3, уже в базе 4, без контактов 2/)).toBeVisible()
