@@ -59,3 +59,24 @@ test('administrator manages outreach without seeing the Restaurant Guru source',
   await page.getByRole('button', { name: 'Обновить базу' }).click()
   await expect(page.getByText(/добавлено 3, уже в базе 4, без контактов 2/)).toBeVisible()
 })
+
+test('outreach is usable without page-level horizontal scrolling on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/admin/**', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/api/admin/auth/me') return route.fulfill({ json: { ok: true, role: 'admin', csrf_token: 'csrf' } })
+    if (url.pathname === '/api/admin/outreach') return route.fulfill({ json: { ok: true, cities: ['Москва'], candidates: [{
+      id: 1, name: 'Малиновка', city: 'Москва', instagram_url: 'https://instagram.com/malinovka',
+      website_url: 'https://malinovka.example', status: 'new', effective_status: 'new', workflow_kind: null,
+    }] } })
+    return route.fulfill({ json: { ok: true } })
+  })
+
+  await page.goto('/admin/outreach')
+  await expect(page.getByRole('heading', { name: 'Аутрич' })).toBeVisible()
+  const row = page.getByRole('row').filter({ hasText: 'Малиновка' })
+  await expect(row).toBeVisible()
+  await expect(row.locator('td[data-label="Instagram"]')).toBeVisible()
+  await expect(row.locator('td[data-label="Действия"]')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+})

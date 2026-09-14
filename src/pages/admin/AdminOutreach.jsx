@@ -134,11 +134,11 @@ export default function AdminOutreach() {
       {loading ? <p className="admin-crm__loading">Загружаем рестораны…</p> : (
         <div className="admin-crm__table-wrap admin-outreach__table-wrap"><table className="admin-crm__table admin-outreach__table"><thead><tr><th>Ресторан</th><th>Instagram</th><th>Сайт</th><th>Статус</th><th>Действия</th></tr></thead><tbody>
           {visible.map((candidate) => <tr key={candidate.id} className={candidate.effective_status === 'follow_up' ? 'requires-action' : ''}>
-            <td><strong>{candidate.name}</strong><small>{candidate.city}</small></td>
-            <td>{candidate.instagram_url ? <a href={candidate.instagram_url} target="_blank" rel="noreferrer">Открыть Instagram <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
-            <td>{candidate.website_url ? <a href={candidate.website_url} target="_blank" rel="noreferrer">Открыть сайт <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
-            <td><span className={`admin-outreach__status admin-outreach__status--${candidate.effective_status}`}>{STATUS_LABELS[candidate.effective_status]}</span></td>
-            <td><CandidateActions candidate={candidate} busy={busyId === candidate.id} update={update} /></td>
+            <td data-label="Ресторан"><strong>{candidate.name}</strong><small>{candidate.city}</small></td>
+            <td data-label="Instagram">{candidate.instagram_url ? <a href={candidate.instagram_url} target="_blank" rel="noreferrer">Открыть Instagram <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
+            <td data-label="Сайт">{candidate.website_url ? <a href={candidate.website_url} target="_blank" rel="noreferrer">Открыть сайт <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
+            <td data-label="Статус"><span className={`admin-outreach__status admin-outreach__status--${candidate.effective_status}`}>{STATUS_LABELS[candidate.effective_status]}</span></td>
+            <td data-label="Действия"><CandidateActions candidate={candidate} busy={busyId === candidate.id} update={update} /></td>
           </tr>)}
         </tbody></table>{!visible.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет.</div>}</div>
       )}

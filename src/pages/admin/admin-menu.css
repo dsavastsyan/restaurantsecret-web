@@ -282,17 +282,49 @@
 }
 
 @media (max-width: 600px) {
-  .admin-menu__main { width: min(94vw, 100%); padding-top: 24px; }
+  .admin-menu__main { width: auto; margin: 0; padding: 24px 16px 70px; }
   .admin-menu__header { padding: 0 3vw; }
   .admin-menu__detail > header { align-items: start; flex-direction: column; }
   .admin-menu__panel-title { align-items: stretch; flex-direction: column; }
   .admin-menu__login form { padding: 30px 22px; }
-  .admin-menu__header { height: auto; min-height: 70px; flex-wrap: wrap; gap: 9px; padding-top: 10px; padding-bottom: 10px; }
-  .admin-menu__nav { order: 3; width: 100%; margin: 0; }
-  .admin-menu__nav a { flex: 1; text-align: center; }
+  .admin-menu__header { height: auto; min-height: 70px; flex-wrap: wrap; gap: 9px; padding: 10px 16px; }
+  .admin-menu__brand { min-width: 0; }
+  .admin-menu__brand span { min-width: 0; }
+  .admin-menu__brand strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .admin-menu__header > button { flex: 0 0 auto; padding: 9px 12px; }
+  .admin-menu__nav { order: 3; width: calc(100% + 32px); margin: 0 -16px -10px; padding: 0 16px 10px; overflow-x: auto; scrollbar-width: none; }
+  .admin-menu__nav::-webkit-scrollbar { display: none; }
+  .admin-menu__nav a { flex: 0 0 auto; min-height: 44px; box-sizing: border-box; display: grid; place-items: center; padding: 9px 12px; text-align: center; white-space: nowrap; }
   .admin-crm__title { flex-direction: column; }
   .admin-crm__title > div:last-child { width: 100%; justify-content: space-between; }
   .admin-crm__filters { display: grid; grid-template-columns: 1fr; }
   .admin-crm__checkbox { min-height: 44px; }
   .admin-crm__form footer { align-items: stretch; flex-direction: column-reverse; }
+
+  .admin-outreach .admin-crm__title h1 { font-size: 42px; }
+  .admin-outreach .admin-crm__title > div:last-child { gap: 12px; }
+  .admin-outreach .admin-crm__title > div:last-child strong { font-size: 38px; }
+  .admin-outreach .admin-crm__primary { min-height: 44px; }
+  .admin-outreach .admin-crm__filters { gap: 10px; margin-top: 22px; }
+  .admin-outreach .admin-crm__filters select,
+  .admin-outreach .admin-crm__search { width: 100%; box-sizing: border-box; }
+  .admin-outreach__table-wrap { overflow: visible; border: 0; background: transparent; }
+  .admin-outreach__table { display: block; min-width: 0; }
+  .admin-outreach__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .admin-outreach__table tbody { display: grid; gap: 12px; }
+  .admin-outreach__table tr { display: grid; overflow: visible; border: 1px solid #ddd8cc; border-radius: 15px; background: #fff; }
+  .admin-outreach__table tr.requires-action { border-left: 3px solid #d49830; }
+  .admin-outreach__table tr.requires-action td:first-child { box-shadow: none; }
+  .admin-outreach__table td { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: center; min-width: 0; padding: 11px 14px; border-top: 1px solid #ece8de; overflow-wrap: anywhere; }
+  .admin-outreach__table td:first-child { display: block; padding-top: 16px; border-top: 0; }
+  .admin-outreach__table td::before { content: attr(data-label); color: #85857d; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+  .admin-outreach__table td:first-child::before { display: none; }
+  .admin-outreach__table td:last-child { align-items: start; padding-bottom: 14px; }
+  .admin-outreach__table td a { min-height: 36px; align-items: center; }
+  .admin-outreach__table .admin-crm__actions { width: 100%; }
+  .admin-outreach__table .admin-crm__actions summary { min-height: 40px; box-sizing: border-box; justify-content: center; }
+  .admin-outreach__table .admin-crm__actions > div { position: static; width: auto; margin-top: 6px; box-shadow: none; }
+  .admin-outreach__parser-form { grid-template-columns: 1fr; min-width: 0; }
+  .admin-outreach__parser-form input,
+  .admin-outreach__parser-form button { min-height: 42px; box-sizing: border-box; }
 }
