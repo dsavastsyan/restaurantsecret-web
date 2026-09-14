@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ExternalLink, RefreshCw, Search } from 'lucide-react'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
 
@@ -88,8 +88,10 @@ export default function AdminOutreach() {
   const [importing, setImporting] = useState(false)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const mutationVersion = useRef(0)
 
   const load = useCallback(async () => {
+    const versionAtStart = mutationVersion.current
     const cached = outreachCache.get(city)
     if (cached) {
       setCandidates(cached.candidates); setCities(cached.cities); setLoading(false)
@@ -100,6 +102,7 @@ export default function AdminOutreach() {
     try {
       const data = await adminMenuRevisionsApi.outreach({ city })
       const next = { candidates: data.candidates || [], cities: data.cities || [] }
+      if (mutationVersion.current !== versionAtStart) return
       outreachCache.set(city, next)
       setCandidates(next.candidates); setCities(next.cities)
     } catch (requestError) { setError(requestError.message || 'Не удалось загрузить базу аутрича.') }
@@ -115,23 +118,30 @@ export default function AdminOutreach() {
   }), [candidates, query, status])
 
   const update = async (id, body) => {
+    const previous = candidates.find((candidate) => candidate.id === id)
+    const replaceCandidate = (replacement) => setCandidates((current) => {
+      const next = current.map((candidate) => candidate.id === id ? replacement(candidate) : candidate)
+      const cached = outreachCache.get(city)
+      if (cached) outreachCache.set(city, { ...cached, candidates: next })
+      return next
+    })
+
+    mutationVersion.current += 1
     setBusyId(id); setError('')
+    replaceCandidate((candidate) => ({
+      ...candidate,
+      status: body.status,
+      effective_status: body.status,
+      workflow_kind: body.workflow_kind,
+      menu_url: body.menu_url,
+    }))
     try {
       await adminMenuRevisionsApi.updateOutreach(id, body)
-      setCandidates((current) => {
-        const next = current.map((candidate) => candidate.id === id ? {
-          ...candidate,
-          status: body.status,
-          effective_status: body.status,
-          workflow_kind: body.workflow_kind,
-          menu_url: body.menu_url,
-        } : candidate)
-        const cached = outreachCache.get(city)
-        if (cached) outreachCache.set(city, { ...cached, candidates: next })
-        return next
-      })
     }
-    catch (requestError) { setError(requestError.message || 'Не удалось обновить статус.') }
+    catch (requestError) {
+      if (previous) replaceCandidate(() => previous)
+      setError(requestError.message || 'Не удалось обновить статус.')
+    }
     finally { setBusyId(null) }
   }
 
