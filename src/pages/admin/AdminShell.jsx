@@ -8,10 +8,10 @@ export default function AdminShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const loginPage = location.pathname.replace(/\/+$/, '') === '/admin/login'
-  const [status, setStatus] = useState(loginPage ? 'ready' : 'loading')
+  const [status, setStatus] = useState(loginPage ? 'ready' : 'checking')
 
   const verify = useCallback(async () => {
-    setStatus('loading')
+    setStatus('checking')
     try {
       await adminMenuRevisionsApi.me()
       setStatus('ready')
@@ -37,7 +37,6 @@ export default function AdminShell() {
   }, [])
 
   if (loginPage) return <div className="admin-menu"><Outlet /></div>
-  if (status === 'loading') return <div className="admin-menu admin-menu--center">Загружаем админку…</div>
   if (status === 'error') {
     return <div className="admin-menu admin-menu--center"><button onClick={verify}>Повторить</button></div>
   }
