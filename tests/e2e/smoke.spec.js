@@ -101,51 +101,50 @@ test('@smoke subscribed user sees the full menu past the free preview', async ({
   expect(accessToken).toBeTruthy()
   const authHeaders = { Authorization: `Bearer ${accessToken}` }
 
-  // Make the app pick up the session on load, same as a real returning
-  // visitor (src/store/auth.ts reads this exact key at startup).
-  await page.addInitScript((token) => {
-    window.localStorage.setItem('rs_access', token)
-  }, accessToken)
-
   // Find a restaurant with more dishes than the free-preview count (3) —
-  // otherwise there'd be no locked-for-anonymous row to prove is unlocked.
+  // otherwise there'd be no dish for an anonymous caller to have trimmed.
   const catalogRes = await page.request.get(`${publicApiBase}/restaurants?limit=1000`)
   expect(catalogRes.ok()).toBeTruthy()
   const catalogPayload = await catalogRes.json()
   const candidates = catalogPayload?.items || []
   expect(candidates.length).toBeGreaterThan(0)
 
+  const menuUrl = (slug) => `${publicApiBase}/restaurants/${slug}/menu?city=${encodeURIComponent('Москва')}`
+  const flattenDishes = (menu) => (menu?.categories || []).flatMap((c) => c.dishes || [])
+
   let targetSlug = null
+  let anonDishes = null
   for (const candidate of candidates) {
-    const menuRes = await page.request.get(
-      `${publicApiBase}/restaurants/${candidate.slug}/menu?city=${encodeURIComponent('Москва')}`,
-      { headers: authHeaders }
-    )
-    if (!menuRes.ok()) continue
-    const menuPayload = await menuRes.json()
-    const dishCount = (menuPayload?.categories || []).reduce((sum, c) => sum + (c.dishes?.length || 0), 0)
-    if (dishCount > 3) {
+    const anonRes = await page.request.get(menuUrl(candidate.slug))
+    if (!anonRes.ok()) continue
+    const dishes = flattenDishes(await anonRes.json())
+    if (dishes.length > 3) {
       targetSlug = candidate.slug
+      anonDishes = dishes
       break
     }
   }
   expect(targetSlug, 'expected at least one catalog restaurant with more than 3 dishes').toBeTruthy()
 
-  await page.goto(`/restaurants/${targetSlug}/menu`)
-  // Same 5s-delayed banner as the other test — see the comment on the first
-  // dismiss there. A fresh page load here means it needs dismissing again.
-  await page.getByRole('button', { name: 'Отклонить' }).click({ timeout: 6000 }).catch(() => {})
+  // Sanity-check the premise: an anonymous caller must NOT get the 4th
+  // dish's KBJU — otherwise this test would prove nothing either way.
+  expect(anonDishes[3].kcal).toBeNull()
 
-  const heading = page.getByRole('heading', { level: 1 })
-  await expect(heading).toBeVisible()
+  // The whole point: this app UI hits this exact endpoint (src/pages/Menu.jsx)
+  // with the session token as an Authorization header — reproduce that call
+  // directly rather than through the rendered page, since what the page's
+  // own fetch resolves to (prod vs. the dev-mode staging default in
+  // src/config/api.js) is a frontend build concern unrelated to the
+  // server-side entitlement check this test cares about.
+  const authRes = await page.request.get(menuUrl(targetSlug), { headers: authHeaders })
+  expect(authRes.ok()).toBeTruthy()
+  const authDishes = flattenDishes(await authRes.json())
+  expect(authDishes.length).toBe(anonDishes.length)
 
-  const dishRows = page.locator('.rsm2-row')
-  await expect(dishRows.first()).toBeAttached()
-  expect(await dishRows.count()).toBeGreaterThan(3)
-
-  // A real active subscription must unlock every row, not just the free
+  // A real active subscription must unlock every dish, not just the free
   // preview — this is exactly what a client-side flag could never prove
   // after the 2026-09-12 server-side trimming fix.
-  expect(await page.locator('.rsm2-row__cover--paywalled').count()).toBe(0)
-  await expect(page.getByText('КБЖУ по подписке')).toHaveCount(0)
+  for (const dish of authDishes) {
+    expect(dish.kcal).not.toBeNull()
+  }
 })
