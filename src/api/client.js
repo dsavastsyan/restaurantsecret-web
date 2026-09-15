@@ -3,6 +3,7 @@
 import { API_BASE } from '@/config/api';
 
 const BASE = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
+const URL_BASE = new URL(BASE, globalThis.location?.origin ?? 'http://localhost');
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 const createApiError = (status, message, kind) => ({
@@ -27,7 +28,7 @@ const parseJsonResponse = async (res) => {
 };
 
 const request = async (path, { method = 'GET', params = {}, body, headers = {}, timeout = DEFAULT_TIMEOUT_MS } = {}) => {
-  const url = new URL(path, BASE);
+  const url = new URL(path, URL_BASE);
   Object.entries(params).forEach(([k, v]) => {
     if (v == null) return;
     if (Array.isArray(v)) v.forEach(x => url.searchParams.append(k, x));
