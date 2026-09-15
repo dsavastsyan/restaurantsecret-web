@@ -118,19 +118,28 @@ export default function ChainHub() {
 
       <div className="chain-hub__city-select">
         <label htmlFor="chain-hub-city" className="chain-hub__city-select-label">
+          <svg className="chain-hub__city-select-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21Z" />
+            <circle cx="12" cy="9.5" r="2.5" />
+          </svg>
           Город
         </label>
-        <select
-          id="chain-hub-city"
-          value={selectedCity ?? ''}
-          onChange={(event) => changeCity(event.target.value)}
-        >
-          {cityGroups.map((g) => (
-            <option key={g.city} value={g.city}>
-              {g.city} — {g.locations.length} {g.locations.length === 1 ? 'филиал' : 'филиала'}
-            </option>
-          ))}
-        </select>
+        <div className="chain-hub__city-select-control">
+          <select
+            id="chain-hub-city"
+            value={selectedCity ?? ''}
+            onChange={(event) => changeCity(event.target.value)}
+          >
+            {cityGroups.map((g) => (
+              <option key={g.city} value={g.city}>
+                {g.city} — {g.locations.length} {g.locations.length === 1 ? 'филиал' : 'филиала'}
+              </option>
+            ))}
+          </select>
+          <svg className="chain-hub__city-select-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </div>
       </div>
 
       {activeGroup ? (
