@@ -130,6 +130,13 @@ export default function Menu({
           }
         } catch (err) {
           if (!aborted) {
+            if (err?.status === 404 && err?.body?.isChainBase && err.body.hubPath) {
+              // # This restaurant slug used to be a real address; it's now
+              // # the bare URL for the whole chain instead — send the
+              // # visitor to the hub rather than showing a load error.
+              navigate(err.body.hubPath, { replace: true })
+              return
+            }
             console.error('Failed to load menu', err)
             setError('Не удалось загрузить меню. Попробуйте обновить страницу позже.')
           }

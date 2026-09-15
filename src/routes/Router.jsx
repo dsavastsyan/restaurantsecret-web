@@ -13,6 +13,7 @@ const Landing = lazy(() => import('../pages/Landing.jsx'))
 const QrMenuAccess = lazy(() => import('../pages/QrMenuAccess.jsx'))
 const Catalog = lazy(() => import('../pages/Catalog.jsx'))
 const Menu = lazy(() => import('../pages/Menu.jsx'))
+const ChainHub = lazy(() => import('../pages/ChainHub.jsx'))
 const Search = lazy(() => import('../pages/Search.jsx'))
 const PaySuccess = lazy(() => import('../pages/PaySuccess.jsx'))
 const PaymentResult = lazy(() => import('../pages/PaymentResult.jsx'))
@@ -106,7 +107,7 @@ function AppRoutes({ onReady }) {
           <Route path="catalog/:city" element={<Catalog />} />
           <Route path="restaurants" element={<Catalog />} />
           <Route path="search" element={<Search />} />
-          <Route path="restaurants/:slug" element={<RestaurantMenuRedirect />} />
+          <Route path="restaurants/:slug" element={<ChainHub />} />
           <Route path="restaurants/:slug/menu" element={<Menu />} />
           <Route path="qr/:token" element={<QrMenuAccess />} />
           <Route path="r/:slug" element={<ShortRestaurantRedirect />} />
@@ -256,8 +257,3 @@ function LegacyMenuRedirect() {
   return <Navigate to={`/restaurants/${slug}/menu/`} replace />
 }
 
-// Keep indexed/direct restaurant entrypoints on the same menu experience as catalog links.
-function RestaurantMenuRedirect() {
-  const { slug = '' } = useParams()
-  return <Navigate to={`/restaurants/${slug}/menu/`} replace />
-}
