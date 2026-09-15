@@ -86,9 +86,9 @@ test('@smoke subscribed user sees the full menu past the free preview', async ({
   test.skip(!email || !otp, 'E2E_TEST_EMAIL / E2E_TEST_OTP not configured — see pd-api routes/auth.js')
 
   const pdApiBase = process.env.VITE_PD_API_BASE || 'https://pd.restaurantsecret.ru'
-  // CI runs Vite without the production Caddy gateway, so its data probe uses
-  // the existing direct backend unless a gateway base is supplied explicitly.
-  const publicApiBase = process.env.VITE_API_BASE_URL || `${pdApiBase}/cf`
+  // Local/CI Vite uses the staging catalog by default, so select the test
+  // restaurant from the same dataset the page will render.
+  const publicApiBase = process.env.VITE_API_BASE_URL || 'https://restaurantsecret-api-staging.dsavastyan.workers.dev'
 
   // Log in as the dedicated e2e-test account directly against the API. This
   // test is about the server-side paywall trimming, not the login UI — the
