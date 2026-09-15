@@ -252,7 +252,7 @@
 .admin-parser__error > strong { display: block; margin-top: 8px; color: #742a25; overflow-wrap: anywhere; }
 .admin-parser__error pre { max-height: 240px; overflow: auto; padding: 10px; border-radius: 8px; color: #f5eee9; background: #342f2c; font: 11px/1.5 ui-monospace, SFMono-Regular, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.admin-outreach__table-wrap { overflow-x: auto; }
+.admin-outreach__table-wrap { overflow: visible; }
 .admin-outreach__table { min-width: 900px; }
 .admin-outreach__table td a { display: inline-flex; align-items: center; gap: 4px; color: #59653f; font-weight: 800; text-decoration: none; }
 .admin-outreach__status { display: inline-flex; padding: 6px 8px; border-radius: 999px; color: #62635e; background: #ecece8; font-size: 12px; font-weight: 800; white-space: nowrap; }
