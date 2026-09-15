@@ -241,7 +241,7 @@ function readNutritionValue(dish, directPaths, tokens) {
 
 // Enrich a dish object with normalized nutrition fields and the category it
 // belongs to.
-function normalizeDish(dish = {}, categoryName) {
+export function normalizeDish(dish = {}, categoryName) {
   return {
     ...dish,
     category: categoryName,
