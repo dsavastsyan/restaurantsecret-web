@@ -31,6 +31,11 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          SITEMAP_API_URL: https://restaurantsecret.ru/_build/catalog
+          SITEMAP_API_KEY: ${{ secrets.SITEMAP_API_KEY }}
+          SITEMAP_STRICT_API_FETCH: 'true'
+          SITEMAP_MIN_RESTAURANTS: '300'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
