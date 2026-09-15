@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+  schedule:
+    # Rebuilds sitemap.xml from the live restaurants API even when no code
+    # changed, so newly added restaurants show up without a manual trigger.
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read
