@@ -271,6 +271,10 @@ export default function AppShell() {
     normalizedPath === '/restaurants' ||
     normalizedPath === '/catalog' ||
     normalizedPath === '/app/catalog'
+  // A chain's bare URL (e.g. /restaurants/syrovarnya) — the hub page, not a
+  // single restaurant's menu, so it's excluded by isRestaurantMenuPage's
+  // /menu suffix requirement and needs its own, equally full-width container.
+  const isChainHubPage = /^\/restaurants\/[^/]+\/?$/.test(normalizedPath)
   const isSearchPage = normalizedPath === '/search' || normalizedPath === '/app/search'
 
   // Idle guard for QR-scanned menu access: any interaction resets the clock,
@@ -381,7 +385,7 @@ export default function AppShell() {
         ) : isFeedbackPage ? (
           <Outlet context={outletContext} />
         ) : (
-          <div className={`${showPaywall ? 'container locked' : 'container'}${isRestaurantMenuPage ? ' container--menu' : ''}${isRestaurantsCatalogPage ? ' container--catalog' : ''}${isSearchPage ? ' container--search' : ''}`}>
+          <div className={`${showPaywall ? 'container locked' : 'container'}${isRestaurantMenuPage ? ' container--menu' : ''}${isRestaurantsCatalogPage ? ' container--catalog' : ''}${isChainHubPage ? ' container--chain-hub' : ''}${isSearchPage ? ' container--search' : ''}`}>
             {showGlobalSearch && (
               <div className="app-shell__search">
                 <div className="app-shell__search-inner">
