@@ -1,6 +1,7 @@
 // src/lib/api.ts
 import { PD_API_BASE, PUBLIC_API_BASE } from "@/config/api";
 import { markOnboardingCompletedForToken } from "@/lib/onboarding";
+import { requestTurnstileToken } from "@/lib/turnstile";
 import { setToken } from "@/store/auth";
 
 export type SearchSuggestionRestaurant = {
@@ -164,12 +165,30 @@ async function doFetch(path: string, init: RequestInit = {}, token?: string) {
 }
 
 async function publicGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${PUBLIC_API_BASE}${path}`, {
+  const fetchPublic = (captchaToken?: string) => fetch(`${PUBLIC_API_BASE}${path}`, {
     method: "GET",
     credentials: "omit",
+    headers: captchaToken ? { "X-Captcha-Token": captchaToken } : undefined,
   });
+
+  let res = await fetchPublic();
+  if (res.status === 403) {
+    const payload = await parseBody(res);
+    const captchaRequired =
+      payload && typeof payload === "object" && "error" in payload && payload.error === "captcha_required";
+    const sitekey =
+      payload && typeof payload === "object" && "sitekey" in payload && typeof payload.sitekey === "string"
+        ? payload.sitekey
+        : "";
+
+    if (captchaRequired && sitekey) {
+      const token = await requestTurnstileToken(sitekey);
+      res = await fetchPublic(token);
+    }
+  }
+
   if (!res.ok) {
-    throw new Error(`Public API error ${res.status}`);
+    await toApiError(res);
   }
   return res.json();
 }
