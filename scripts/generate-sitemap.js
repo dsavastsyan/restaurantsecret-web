@@ -254,7 +254,7 @@ function restaurantSchema(restaurant) {
       ? {
           '@type': 'PostalAddress',
           streetAddress: stripEmpty(restaurant.address),
-          addressLocality: 'Москва',
+          addressLocality: stripEmpty(restaurant.city) || 'Москва',
           addressCountry: 'RU',
         }
       : undefined,
@@ -463,7 +463,10 @@ async function fetchAllRestaurants() {
   const errors = []
 
   for (const apiUrl of API_URLS) {
-    const url = `${apiUrl}/restaurants?limit=2000`
+    // # `all=1` lists active restaurants across every city, not just the
+    // # default-city subset the live catalog UI queries — otherwise the
+    // # sitemap only ever covers Moscow.
+    const url = `${apiUrl}/restaurants?limit=2000&all=1`
 
     try {
       const data = await fetchJson(url)
@@ -519,6 +522,31 @@ async function fetchRestaurantMenus(restaurants) {
   return menuBySlug
 }
 
+function partitionBySlugUniqueness(restaurants) {
+  // # A slug shared by several restaurant rows (a chain onboarded per branch,
+  // # e.g. every single-location "Сыроварня" city sharing the bare slug
+  // # `syrovarnya`) can't get one canonical `/restaurants/{slug}/menu/` page —
+  // # the API itself only resolves it when it's unambiguous (see the backend's
+  // # getRestaurantBySlug fallback). Until those chains get real per-branch/
+  // # city slugs, skip them here instead of letting later restaurants in the
+  // # list silently overwrite earlier ones' sitemap entry and prerendered file.
+  const bySlug = new Map()
+  for (const restaurant of restaurants) {
+    if (!restaurant.slug) continue
+    const list = bySlug.get(restaurant.slug) ?? []
+    list.push(restaurant)
+    bySlug.set(restaurant.slug, list)
+  }
+
+  const unique = []
+  const ambiguousSlugs = []
+  for (const [slug, list] of bySlug) {
+    if (list.length === 1) unique.push(list[0])
+    else ambiguousSlugs.push(slug)
+  }
+  return { unique, ambiguousSlugs }
+}
+
 async function main() {
   console.log('🔍 Fetching restaurants from API...')
   let restaurants = []
@@ -537,8 +565,18 @@ async function main() {
   if (restaurants.length < MIN_RESTAURANTS) {
     throw new Error(`Restaurant count ${restaurants.length} is below required minimum ${MIN_RESTAURANTS}`)
   }
+
+  const { unique: sitemapRestaurants, ambiguousSlugs } = partitionBySlugUniqueness(restaurants)
+  if (ambiguousSlugs.length) {
+    console.warn(
+      `⚠️  Skipping ${ambiguousSlugs.length} slug(s) shared by multiple restaurant rows (needs per-branch/city ` +
+        `slugs before they can get their own canonical page): ${ambiguousSlugs.slice(0, 10).join(', ')}` +
+        `${ambiguousSlugs.length > 10 ? '…' : ''}`,
+    )
+  }
+
   console.log('🔍 Fetching restaurant menus for prerender...')
-  const menuBySlug = await fetchRestaurantMenus(restaurants)
+  const menuBySlug = await fetchRestaurantMenus(sitemapRestaurants)
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -550,7 +588,7 @@ async function main() {
     { loc: `${BASE_URL}/support/`,      priority: '0.4', changefreq: 'monthly', lastmod: today },
   ]
 
-  const restaurantUrls = restaurants
+  const restaurantUrls = sitemapRestaurants
     .filter((r) => r.slug)
     .map((r) => ({
       loc: `${BASE_URL}/restaurants/${r.slug}/menu/`,
@@ -578,7 +616,7 @@ ${allUrls
   writeFileSync('dist/sitemap.xml', xml, 'utf-8')
   console.log(`✅ Sitemap generated: ${allUrls.length} URLs → dist/sitemap.xml`)
 
-  generateStaticRoutes(restaurants, menuBySlug)
+  generateStaticRoutes(sitemapRestaurants, menuBySlug)
 }
 
 main().catch((error) => {
