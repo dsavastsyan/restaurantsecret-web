@@ -6,6 +6,11 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
+// # Matches the API's own DEFAULT_CITY (functions/routes/restaurants.js) — a
+// # bare `/restaurants/{slug}/menu/` URL with no ?city= always resolves to
+// # this city when the slug is ambiguous, so that's the one entry we can keep
+// # generating a page for without guessing.
+const DEFAULT_CITY = 'Москва'
 const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
 const STRICT_API_FETCH = process.env.SITEMAP_STRICT_API_FETCH === 'true'
@@ -522,14 +527,18 @@ async function fetchRestaurantMenus(restaurants) {
   return menuBySlug
 }
 
-function partitionBySlugUniqueness(restaurants) {
+function resolveSlugCollisions(restaurants) {
   // # A slug shared by several restaurant rows (a chain onboarded per branch,
   // # e.g. every single-location "Сыроварня" city sharing the bare slug
   // # `syrovarnya`) can't get one canonical `/restaurants/{slug}/menu/` page —
-  // # the API itself only resolves it when it's unambiguous (see the backend's
-  // # getRestaurantBySlug fallback). Until those chains get real per-branch/
-  // # city slugs, skip them here instead of letting later restaurants in the
-  // # list silently overwrite earlier ones' sitemap entry and prerendered file.
+  // # the API itself only resolves it unambiguously when exactly one row owns
+  // # the slug (see the backend's getRestaurantBySlug fallback). A bare URL
+  // # with no ?city= still deterministically resolves to the DEFAULT_CITY row
+  // # when one exists in the group (unchanged, existing behavior) — so that
+  // # row keeps its sitemap entry/prerendered page exactly as before. Only the
+  // # *other* rows sharing the slug (new now that every city is fetched, not
+  // # just the previously Moscow-only list) get dropped, instead of racing to
+  // # overwrite the Moscow entry's sitemap URL and static file.
   const bySlug = new Map()
   for (const restaurant of restaurants) {
     if (!restaurant.slug) continue
@@ -538,13 +547,23 @@ function partitionBySlugUniqueness(restaurants) {
     bySlug.set(restaurant.slug, list)
   }
 
-  const unique = []
-  const ambiguousSlugs = []
+  const resolved = []
+  const droppedSlugs = []
   for (const [slug, list] of bySlug) {
-    if (list.length === 1) unique.push(list[0])
-    else ambiguousSlugs.push(slug)
+    if (list.length === 1) {
+      resolved.push(list[0])
+      continue
+    }
+    const defaultCityMatches = list.filter((r) => r.city === DEFAULT_CITY)
+    if (defaultCityMatches.length === 1) {
+      resolved.push(defaultCityMatches[0])
+    } else {
+      // # No single deterministic winner (no Moscow row, or more than one) —
+      // # can't safely represent any of them at this bare URL.
+      droppedSlugs.push(slug)
+    }
   }
-  return { unique, ambiguousSlugs }
+  return { resolved, droppedSlugs }
 }
 
 async function main() {
@@ -566,12 +585,12 @@ async function main() {
     throw new Error(`Restaurant count ${restaurants.length} is below required minimum ${MIN_RESTAURANTS}`)
   }
 
-  const { unique: sitemapRestaurants, ambiguousSlugs } = partitionBySlugUniqueness(restaurants)
-  if (ambiguousSlugs.length) {
+  const { resolved: sitemapRestaurants, droppedSlugs } = resolveSlugCollisions(restaurants)
+  if (droppedSlugs.length) {
     console.warn(
-      `⚠️  Skipping ${ambiguousSlugs.length} slug(s) shared by multiple restaurant rows (needs per-branch/city ` +
-        `slugs before they can get their own canonical page): ${ambiguousSlugs.slice(0, 10).join(', ')}` +
-        `${ambiguousSlugs.length > 10 ? '…' : ''}`,
+      `⚠️  Dropping ${droppedSlugs.length} slug(s) shared by multiple restaurant rows with no single ${DEFAULT_CITY} ` +
+        `match to fall back to (needs per-branch/city slugs before they can get their own canonical page): ` +
+        `${droppedSlugs.slice(0, 10).join(', ')}${droppedSlugs.length > 10 ? '…' : ''}`,
     )
   }
 
