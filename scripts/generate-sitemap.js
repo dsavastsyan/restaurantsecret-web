@@ -6,6 +6,11 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
+// # Matches the API's own DEFAULT_CITY (functions/routes/restaurants.js) — a
+// # bare `/restaurants/{slug}/menu/` URL with no ?city= always resolves to
+// # this city when the slug is ambiguous, so that's the one entry we can keep
+// # generating a page for without guessing.
+const DEFAULT_CITY = 'Москва'
 const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
 const STRICT_API_FETCH = process.env.SITEMAP_STRICT_API_FETCH === 'true'
@@ -254,7 +259,7 @@ function restaurantSchema(restaurant) {
       ? {
           '@type': 'PostalAddress',
           streetAddress: stripEmpty(restaurant.address),
-          addressLocality: 'Москва',
+          addressLocality: stripEmpty(restaurant.city) || 'Москва',
           addressCountry: 'RU',
         }
       : undefined,
@@ -463,7 +468,10 @@ async function fetchAllRestaurants() {
   const errors = []
 
   for (const apiUrl of API_URLS) {
-    const url = `${apiUrl}/restaurants?limit=2000`
+    // # `all=1` lists active restaurants across every city, not just the
+    // # default-city subset the live catalog UI queries — otherwise the
+    // # sitemap only ever covers Moscow.
+    const url = `${apiUrl}/restaurants?limit=2000&all=1`
 
     try {
       const data = await fetchJson(url)
@@ -519,6 +527,45 @@ async function fetchRestaurantMenus(restaurants) {
   return menuBySlug
 }
 
+function resolveSlugCollisions(restaurants) {
+  // # A slug shared by several restaurant rows (a chain onboarded per branch,
+  // # e.g. every single-location "Сыроварня" city sharing the bare slug
+  // # `syrovarnya`) can't get one canonical `/restaurants/{slug}/menu/` page —
+  // # the API itself only resolves it unambiguously when exactly one row owns
+  // # the slug (see the backend's getRestaurantBySlug fallback). A bare URL
+  // # with no ?city= still deterministically resolves to the DEFAULT_CITY row
+  // # when one exists in the group (unchanged, existing behavior) — so that
+  // # row keeps its sitemap entry/prerendered page exactly as before. Only the
+  // # *other* rows sharing the slug (new now that every city is fetched, not
+  // # just the previously Moscow-only list) get dropped, instead of racing to
+  // # overwrite the Moscow entry's sitemap URL and static file.
+  const bySlug = new Map()
+  for (const restaurant of restaurants) {
+    if (!restaurant.slug) continue
+    const list = bySlug.get(restaurant.slug) ?? []
+    list.push(restaurant)
+    bySlug.set(restaurant.slug, list)
+  }
+
+  const resolved = []
+  const droppedSlugs = []
+  for (const [slug, list] of bySlug) {
+    if (list.length === 1) {
+      resolved.push(list[0])
+      continue
+    }
+    const defaultCityMatches = list.filter((r) => r.city === DEFAULT_CITY)
+    if (defaultCityMatches.length === 1) {
+      resolved.push(defaultCityMatches[0])
+    } else {
+      // # No single deterministic winner (no Moscow row, or more than one) —
+      // # can't safely represent any of them at this bare URL.
+      droppedSlugs.push(slug)
+    }
+  }
+  return { resolved, droppedSlugs }
+}
+
 async function main() {
   console.log('🔍 Fetching restaurants from API...')
   let restaurants = []
@@ -537,8 +584,18 @@ async function main() {
   if (restaurants.length < MIN_RESTAURANTS) {
     throw new Error(`Restaurant count ${restaurants.length} is below required minimum ${MIN_RESTAURANTS}`)
   }
+
+  const { resolved: sitemapRestaurants, droppedSlugs } = resolveSlugCollisions(restaurants)
+  if (droppedSlugs.length) {
+    console.warn(
+      `⚠️  Dropping ${droppedSlugs.length} slug(s) shared by multiple restaurant rows with no single ${DEFAULT_CITY} ` +
+        `match to fall back to (needs per-branch/city slugs before they can get their own canonical page): ` +
+        `${droppedSlugs.slice(0, 10).join(', ')}${droppedSlugs.length > 10 ? '…' : ''}`,
+    )
+  }
+
   console.log('🔍 Fetching restaurant menus for prerender...')
-  const menuBySlug = await fetchRestaurantMenus(restaurants)
+  const menuBySlug = await fetchRestaurantMenus(sitemapRestaurants)
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -550,7 +607,7 @@ async function main() {
     { loc: `${BASE_URL}/support/`,      priority: '0.4', changefreq: 'monthly', lastmod: today },
   ]
 
-  const restaurantUrls = restaurants
+  const restaurantUrls = sitemapRestaurants
     .filter((r) => r.slug)
     .map((r) => ({
       loc: `${BASE_URL}/restaurants/${r.slug}/menu/`,
@@ -578,7 +635,7 @@ ${allUrls
   writeFileSync('dist/sitemap.xml', xml, 'utf-8')
   console.log(`✅ Sitemap generated: ${allUrls.length} URLs → dist/sitemap.xml`)
 
-  generateStaticRoutes(restaurants, menuBySlug)
+  generateStaticRoutes(sitemapRestaurants, menuBySlug)
 }
 
 main().catch((error) => {
