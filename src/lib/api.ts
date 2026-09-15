@@ -166,7 +166,10 @@ async function doFetch(path: string, init: RequestInit = {}, token?: string) {
 async function publicGet<T>(path: string): Promise<T> {
   const res = await fetch(`${PUBLIC_API_BASE}${path}`, {
     method: "GET",
-    credentials: "omit",
+    // Same-origin production requests must carry the Anubis clearance cookie.
+    // Browsers still omit credentials automatically for the absolute staging
+    // origin because `same-origin` never sends them cross-origin.
+    credentials: "same-origin",
   });
   if (!res.ok) {
     throw new Error(`Public API error ${res.status}`);
