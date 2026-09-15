@@ -9,6 +9,8 @@ const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru')
 const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
 const STRICT_API_FETCH = process.env.SITEMAP_STRICT_API_FETCH === 'true'
+const API_KEY = process.env.SITEMAP_API_KEY || ''
+const MIN_RESTAURANTS = Math.max(0, Number(process.env.SITEMAP_MIN_RESTAURANTS || 0))
 const cloudflarePagesBranch = process.env.CF_PAGES_BRANCH
 const isCloudflarePagesPreview = Boolean(
   cloudflarePagesBranch && !['main', 'master'].includes(cloudflarePagesBranch)
@@ -40,7 +42,10 @@ async function fetchJson(url) {
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    const res = await fetch(url, { signal: controller.signal })
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: API_KEY ? { 'X-RS-Sitemap-Key': API_KEY } : undefined,
+    })
     if (!res.ok) {
       throw new Error(`${res.status} ${res.statusText}`)
     }
@@ -529,6 +534,9 @@ async function main() {
   }
 
   console.log(`   Found ${restaurants.length} restaurants`)
+  if (restaurants.length < MIN_RESTAURANTS) {
+    throw new Error(`Restaurant count ${restaurants.length} is below required minimum ${MIN_RESTAURANTS}`)
+  }
   console.log('🔍 Fetching restaurant menus for prerender...')
   const menuBySlug = await fetchRestaurantMenus(restaurants)
 
