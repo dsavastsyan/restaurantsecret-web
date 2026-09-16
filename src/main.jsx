@@ -8,6 +8,8 @@ import MaintenanceScreen from './components/MaintenanceScreen.jsx'
 import { ConsentBanner } from './components/ConsentBanner.jsx'
 import { analytics } from './services/analytics'
 import { loadTelegramWebApp } from './lib/telegram'
+import { hydrateCityPreference } from './lib/cityPreference'
+import { getAuthState } from './store/auth'
 import './styles.css'
 import './account-mobile-profile.css'
 
@@ -295,7 +297,7 @@ function Root() {
 
     // Fetch the maintenance kill-switch from public folder. Use a cache-busting
     // timestamp to ensure we get the latest version from GitHub Pages.
-    fetchMaintenanceConfig()
+    const maintenanceReady = fetchMaintenanceConfig()
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (!data) return setMaintenance(null)
@@ -319,7 +321,13 @@ function Root() {
         setMaintenance(data)
       })
       .catch(() => setMaintenance(null))
-      .finally(() => setReady(true))
+
+    // Pull in a previously saved city preference (by account, or by this
+    // browser's visitor id) before any page reads `catalog_city` from
+    // localStorage, so it isn't shadowed by a fresh IP-based guess.
+    const cityReady = hydrateCityPreference(getAuthState().accessToken).catch(() => { })
+
+    Promise.all([maintenanceReady, cityReady]).finally(() => setReady(true))
 
     return () => {
       clearSplashFailsafe()
