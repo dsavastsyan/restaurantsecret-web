@@ -19,10 +19,10 @@ type StepKey = "step-1" | "step-2";
 type OnboardingFormState = {
   gender: "male" | "female" | "";
   age: string;
-  goal: "lose" | "maintain" | "gain" | "";
+  goal: "lose_weight" | "maintain_weight" | "gain_weight" | "";
   height: string;
   weight: string;
-  activity: "min" | "light" | "avg" | "high" | "";
+  activity: "low" | "medium" | "high" | "very_high" | "";
 };
 
 function toInternalPath(value: unknown) {
@@ -384,9 +384,9 @@ export default function OnboardingProfilePage() {
                   onChange={(event) => setField("goal", event.target.value)}
                 >
                   <option value="">Не указывать</option>
-                  <option value="lose">Похудение</option>
-                  <option value="maintain">Поддержание формы</option>
-                  <option value="gain">Набор массы</option>
+                  <option value="lose_weight">Похудение</option>
+                  <option value="maintain_weight">Поддержание формы</option>
+                  <option value="gain_weight">Набор массы</option>
                 </select>
               </div>
             </>
@@ -426,10 +426,10 @@ export default function OnboardingProfilePage() {
                   onChange={(event) => setField("activity", event.target.value)}
                 >
                   <option value="">Не указывать</option>
-                  <option value="min">Минимальная (сидячая работа)</option>
-                  <option value="light">Лёгкая (1-3 тренировки)</option>
-                  <option value="avg">Средняя (3-5 тренировок)</option>
-                  <option value="high">Высокая (6-7 тренировок)</option>
+                  <option value="low">Минимальная (сидячая работа)</option>
+                  <option value="medium">Лёгкая (1-3 тренировки)</option>
+                  <option value="high">Средняя (3-5 тренировок)</option>
+                  <option value="very_high">Высокая (6-7 тренировок)</option>
                 </select>
               </div>
             </>

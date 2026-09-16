@@ -429,8 +429,8 @@ export type UserGoalData = {
   age: number | null;
   weight: number | null;
   height: number | null;
-  activity_level: 'min' | 'light' | 'avg' | 'high' | null;
-  goal_type: 'lose' | 'maintain' | 'gain' | null;
+  activity_level: 'low' | 'medium' | 'high' | 'very_high' | null;
+  goal_type: 'lose_weight' | 'maintain_weight' | 'gain_weight' | null;
   target_calories: number | null;
   target_protein: number | null;
   target_fat: number | null;
