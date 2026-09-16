@@ -288,6 +288,59 @@ function restaurantCatalogLinks(restaurants) {
     .sort((a, b) => a.label.localeCompare(b.label, 'ru'))
 }
 
+function groupChains(restaurants) {
+  const chains = new Map()
+  for (const restaurant of restaurants) {
+    const chainSlug = stripEmpty(restaurant.chainSlug)
+    if (!chainSlug) continue
+    const entry = chains.get(chainSlug) ?? { chainName: stripEmpty(restaurant.chainName) || chainSlug, branches: [] }
+    entry.branches.push(restaurant)
+    chains.set(chainSlug, entry)
+  }
+  return chains
+}
+
+function chainHubDescription(chainName, branches) {
+  const cities = [...new Set(branches.map((b) => stripEmpty(b.city)).filter(Boolean))]
+  const parts = [`${chainName} — сеть ресторанов с ${branches.length} филиалами${cities.length ? ` в ${cities.slice(0, 6).join(', ')}` : ''}.`]
+  parts.push('КБЖУ меню каждого филиала: калории, белки, жиры и углеводы блюд.')
+  parts.push(`Выберите ближайший адрес ${chainName} и смотрите актуальное меню перед визитом.`)
+  return parts.join(' ')
+}
+
+function chainHubSchema(chainSlug, chainName, branches) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: chainName,
+    itemListElement: branches
+      .filter((b) => b.slug)
+      .map((b, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: `${BASE_URL}/restaurants/${b.slug}/menu/`,
+      })),
+  }
+}
+
+function chainHubFallback(chainSlug, chainName, branches) {
+  const description = chainHubDescription(chainName, branches)
+  const links = branches
+    .filter((b) => b.slug)
+    .map((b) => ({
+      href: `/restaurants/${b.slug}/menu/`,
+      label: getRestaurantName(b),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'ru'))
+  const linkHtml = links.map((link) => `<li><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></li>`).join('')
+
+  return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
+  <h1>${escapeHtml(chainName)}</h1>
+  <p>${escapeHtml(description)}</p>
+  <nav><ul>${linkHtml}</ul></nav>
+</main>`
+}
+
 function restaurantFallback(restaurant, menu) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
@@ -394,6 +447,21 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   writeRouteHtml('/restaurants', createRedirectHtml({ from: '/restaurants', to: '/catalog/' }))
 
   let generatedCount = staticRoutes.length + 1
+
+  const chains = groupChains(restaurants)
+  for (const [chainSlug, { chainName, branches }] of chains) {
+    writeRouteHtml(
+      `/restaurants/${chainSlug}`,
+      applySeoTags(baseHtml, {
+        title: `${chainName} — адреса и меню сети с КБЖУ`,
+        description: chainHubDescription(chainName, branches),
+        canonical: `${BASE_URL}/restaurants/${chainSlug}/`,
+        schema: chainHubSchema(chainSlug, chainName, branches),
+        fallbackHtml: chainHubFallback(chainSlug, chainName, branches),
+      }),
+    )
+    generatedCount += 1
+  }
 
   for (const restaurant of restaurants.filter((r) => r.slug)) {
     const slug = restaurant.slug
@@ -616,7 +684,16 @@ async function main() {
       lastmod: r.updatedAt?.split('T')[0] ?? today,
     }))
 
-  const allUrls = [...staticUrls, ...restaurantUrls]
+  // # A chain's hub page (all its branches, one canonical URL) is a stronger
+  // # SEO target than any single branch — give it a higher priority.
+  const chainHubUrls = [...groupChains(sitemapRestaurants).keys()].map((chainSlug) => ({
+    loc: `${BASE_URL}/restaurants/${chainSlug}/`,
+    priority: '0.85',
+    changefreq: 'weekly',
+    lastmod: today,
+  }))
+
+  const allUrls = [...staticUrls, ...chainHubUrls, ...restaurantUrls]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
