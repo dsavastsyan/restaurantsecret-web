@@ -184,6 +184,14 @@ export default function Catalog() {
     }
   }, [ensureAccess, navigate, selectedCity.id])
 
+  // The hub just lists a chain's locations (no nutrition data of its own),
+  // so — like the catalog itself — it isn't behind the paywall gate.
+  const openChainHub = useCallback((chainSlug) => {
+    if (!chainSlug) return
+    analytics.track('catalog_chain_open', { chain_slug: chainSlug, selected_city: selectedCity.id })
+    navigate(`/restaurants/${chainSlug}/`)
+  }, [navigate, selectedCity.id])
+
   useEffect(() => {
     if (debouncedQuery) analytics.track('catalog_search', { selected_city: selectedCity.id, has_query: true })
   }, [debouncedQuery, selectedCity.id])
@@ -268,12 +276,48 @@ export default function Catalog() {
     setCurrentPage(1)
   }, [debouncedQuery, selectedCuisines, selectedMetro])
 
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE))
+  // Only while actively searching: a query like "сыроварня" matches every
+  // branch of a chain individually (each branch's own name already starts
+  // with the chain name) and would otherwise flood the results with 20+
+  // near-identical cards. Collapse each chain's matches into one card
+  // linking to its hub — browsing without a query still shows every branch
+  // as its own card, unchanged.
+  const displayItems = useMemo(() => {
+    if (!debouncedQuery) return filteredItems
+
+    const chainMatchCounts = new Map()
+    for (const item of filteredItems) {
+      if (!item.chainSlug) continue
+      chainMatchCounts.set(item.chainSlug, (chainMatchCounts.get(item.chainSlug) || 0) + 1)
+    }
+
+    const emittedChains = new Set()
+    const result = []
+    for (const item of filteredItems) {
+      const chainCount = item.chainSlug ? chainMatchCounts.get(item.chainSlug) : 0
+      if (item.chainSlug && chainCount >= 2) {
+        if (emittedChains.has(item.chainSlug)) continue
+        emittedChains.add(item.chainSlug)
+        result.push({
+          isChainCard: true,
+          slug: item.chainSlug,
+          name: item.chainName,
+          cuisine: item.cuisine,
+          chainCount,
+        })
+      } else {
+        result.push(item)
+      }
+    }
+    return result
+  }, [filteredItems, debouncedQuery])
+
+  const totalPages = Math.max(1, Math.ceil(displayItems.length / PAGE_SIZE))
 
   const visibleItems = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE
-    return filteredItems.slice(start, start + PAGE_SIZE)
-  }, [currentPage, filteredItems])
+    return displayItems.slice(start, start + PAGE_SIZE)
+  }, [currentPage, displayItems])
 
   const isInitialLoading = loading && !allItems.length
 
@@ -354,8 +398,8 @@ export default function Catalog() {
     ].filter(Boolean).join(' ')
   }, [getInitials])
 
-  const shownFrom = filteredItems.length ? ((currentPage - 1) * PAGE_SIZE) + 1 : 0
-  const shownTo = Math.min(currentPage * PAGE_SIZE, filteredItems.length)
+  const shownFrom = displayItems.length ? ((currentPage - 1) * PAGE_SIZE) + 1 : 0
+  const shownTo = Math.min(currentPage * PAGE_SIZE, displayItems.length)
   const totalRestaurantCount = allItems.length || Number(rawData?.total ?? rawData?.count ?? 0)
   const weeklyAdded = Number(landingStats?.weeklyAdded ?? 0)
   const crossCitySuggestions = useMemo(() => (
@@ -539,6 +583,36 @@ export default function Catalog() {
 
         <ul className="catalog-grid">
           {visibleItems.map((r, i) => {
+            if (r.isChainCard) {
+              const badgeText = getInitials(r.name)
+              return (
+                <li key={`chain-${r.slug}`} className="catalog-card catalog-card--chain" role="group" aria-label={r.name}>
+                  <div className="catalog-card__top">
+                    <div className="catalog-card__identity">
+                      <div className={`${getBadgeClassName(r.name)} catalog-card__badge--tone-${i % 4}`} aria-hidden="true">{badgeText}</div>
+                      <div className="catalog-card__copy">
+                        <h3 className="catalog-card__title">{r.name}</h3>
+                        <div className="catalog-card__meta">
+                          {r.cuisine && (
+                            <span className="catalog-card__meta-item">
+                              <CuisineIcon />
+                              {r.cuisine}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="catalog-card__bottom">
+                    <div className="catalog-card__label">
+                      Сеть: {r.chainCount} {getRussianPluralWord(r.chainCount, 'ресторан', 'ресторана', 'ресторанов')}
+                    </div>
+                    <button type="button" className="btn btn--primary" onClick={() => openChainHub(r.slug)}>Все рестораны сети</button>
+                  </div>
+                </li>
+              )
+            }
+
             const allDishes = extractDishes(r)
             const restaurantLinkUrl = normalizeRestaurantLinkUrl(r.instagramUrl)
             const dishesCount = typeof r?.dishesCount === 'number'
@@ -607,7 +681,7 @@ export default function Catalog() {
           })}
         </ul>
 
-        {!isInitialLoading && filteredItems.length > 0 && (
+        {!isInitialLoading && displayItems.length > 0 && (
           <nav className="catalog-pagination" aria-label="Навигация по ресторанам">
             <button
               type="button"
@@ -619,7 +693,7 @@ export default function Catalog() {
               ‹
             </button>
             <span className="catalog-pagination__text">
-              Показано {shownFrom}–{shownTo} из {filteredItems.length} {getRussianPluralWord(filteredItems.length, 'ресторан', 'ресторана', 'ресторанов')}
+              Показано {shownFrom}–{shownTo} из {displayItems.length} {getRussianPluralWord(displayItems.length, 'ресторан', 'ресторана', 'ресторанов')}
             </span>
             <button
               type="button"
