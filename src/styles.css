@@ -13721,18 +13721,12 @@ body:has(.account--sheet-open) {
   line-height: 1.1;
 }
 
-.login-consent__subtitle {
-  margin: 12px 0 24px;
-  color: rgba(221, 225, 241, 0.82);
-  line-height: 1.45;
-}
-
 .login-consent__option {
   display: grid;
   grid-template-columns: 22px 1fr;
   gap: 12px;
   align-items: start;
-  margin-top: 18px;
+  margin-top: 24px;
   color: rgba(245, 247, 252, 0.92);
   font-size: 15px;
   line-height: 1.45;

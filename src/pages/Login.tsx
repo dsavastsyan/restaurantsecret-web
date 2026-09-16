@@ -331,7 +331,6 @@ export default function LoginPage() {
         <div className="login-consent" role="dialog" aria-modal="true" aria-labelledby="communication-consent-title">
           <div className="login-consent__card">
             <h1 id="communication-consent-title" className="login-consent__title">Оставайтесь на связи</h1>
-            <p className="login-consent__subtitle">Выберите, какие материалы хотите получать. Оба пункта необязательны.</p>
 
             {err && <div className="login__alert">{err}</div>}
 
@@ -343,10 +342,11 @@ export default function LoginPage() {
                 disabled={loading}
               />
               <span>
-                Даю согласие на обработку персональных данных, в том числе с целью получения рекламных предложений ({" "}
+                Даю согласие на{" "}
                 <a href="https://restaurantsecret.ru/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">
-                  текст согласия
-                </a>)
+                  обработку персональных данных
+                </a>
+                , в том числе с целью получения рекламных предложений
               </span>
             </label>
 
