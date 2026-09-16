@@ -10,6 +10,14 @@ import { analytics } from "@/services/analytics";
 import mobileDayBackground from "@/assets/login/Login bacground mobile day.png";
 import desktopDayBackground from "@/assets/login/Login bachround desctop day.png";
 
+const COMMUNICATION_CONSENT_VERSION = "restaurantsecret-communications-2026-09-16";
+
+type PendingLogin = {
+  token: string;
+  nextPath: string;
+  needsOnboarding: boolean;
+};
+
 const normalizeAppPath = (value: unknown) => {
   if (typeof value !== "string") return null;
   if (!value.startsWith("/") || value.startsWith("//")) return null;
@@ -35,11 +43,14 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
 
   const [email, setEmail] = useState("");
-  const [step, setStep] = useState<"enter" | "code" | "done">("enter");
+  const [step, setStep] = useState<"enter" | "code" | "consent">("enter");
   const [code, setCode] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [pendingLogin, setPendingLogin] = useState<PendingLogin | null>(null);
+  const [personalDataAdvertising, setPersonalDataAdvertising] = useState(false);
+  const [marketingCommunications, setMarketingCommunications] = useState(false);
   const shouldAutoFocus = useMemo(
     () => typeof window !== "undefined" && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches,
     []
@@ -75,6 +86,17 @@ export default function LoginPage() {
 
     const hasActiveSubscription = await fetchSubscriptionStatus(token);
     return hasActiveSubscription ? returnTo : redirectTo;
+  };
+
+  const finishLogin = (token: string, needsOnboarding: boolean, nextPath: string) => {
+    setToken(token);
+    analytics.recordPolicyAcceptance();
+    resetImmersiveViewport({ blurActiveElement: true });
+    if (needsOnboarding) {
+      navigate("/onboarding/welcome", { replace: true, state: { next: nextPath } });
+    } else {
+      navigate(nextPath, { replace: true });
+    }
   };
 
   useEffect(() => {
@@ -117,7 +139,6 @@ export default function LoginPage() {
     try {
       const res = await apiPost("/auth/verify-otp", { email, code });
       if (res?.ok && res?.access_token) {
-        setToken(res.access_token);       // <— сохраняем токен в твой стор (rs_access)
         const nextPath = await resolvePostLoginRedirect(res.access_token);
 
         const needsOnboarding = res.onboarding_completed !== true;
@@ -128,20 +149,41 @@ export default function LoginPage() {
           analytics.track("onboarding_started", { step: "welcome" });
         }
         analytics.track("login_success", { source_page: "login" });
-        analytics.recordPolicyAcceptance(); // Record that user accepted policy upon login
 
-        if (needsOnboarding) {
+        if (res.communication_consents_required === true) {
+          setPendingLogin({ token: res.access_token, nextPath, needsOnboarding });
           resetImmersiveViewport({ blurActiveElement: true });
-          navigate("/onboarding/welcome", { replace: true, state: { next: nextPath } });
+          setStep("consent");
         } else {
-          resetImmersiveViewport({ blurActiveElement: true });
-          navigate(nextPath, { replace: true });
+          finishLogin(res.access_token, needsOnboarding, nextPath);
         }
       } else {
         setErr(res?.message || "Неверный код");
       }
     } catch {
       setErr("Не удалось подтвердить код");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveCommunicationConsents = async () => {
+    if (!pendingLogin) return;
+    setErr(null);
+    setLoading(true);
+    try {
+      await apiPost(
+        "/api/consent/communications",
+        {
+          personal_data_advertising: personalDataAdvertising,
+          marketing_communications: marketingCommunications,
+          consent_version: COMMUNICATION_CONSENT_VERSION,
+        },
+        pendingLogin.token,
+      );
+      finishLogin(pendingLogin.token, pendingLogin.needsOnboarding, pendingLogin.nextPath);
+    } catch {
+      setErr("Не удалось сохранить выбор. Попробуйте ещё раз");
     } finally {
       setLoading(false);
     }
@@ -173,7 +215,7 @@ export default function LoginPage() {
     >
       <div className="login__stage">
         <div className="login__wrap">
-          <div className="login__card">
+          {step !== "consent" && <div className="login__card">
             {step === "enter" && <h1 className="login__title">Выбирай легко</h1>}
             <p className={`login__subtitle ${step === "code" ? "login__subtitle--plain" : ""}`}>
               {step === "code" ? "Отправили код на почту" : "Ешь вкусно, выбирай осознанно"}
@@ -265,26 +307,65 @@ export default function LoginPage() {
                   Не видите письмо? Проверьте папку Спам.
                 </p>
 
-                <p className="login__legal">
-                  Продолжая, вы соглашаетесь на{" "}
-                  <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">
-                    обработку персональных данных
-                  </a>
-                  , а также с{" "}
-                  <a href="https://restaurantsecret.ru/privacy" target="_blank" rel="noopener noreferrer">
-                    политикой конфиденциальности
-                  </a>{" "}
-                  и{" "}
-                  <a href="https://restaurantsecret.ru/legal" target="_blank" rel="noopener noreferrer">
-                    пользовательским соглашением
-                  </a>
-                  .
-                </p>
+                <div className="login__legal">
+                  <p>
+                    Продолжая, вы принимаете{" "}
+                    <a href="https://restaurantsecret.ru/legal" target="_blank" rel="noopener noreferrer">
+                      Пользовательское соглашение
+                    </a>.
+                  </p>
+                  <p>
+                    Обработка персональных данных осуществляется в соответствии с{" "}
+                    <a href="https://restaurantsecret.ru/privacy" target="_blank" rel="noopener noreferrer">
+                      Политикой конфиденциальности
+                    </a>.
+                  </p>
+                </div>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
+
+      {step === "consent" && (
+        <div className="login-consent" role="dialog" aria-modal="true" aria-labelledby="communication-consent-title">
+          <div className="login-consent__card">
+            <h1 id="communication-consent-title" className="login-consent__title">Оставайтесь на связи</h1>
+
+            {err && <div className="login__alert">{err}</div>}
+
+            <label className="login-consent__option">
+              <input
+                type="checkbox"
+                checked={personalDataAdvertising}
+                onChange={(event) => setPersonalDataAdvertising(event.target.checked)}
+                disabled={loading}
+              />
+              <span>
+                Даю согласие на{" "}
+                <a href="https://restaurantsecret.ru/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">
+                  обработку персональных данных
+                </a>
+                , в том числе с целью получения рекламных предложений
+              </span>
+            </label>
+
+            <label className="login-consent__option">
+              <input
+                type="checkbox"
+                checked={marketingCommunications}
+                onChange={(event) => setMarketingCommunications(event.target.checked)}
+                disabled={loading}
+              />
+              <span>Хочу получать от RestaurantSecret персональные рекомендации, полезные материалы и рекламные предложения.</span>
+            </label>
+
+            <button className="login__submit login-consent__submit" onClick={saveCommunicationConsents} disabled={loading}>
+              {loading ? "Сохраняем…" : "Продолжить"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
