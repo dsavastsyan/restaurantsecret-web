@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiGet } from '@/lib/requests';
-import { flattenMenuDishes, formatNumeric } from '@/lib/nutrition';
+import { flattenMenuDishes, formatNumeric, normalizeDish, hasFiniteNumber } from '@/lib/nutrition';
 import { formatDescription, matchesSearchQuery } from '@/lib/text';
 import { formatMenuCapturedAt } from '@/lib/dates';
 import { useAuth } from '@/store/auth';
@@ -273,6 +273,40 @@ function normalizeMenu(raw) {
 }
 
 
+function buildMenuSchema(menu) {
+  if (!menu?.categories?.length) return undefined
+
+  const sections = menu.categories
+    .map(category => {
+      if (!category?.dishes?.length) return null
+      const items = category.dishes
+        .map(dish => normalizeDish(dish, category.name))
+        // Dishes beyond the free tier already come back with null macros from
+        // the API — skip them so the schema never claims paywalled numbers.
+        .filter(dish => hasFiniteNumber(dish.kcal))
+        .map(dish => ({
+          '@type': 'MenuItem',
+          name: dish.name,
+          nutrition: {
+            '@type': 'NutritionInformation',
+            calories: `${formatNumeric(dish.kcal)} kcal`,
+            proteinContent: hasFiniteNumber(dish.protein) ? `${formatNumeric(dish.protein)} g` : undefined,
+            fatContent: hasFiniteNumber(dish.fat) ? `${formatNumeric(dish.fat)} g` : undefined,
+            carbohydrateContent: hasFiniteNumber(dish.carbs) ? `${formatNumeric(dish.carbs)} g` : undefined,
+          },
+          offers: dish.price
+            ? { '@type': 'Offer', price: dish.price, priceCurrency: 'RUB' }
+            : undefined,
+        }))
+      if (!items.length) return null
+      return { '@type': 'MenuSection', name: category.name, hasMenuItem: items }
+    })
+    .filter(Boolean)
+
+  if (!sections.length) return undefined
+  return { '@type': 'Menu', hasMenuSection: sections }
+}
+
 function RestaurantSchema({ menu, slug }) {
   if (!menu || !menu.name) return null
   if (typeof document !== 'undefined' && document.getElementById('restaurant-schema')) {
@@ -293,6 +327,7 @@ function RestaurantSchema({ menu, slug }) {
           addressCountry: 'RU',
       }
       : undefined,
+    hasMenu: buildMenuSchema(menu),
   }
 
   return (
