@@ -25,8 +25,8 @@ export default function AccountOverview() {
     age: '',
     weight: '',
     height: '',
-    activity: 'min',
-    goal: 'maintain'
+    activity: 'low',
+    goal: 'maintain_weight'
   });
   const [isFormDirty, setIsFormDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'' | 'saving' | 'saved'>('');
@@ -170,11 +170,11 @@ export default function AccountOverview() {
   }, [profileCompletion]);
   const isProfileDetailsPage = location.pathname === "/account/profile";
   const activityOptions = [
-    { value: "min", label: "Низкая" },
-    { value: "avg", label: "Умеренная" },
-    { value: "high", label: "Высокая" },
+    { value: "low", label: "Низкая" },
+    { value: "high", label: "Умеренная" },
+    { value: "very_high", label: "Высокая" },
   ];
-  const desktopActivity = form.activity === "light" ? "min" : form.activity;
+  const desktopActivity = form.activity === "medium" ? "low" : form.activity;
   const profileAbout = me?.user?.profile_about?.trim() || "";
   const profileAboutPlaceholder = "Добавьте информацию";
 
