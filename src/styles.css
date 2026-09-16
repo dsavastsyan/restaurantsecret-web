@@ -3327,6 +3327,11 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
   overflow: hidden;
 }
 
+.catalog-card--chain {
+  border-color: var(--rs-accent, #2f8f5b);
+  background: linear-gradient(180deg, rgba(47, 143, 91, 0.05), rgba(255, 255, 255, 0) 60%);
+}
+
 .catalog-card__top {
   display: flex;
   align-items: center;

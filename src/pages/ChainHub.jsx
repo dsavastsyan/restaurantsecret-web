@@ -8,10 +8,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMeta } from '@/lib/useMeta'
+import { getRussianPluralWord } from '@/lib/text'
 import { api } from '../api/client.js'
 import { useSWRLite } from '../hooks/useSWRLite.js'
 import ChainLocationsMap from '../components/ChainLocationsMap.jsx'
 import '@/pages/menu-redesign.css'
+
+const restaurantWord = (n) => getRussianPluralWord(n, 'ресторан', 'ресторана', 'ресторанов')
+const cityWord = (n) => getRussianPluralWord(n, 'город', 'города', 'городов')
+const branchWord = (n) => getRussianPluralWord(n, 'филиал', 'филиала', 'филиалов')
+const addressWord = (n) => getRussianPluralWord(n, 'адрес', 'адреса', 'адресов')
 
 function groupByCity(locations) {
   const byCity = new Map()
@@ -68,7 +74,7 @@ export default function ChainHub() {
   useMeta(
     hub?.isHub
       ? {
-          title: `Меню ${hub.name} с КБЖУ — сеть ресторанов, ${hub.totalCount} адресов`,
+          title: `Меню ${hub.name} с КБЖУ — сеть ресторанов, ${hub.totalCount} ${addressWord(hub.totalCount)}`,
           description: `${hub.name}: меню с КБЖУ по каждому филиалу сети. ${hub.totalCount} ресторанов в ${cityGroups.length} городах — выберите свой и сравнивайте блюда по калорийности и БЖУ.`,
           canonical: `https://restaurantsecret.ru/restaurants/${slug}/`,
         }
@@ -97,12 +103,12 @@ export default function ChainHub() {
         <div className="rsm2-hero__stats">
           <div className="rsm2-hero__stat">
             <span className="rsm2-hero__stat-value">{hub.totalCount}</span>
-            <span className="rsm2-hero__stat-label">ресторанов</span>
+            <span className="rsm2-hero__stat-label">{restaurantWord(hub.totalCount)}</span>
           </div>
           <div className="rsm2-hero__rule" />
           <div className="rsm2-hero__stat">
             <span className="rsm2-hero__stat-value">{cityGroups.length}</span>
-            <span className="rsm2-hero__stat-label">городов</span>
+            <span className="rsm2-hero__stat-label">{cityWord(cityGroups.length)}</span>
           </div>
           {hub.cuisine ? (
             <>
@@ -132,7 +138,7 @@ export default function ChainHub() {
           >
             {cityGroups.map((g) => (
               <option key={g.city} value={g.city}>
-                {g.city} — {g.locations.length} {g.locations.length === 1 ? 'филиал' : 'филиала'}
+                {g.city} — {g.locations.length} {branchWord(g.locations.length)}
               </option>
             ))}
           </select>
