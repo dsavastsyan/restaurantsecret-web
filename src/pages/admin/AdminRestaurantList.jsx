@@ -59,7 +59,13 @@ const MANUAL_MENU_SOURCE = {
   website: 'Сайт',
 }
 
-function ManualMenuRow({ restaurant, onChanged }) {
+function statusWithSource(lastCheckedAt, staleAfterDays) {
+  const checkedAt = lastCheckedAt ? Date.parse(lastCheckedAt) : Number.NaN
+  if (Number.isNaN(checkedAt)) return 'needs_check'
+  return Date.now() - checkedAt >= staleAfterDays * 86400000 ? 'needs_check' : 'current'
+}
+
+function ManualMenuRow({ restaurant, staleAfterDays, onChanged }) {
   const [sourceType, setSourceType] = useState(restaurant.source_type || '')
   const [sourceUrl, setSourceUrl] = useState(restaurant.source_url || '')
   const [busy, setBusy] = useState('')
@@ -69,12 +75,16 @@ function ManualMenuRow({ restaurant, onChanged }) {
     setBusy('source')
     setMessage('')
     try {
-      await adminMenuRevisionsApi.updateManualMenuSource(restaurant.slug, {
+      const result = await adminMenuRevisionsApi.updateManualMenuSource(restaurant.slug, {
         source_type: sourceType,
         source_url: sourceUrl,
       })
+      onChanged({
+        source_type: result.source_type || sourceType,
+        source_url: result.source_url || sourceUrl,
+        status: statusWithSource(restaurant.last_checked_at, staleAfterDays),
+      })
       setMessage('Источник сохранён')
-      onChanged()
     } catch (requestError) {
       setMessage(requestError.message || 'Не удалось сохранить источник.')
     } finally {
@@ -86,8 +96,8 @@ function ManualMenuRow({ restaurant, onChanged }) {
     setBusy('confirm')
     setMessage('')
     try {
-      await adminMenuRevisionsApi.confirmManualMenu(restaurant.slug)
-      onChanged()
+      const result = await adminMenuRevisionsApi.confirmManualMenu(restaurant.slug)
+      onChanged({ last_checked_at: result.last_checked_at, status: 'current' })
     } catch (requestError) {
       setMessage(requestError.message || 'Не удалось подтвердить актуальность.')
     } finally {
@@ -126,18 +136,26 @@ function ManualMenuDashboard() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
   const [checkedAtOrder, setCheckedAtOrder] = useState(null)
-  const [refresh, setRefresh] = useState(0)
+  const [staleAfterDays, setStaleAfterDays] = useState(90)
 
   useEffect(() => {
     let active = true
     setLoading(true)
     setError('')
     adminMenuRevisionsApi.manualMenus()
-      .then((data) => active && setItems(data.restaurants || []))
+      .then((data) => {
+        if (!active) return
+        setItems(data.restaurants || [])
+        setStaleAfterDays(data.stale_after_days || 90)
+      })
       .catch((requestError) => active && setError(requestError.message || 'Не удалось загрузить ручные меню.'))
       .finally(() => active && setLoading(false))
     return () => { active = false }
-  }, [refresh])
+  }, [])
+
+  const updateItem = (slug, patch) => {
+    setItems((current) => current.map((item) => item.slug === slug ? { ...item, ...patch } : item))
+  }
 
   const visible = useMemo(() => {
     const filtered = items.filter((restaurant) => {
@@ -170,7 +188,7 @@ function ManualMenuDashboard() {
       <div className="admin-crm__table-wrap admin-manual-menu__table-wrap">
         <table className="admin-crm__table admin-manual-menu__table">
           <thead><tr><th>Ресторан</th><th>Источник меню</th><th aria-sort={checkedAtOrder === 'desc' ? 'descending' : checkedAtOrder === 'asc' ? 'ascending' : 'none'}><button className="admin-crm__sort" type="button" onClick={() => setCheckedAtOrder((current) => current === 'desc' ? 'asc' : 'desc')}>Последняя проверка <span aria-hidden="true">{checkedAtOrder === 'asc' ? '↑' : '↓'}</span></button></th><th>Статус</th><th /></tr></thead>
-          <tbody>{visible.map((restaurant) => <ManualMenuRow restaurant={restaurant} onChanged={() => setRefresh((value) => value + 1)} key={restaurant.slug} />)}</tbody>
+          <tbody>{visible.map((restaurant) => <ManualMenuRow restaurant={restaurant} staleAfterDays={staleAfterDays} onChanged={(patch) => updateItem(restaurant.slug, patch)} key={restaurant.slug} />)}</tbody>
         </table>
         {!visible.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет.</div>}
       </div>
