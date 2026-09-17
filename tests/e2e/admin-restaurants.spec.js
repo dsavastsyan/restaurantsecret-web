@@ -227,7 +227,10 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
   await row.getByLabel('Ссылка на меню Loulou').fill('https://instagram.com/loulou/')
   await row.getByRole('button', { name: 'Сохранить' }).click()
   await expect(row.getByText('Актуально')).toBeVisible()
+  expect(requests.filter(({ path, method }) => path === '/api/admin/manual-menu-freshness' && method === 'GET')).toHaveLength(1)
   await row.getByRole('button', { name: 'Подтвердить актуальность' }).click()
+  await expect(row.getByText('11 сент.')).toBeVisible()
+  expect(requests.filter(({ path, method }) => path === '/api/admin/manual-menu-freshness' && method === 'GET')).toHaveLength(1)
 
   await expect.poll(() => requests.some(({ path, method }) => path.endsWith('/loulou/confirm') && method === 'POST')).toBeTruthy()
   expect(requests.some(({ path, method, body }) => (
