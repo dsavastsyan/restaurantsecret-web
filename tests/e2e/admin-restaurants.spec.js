@@ -189,6 +189,14 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
           source_url: configured ? 'https://instagram.com/loulou/' : null,
           last_checked_at: confirmed ? '2026-09-11T12:00:00Z' : '2026-09-01T12:00:00Z',
           status: configured ? 'current' : 'source_missing',
+        }, {
+          slug: 'sage', name: 'Sage', cities: ['Москва'],
+          source_type: 'website', source_url: 'https://sage.example/menu',
+          last_checked_at: '2026-09-10T12:00:00Z', status: 'current',
+        }, {
+          slug: 'without-date', name: 'Без даты', cities: ['Москва'],
+          source_type: 'website', source_url: 'https://without-date.example/menu',
+          last_checked_at: null, status: 'needs_check',
         }],
       } })
     }
@@ -205,6 +213,14 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
 
   await page.goto('/admin/restaurants')
   await expect(page.getByRole('tab', { name: 'Ручные меню' })).toHaveAttribute('aria-selected', 'true')
+  const table = page.getByRole('table')
+  const rowNames = () => table.getByRole('row').locator('td:first-child strong').allTextContents()
+  await page.getByRole('button', { name: 'Последняя проверка' }).click()
+  await expect.poll(rowNames).toEqual(['Sage', 'Loulou', 'Без даты'])
+  await expect(table.locator('th').filter({ hasText: 'Последняя проверка' })).toHaveAttribute('aria-sort', 'descending')
+  await page.getByRole('button', { name: 'Последняя проверка' }).click()
+  await expect.poll(rowNames).toEqual(['Loulou', 'Sage', 'Без даты'])
+  await expect(table.locator('th').filter({ hasText: 'Последняя проверка' })).toHaveAttribute('aria-sort', 'ascending')
   const row = page.getByRole('row').filter({ hasText: 'Loulou' })
   await expect(row.getByText('Источник не указан')).toBeVisible()
   await row.getByLabel('Источник меню Loulou').selectOption('instagram_highlight')

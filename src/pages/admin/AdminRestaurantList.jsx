@@ -125,6 +125,7 @@ function ManualMenuDashboard() {
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
+  const [checkedAtOrder, setCheckedAtOrder] = useState(null)
   const [refresh, setRefresh] = useState(0)
 
   useEffect(() => {
@@ -138,10 +139,22 @@ function ManualMenuDashboard() {
     return () => { active = false }
   }, [refresh])
 
-  const visible = useMemo(() => items.filter((restaurant) => {
-    if (status && restaurant.status !== status) return false
-    return `${restaurant.name} ${restaurant.slug} ${restaurant.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
-  }), [items, query, status])
+  const visible = useMemo(() => {
+    const filtered = items.filter((restaurant) => {
+      if (status && restaurant.status !== status) return false
+      return `${restaurant.name} ${restaurant.slug} ${restaurant.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
+    })
+    if (!checkedAtOrder) return filtered
+    return [...filtered].sort((left, right) => {
+      const leftTime = left.last_checked_at ? Date.parse(left.last_checked_at) : Number.NaN
+      const rightTime = right.last_checked_at ? Date.parse(right.last_checked_at) : Number.NaN
+      const leftMissing = Number.isNaN(leftTime)
+      const rightMissing = Number.isNaN(rightTime)
+      if (leftMissing !== rightMissing) return leftMissing ? 1 : -1
+      if (leftMissing) return left.name.localeCompare(right.name, 'ru')
+      return checkedAtOrder === 'desc' ? rightTime - leftTime : leftTime - rightTime
+    })
+  }, [items, query, status, checkedAtOrder])
 
   if (loading) return <p className="admin-crm__loading">Загружаем ручные меню…</p>
   if (error) return <p className="admin-menu__error" role="alert">{error}</p>
@@ -156,7 +169,7 @@ function ManualMenuDashboard() {
       </div>
       <div className="admin-crm__table-wrap admin-manual-menu__table-wrap">
         <table className="admin-crm__table admin-manual-menu__table">
-          <thead><tr><th>Ресторан</th><th>Источник меню</th><th>Последняя проверка</th><th>Статус</th><th /></tr></thead>
+          <thead><tr><th>Ресторан</th><th>Источник меню</th><th aria-sort={checkedAtOrder === 'desc' ? 'descending' : checkedAtOrder === 'asc' ? 'ascending' : 'none'}><button className="admin-crm__sort" type="button" onClick={() => setCheckedAtOrder((current) => current === 'desc' ? 'asc' : 'desc')}>Последняя проверка <span aria-hidden="true">{checkedAtOrder === 'asc' ? '↑' : '↓'}</span></button></th><th>Статус</th><th /></tr></thead>
           <tbody>{visible.map((restaurant) => <ManualMenuRow restaurant={restaurant} onChanged={() => setRefresh((value) => value + 1)} key={restaurant.slug} />)}</tbody>
         </table>
         {!visible.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет.</div>}

@@ -40,6 +40,8 @@
 
 .admin-manual-menu__table-wrap { overflow-x: auto; }
 .admin-manual-menu__table { min-width: 980px; }
+.admin-crm__sort { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; }
+.admin-crm__sort:focus-visible { outline: 2px solid #65734d; outline-offset: 3px; border-radius: 3px; }
 .admin-manual-menu__source { display: grid; min-width: 320px; gap: 8px; }
 .admin-manual-menu__source > div { display: flex; align-items: center; gap: 8px; }
 .admin-manual-menu__source select,
