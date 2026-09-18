@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiGet, apiPost } from '@/lib/api'
 import { useAuth } from '@/store/auth'
-import preview from '@/assets/anyeat-preview.png'
+import preview from '@/assets/anyeat-phone-cutout.png'
 import './AnyEatLaunchModal.css'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
@@ -116,7 +116,7 @@ export default function AnyEatLaunchModal({ eligible }) {
             </form>
           )}
         </div>
-        <div className="rs-anyeat__visual" aria-hidden="true"><img src={preview} alt="" /></div>
+        <div className="rs-anyeat__visual" aria-hidden="true"><div className="rs-anyeat__halo" /><img src={preview} alt="" /><span className="rs-anyeat__scribble">Больше<br />возможностей<br />для вашего<br />рациона ↙</span></div>
       </section>
     </div>, document.body
   )
