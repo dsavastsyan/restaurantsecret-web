@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiGet, apiPost } from '@/lib/api'
 import { useAuth } from '@/store/auth'
@@ -18,6 +18,8 @@ function markSeen() {
 }
 
 export default function AnyEatLaunchModal({ eligible }) {
+  const previewMode = import.meta.env.DEV && new URLSearchParams(window.location.search).get('anyeatPreview') === '1'
+  const previewOpened = useRef(false)
   const token = useAuth((state) => state.accessToken)
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
@@ -28,7 +30,13 @@ export default function AnyEatLaunchModal({ eligible }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!eligible || open || Date.now() - readLastSeen() < WEEK) return
+    if (!previewMode || previewOpened.current) return
+    previewOpened.current = true
+    setOpen(true)
+  }, [previewMode])
+
+  useEffect(() => {
+    if (previewMode || !eligible || open || Date.now() - readLastSeen() < WEEK) return
     let actions = 0
     const onAction = (event) => {
       if (!event.isTrusted || event.target?.closest?.('.rs-anyeat')) return
@@ -39,7 +47,7 @@ export default function AnyEatLaunchModal({ eligible }) {
     }
     document.addEventListener('click', onAction)
     return () => document.removeEventListener('click', onAction)
-  }, [eligible, open])
+  }, [eligible, open, previewMode])
 
   useEffect(() => {
     if (!open || !token) return
