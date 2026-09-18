@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiGet, apiPost } from '@/lib/api'
 import { useAuth } from '@/store/auth'
-import preview from '@/assets/anyeat-phone-reference.png'
+import preview from '@/assets/anyeat-phone-left.png'
 import { Apple, BookText, Mail, Rocket, Utensils } from 'lucide-react'
 import './AnyEatLaunchModal.css'
 
@@ -131,7 +131,7 @@ export default function AnyEatLaunchModal({ eligible }) {
               {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /><span>Соглашаюсь получать рассылку RestaurantSecret о запуске AnyEat и других предложениях.</span></label>}
             </div>}
             {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
-            <small className="rs-anyeat__fine">Сообщим вам, когда приложение станет доступно.</small>
+            <small className="rs-anyeat__fine">Обещаем писать только по важным поводам <span aria-hidden="true">♡</span></small>
           </form>
         </>}
       </section>
