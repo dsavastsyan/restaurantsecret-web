@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiGet, apiPost } from '@/lib/api'
 import { useAuth } from '@/store/auth'
-import preview from '@/assets/anyeat-phone-cutout.png'
+import preview from '@/assets/anyeat-phone-reference.png'
+import { Apple, BookText, Mail, Rocket, Utensils } from 'lucide-react'
 import './AnyEatLaunchModal.css'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
@@ -100,31 +101,39 @@ export default function AnyEatLaunchModal({ eligible }) {
     <div className="rs-anyeat" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}>
       <section className="rs-anyeat__panel" role="dialog" aria-modal="true" aria-labelledby="rs-anyeat-title">
         <button className="rs-anyeat__close" type="button" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
-        <div className="rs-anyeat__copy">
-          <span className="rs-anyeat__badge">🚀 &nbsp; Скоро в приложении</span>
-          <h2 id="rs-anyeat-title"><span>Вся еда</span><br />в одном месте</h2>
-          <h3>RestaurantSecret станет частью AnyEat</h3>
-          <p>Совсем скоро можно будет учитывать не только рестораны. Добавляем продукты, единый дневник питания и всё необходимое, чтобы следить за рационом в одном приложении.</p>
-          <div className="rs-anyeat__features" aria-label="Возможности приложения">
-            <span>🍴 <b>Рестораны</b><small>Блюда и калории</small></span>
-            <span>🍎 <b>Продукты</b><small>Сканируйте и ищите</small></span>
-            <span>📕 <b>Дневник</b><small>Всё в одном месте</small></span>
+        {success ? (
+          <div className="rs-anyeat__success" role="status"><span>✓</span><h2>Вы в списке</h2><p>Сообщим вам, как только AnyEat станет доступен.</p></div>
+        ) : <>
+          <div className="rs-anyeat__content">
+            <span className="rs-anyeat__badge"><Rocket size={17} />Скоро в приложении</span>
+            <h2 id="rs-anyeat-title"><span>Вся еда</span><br />в одном месте</h2>
+            <h3>RestaurantSecret скоро будет в AnyEat</h3>
+            <p>Совсем скоро можно будет учитывать не только рестораны. Добавляем продукты, единый дневник питания и всё необходимое, чтобы следить за рационом в одном приложении.</p>
           </div>
-          {success ? <div className="rs-anyeat__success" role="status">Готово! Сообщим вам о запуске на {email.trim()}.</div> : (
-            <form onSubmit={submit}>
-              <label className="rs-anyeat__email-label" htmlFor="rs-anyeat-email">Электронная почта</label>
-              <input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required />
-              {(!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
-                {!knownConsents.personal_data_advertising && <label><input type="checkbox" checked={consents.personal_data_advertising} onChange={(event) => setConsents({ ...consents, personal_data_advertising: event.target.checked })} /> <span>Даю согласие на <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> в целях отправки рекламных сообщений.</span></label>}
-                {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /> <span>Соглашаюсь получать рассылку RestaurantSecret о запуске AnyEat и других предложениях.</span></label>}
-              </div>}
-              {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
+          <div className="rs-anyeat__visual" aria-hidden="true">
+            <div className="rs-anyeat__orb rs-anyeat__orb--one" /><div className="rs-anyeat__orb rs-anyeat__orb--two" />
+            <img src={preview} alt="" />
+            <span className="rs-anyeat__note rs-anyeat__note--top">Больше возможностей<br />для вашего рациона</span>
+            <span className="rs-anyeat__note rs-anyeat__note--bottom">Здоровые привычки<br />всегда под рукой ♡</span>
+          </div>
+          <div className="rs-anyeat__features" aria-label="Возможности приложения">
+            <div><span className="rs-anyeat__icon"><Utensils size={19} /></span><strong>Рестораны</strong><small>Блюда и калории</small></div>
+            <div><span className="rs-anyeat__icon"><Apple size={19} /></span><strong>Продукты</strong><small>Сканируйте и ищите</small></div>
+            <div><span className="rs-anyeat__icon"><BookText size={19} /></span><strong>Дневник</strong><small>Всё в одном месте</small></div>
+          </div>
+          <form className="rs-anyeat__form" onSubmit={submit}>
+            <div className="rs-anyeat__formrow">
+              <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
               <button className="rs-anyeat__submit" type="submit" disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
-              <small className="rs-anyeat__note">Сообщим вам, когда приложение станет доступно.</small>
-            </form>
-          )}
-        </div>
-        <div className="rs-anyeat__visual" aria-hidden="true"><div className="rs-anyeat__halo" /><img src={preview} alt="" /><span className="rs-anyeat__scribble">Больше<br />возможностей<br />для вашего<br />рациона ↙</span></div>
+            </div>
+            {(!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
+              {!knownConsents.personal_data_advertising && <label><input type="checkbox" checked={consents.personal_data_advertising} onChange={(event) => setConsents({ ...consents, personal_data_advertising: event.target.checked })} /><span>Даю согласие на <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> в целях отправки рекламных сообщений.</span></label>}
+              {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /><span>Соглашаюсь получать рассылку RestaurantSecret о запуске AnyEat и других предложениях.</span></label>}
+            </div>}
+            {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
+            <small className="rs-anyeat__fine">Сообщим вам, когда приложение станет доступно.</small>
+          </form>
+        </>}
       </section>
     </div>, document.body
   )
