@@ -6,6 +6,11 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
+// Not a secret — IndexNow keys are published at <site>/<key>.txt on purpose,
+// so engines can verify site ownership. The matching file lives at
+// public/8d5bab7bc21a1fbe825eed5f83c91fa8.txt.
+const INDEXNOW_KEY = '8d5bab7bc21a1fbe825eed5f83c91fa8'
+const INDEXNOW_ENABLED = process.env.SITEMAP_SKIP_INDEXNOW !== 'true'
 // # Matches the API's own DEFAULT_CITY (functions/routes/restaurants.js) — a
 // # bare `/restaurants/{slug}/menu/` URL with no ?city= always resolves to
 // # this city when the slug is ambiguous, so that's the one entry we can keep
@@ -746,6 +751,39 @@ function resolveSlugCollisions(restaurants) {
   return { resolved, droppedSlugs }
 }
 
+// Pushes the full URL list to Yandex/Bing via IndexNow instead of waiting
+// for their next scheduled crawl (https://yandex.ru/support/webmaster/ru/indexing-options/index-now).
+// Best-effort: a network hiccup here shouldn't fail the whole build, since
+// the site still gets crawled eventually without this ping.
+async function pingIndexNow(urls) {
+  if (!INDEXNOW_ENABLED || !urls.length) return
+
+  const host = new URL(BASE_URL).host
+  const body = {
+    host,
+    key: INDEXNOW_KEY,
+    keyLocation: `${BASE_URL}/${INDEXNOW_KEY}.txt`,
+    urlList: urls,
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+  try {
+    const res = await fetch('https://yandex.com/indexnow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    console.log(`✅ IndexNow: pinged ${urls.length} URLs (HTTP ${res.status})`)
+  } catch (error) {
+    console.warn(`⚠️  IndexNow ping failed (non-fatal): ${error?.message ?? String(error)}`)
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function main() {
   console.log('🔍 Fetching restaurants from API...')
   let restaurants = []
@@ -826,6 +864,8 @@ ${allUrls
 
   writeFileSync('dist/llms.txt', buildLlmsTxt(sitemapRestaurants, menuBySlug), 'utf-8')
   console.log('✅ llms.txt generated → dist/llms.txt')
+
+  await pingIndexNow(allUrls.map((u) => u.loc))
 
   generateStaticRoutes(sitemapRestaurants, menuBySlug)
 }
