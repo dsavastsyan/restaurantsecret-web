@@ -246,7 +246,23 @@ function getRestaurantDescription(restaurant) {
   return parts.join(' ')
 }
 
-function restaurantSchema(restaurant) {
+// hasMenu carries dish names only (no NutritionInformation) — same
+// numbers-stay-in-the-app rule as the HTML fallback above.
+function restaurantMenuSchema(dishes) {
+  if (!dishes.length) return undefined
+
+  const groups = dishNamesByCategory(dishes)
+  return {
+    '@type': 'Menu',
+    hasMenuSection: groups.map((group) => ({
+      '@type': 'MenuSection',
+      name: group.category,
+      hasMenuItem: group.names.map((name) => ({ '@type': 'MenuItem', name })),
+    })),
+  }
+}
+
+function restaurantSchema(restaurant, dishes = []) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
   return {
@@ -263,6 +279,7 @@ function restaurantSchema(restaurant) {
           addressCountry: 'RU',
         }
       : undefined,
+    hasMenu: restaurantMenuSchema(dishes),
   }
 }
 
@@ -341,13 +358,49 @@ function chainHubFallback(chainSlug, chainName, branches) {
 </main>`
 }
 
-function restaurantFallback(restaurant, menu) {
+// Deliberately drops kcal/protein/fat/carbs — names only. The exact КБЖУ
+// numbers are the paid product (trial/subscription gate in the app); giving
+// them away in crawlable static HTML would let an AI answer cite the figure
+// directly instead of sending the person to restaurantsecret.ru for it.
+function dishNamesByCategory(dishes) {
+  const order = []
+  const byCategory = new Map()
+
+  for (const dish of dishes) {
+    const category = dish.category || 'Меню'
+    if (!byCategory.has(category)) {
+      byCategory.set(category, [])
+      order.push(category)
+    }
+    byCategory.get(category).push(dish.name)
+  }
+
+  return order.map((category) => ({ category, names: byCategory.get(category) }))
+}
+
+function menuListHtml(dishes) {
+  if (!dishes.length) return ''
+
+  const groups = dishNamesByCategory(dishes)
+  const singleGroup = groups.length === 1
+
+  const groupsHtml = groups
+    .map(
+      (group) => `
+  ${singleGroup ? '' : `<h3>${escapeHtml(group.category)}</h3>`}
+  <ul>${group.names.map((name) => `<li>${escapeHtml(name)}</li>`).join('')}</ul>`,
+    )
+    .join('')
+
+  return `<h2>Блюда в меню</h2>${groupsHtml}`
+}
+
+function restaurantFallback(restaurant, dishes) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
   const description = getRestaurantDescription(restaurant)
   const cuisine = stripEmpty(restaurant.cuisine)
   const metro = stripEmpty(restaurant.metro || restaurant.metroName || restaurant.metro_name)
-  const dishes = flattenMenuForSeo(menu)
   const details = [
     cuisine ? `Кухня: ${cuisine}` : '',
     metro ? `Метро: ${metro}` : '',
@@ -358,6 +411,8 @@ function restaurantFallback(restaurant, menu) {
   <h1 aria-label="${escapeHtml(`Меню ${name} с КБЖУ`)}">${escapeHtml(name)}</h1>
   <p>${escapeHtml(description)}</p>
   ${details.length ? `<ul>${details.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
+  <p>Точные калории, белки, жиры и углеводы каждого блюда — в приложении RestaurantSecret (первые 7 дней бесплатно).</p>
+  ${menuListHtml(dishes)}
   <p><a href="/restaurants/${escapeHtml(slug)}/menu/">Открыть меню ресторана</a></p>
   <p><a href="/catalog/">Вернуться в каталог ресторанов</a></p>
 </main>`
@@ -468,6 +523,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
     const name = getRestaurantName(restaurant)
     const description = getRestaurantDescription(restaurant)
     const menu = menuBySlug.get(slug)
+    const dishes = flattenMenuForSeo(menu)
     const title = `Меню ${name} с КБЖУ — калории, белки, жиры, углеводы`
 
     writeRouteHtml(
@@ -485,8 +541,8 @@ function generateStaticRoutes(restaurants, menuBySlug) {
         title,
         description,
         canonical: `${BASE_URL}/restaurants/${slug}/menu/`,
-        schema: restaurantSchema(restaurant),
-        fallbackHtml: restaurantFallback(restaurant, menu),
+        schema: restaurantSchema(restaurant, dishes),
+        fallbackHtml: restaurantFallback(restaurant, dishes),
       }),
     )
 
