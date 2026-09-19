@@ -612,7 +612,11 @@ function buildLlmsTxt(restaurants, menuBySlug) {
   const restaurantCount = restaurants.filter((r) => r.slug).length
   const dishCount = [...menuBySlug.values()].reduce((sum, menu) => sum + flattenMenuForSeo(menu).length, 0)
   const cities = [...new Set(restaurants.map((r) => stripEmpty(r.city)).filter(Boolean))]
-  const cityPhrase = cities.length > 1 ? `${cities.length} городах` : cities[0] ? cities[0] : 'Москве'
+  // Prepositional case has no separate "few" form (unlike nominative
+  // город/города/городов) — 2, 3, 4, 22, 101 etc. all take "городах", only
+  // a trailing 1 (except 11) takes the singular "городе".
+  const cityPhrase =
+    cities.length > 1 ? `${cities.length} ${pluralizeRu(cities.length, ['городе', 'городах', 'городах'])}` : cities[0] ? cities[0] : 'Москве'
   const restaurantWord = pluralizeRu(restaurantCount, ['ресторан', 'ресторана', 'ресторанов'])
   const dishWord = pluralizeRu(dishCount, ['блюдо', 'блюда', 'блюд'])
 
