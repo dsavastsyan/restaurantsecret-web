@@ -10,6 +10,8 @@ import { analytics } from './services/analytics'
 import { loadTelegramWebApp } from './lib/telegram'
 import { hydrateCityPreference } from './lib/cityPreference'
 import { getAuthState } from './store/auth'
+import PreviewPersonaPanel from './components/PreviewPersonaPanel.jsx'
+import { IS_PREVIEW } from './config/api'
 import './styles.css'
 import './account-mobile-profile.css'
 
@@ -349,6 +351,7 @@ function Root() {
 
   return (
     <Router onRouteStart={showInitialSplash} onReady={handleReady}>
+      {IS_PREVIEW && <PreviewPersonaPanel />}
       {!isStandaloneIOSLegalPage && <ToastViewport />}
       {!isStandaloneIOSLegalPage && <ConsentBanner />}
     </Router>
