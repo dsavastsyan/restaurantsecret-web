@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
 
 import { setToken } from '@/store/auth'
-import { useSubscriptionStore } from '@/store/subscription'
 
 const PERSONAS = [
   { id: 'free', label: 'Без подписки' },
@@ -14,9 +12,6 @@ const PERSONAS = [
 const PERSONA_STORAGE_KEY = 'rs_preview_persona'
 
 export default function PreviewPersonaPanel() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const fetchStatus = useSubscriptionStore((state) => state.fetchStatus)
   const [selectedPersona, setSelectedPersona] = useState(() => {
     try {
       return window.localStorage.getItem(PERSONA_STORAGE_KEY) || ''
@@ -58,7 +53,6 @@ export default function PreviewPersonaPanel() {
       window.localStorage.setItem(PERSONA_STORAGE_KEY, persona)
       window.localStorage.removeItem('rs_access_state')
       setSelectedPersona(persona)
-      await fetchStatus(payload.access_token)
 
       if (reset) {
         setMessage('Тестовое состояние восстановлено')
@@ -68,9 +62,7 @@ export default function PreviewPersonaPanel() {
       }
 
       setMessage('Персона активирована')
-      if (!location.pathname.startsWith('/account')) {
-        navigate('/account/subscription')
-      }
+      window.location.assign('/account/subscription')
     } catch (error) {
       console.error('Preview persona login failed', error)
       setMessage('Не удалось включить персону')
