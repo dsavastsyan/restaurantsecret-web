@@ -24,6 +24,7 @@ export default function AnyEatLaunchModal({ eligible }) {
   const token = useAuth((state) => state.accessToken)
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
+  const [accountEmail, setAccountEmail] = useState('')
   const [consents, setConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
   const [knownConsents, setKnownConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
   const [submitting, setSubmitting] = useState(false)
@@ -53,6 +54,12 @@ export default function AnyEatLaunchModal({ eligible }) {
   useEffect(() => {
     if (!open || !token) return
     let active = true
+    apiGet('/api/v1/me', token).then((result) => {
+      if (!active) return
+      const value = result?.user?.email || ''
+      setAccountEmail(value)
+      setEmail(value)
+    }).catch(() => {})
     apiGet('/api/consent/communications', token).then((result) => {
       if (!active) return
       const known = {
@@ -74,7 +81,7 @@ export default function AnyEatLaunchModal({ eligible }) {
 
   if (!open) return null
 
-  const canSubmit = /^\S+@\S+\.\S+$/.test(email.trim()) &&
+  const canSubmit = Boolean(token) && /^\S+@\S+\.\S+$/.test(email.trim()) &&
     consents.personal_data_advertising && consents.marketing_communications && !submitting
 
   const submit = async (event) => {
@@ -83,12 +90,15 @@ export default function AnyEatLaunchModal({ eligible }) {
     setSubmitting(true)
     setError('')
     try {
-      await apiPost('/api/launch-waitlist', {
-        email: email.trim(),
+      if (!accountEmail || email.trim().toLowerCase() !== accountEmail.toLowerCase()) {
+        setError('Укажите почту вашего аккаунта RestaurantSecret.')
+        return
+      }
+      await apiPost('/api/consent/communications', {
         personal_data_advertising: true,
         marketing_communications: true,
         consent_version: CONSENT_VERSION,
-      }, token || undefined)
+      }, token)
       setSuccess(true)
     } catch {
       setError('Не удалось сохранить заявку. Попробуйте ещё раз.')
@@ -102,7 +112,7 @@ export default function AnyEatLaunchModal({ eligible }) {
       <section className="rs-anyeat__panel" role="dialog" aria-modal="true" aria-labelledby="rs-anyeat-title">
         <button className="rs-anyeat__close" type="button" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
         {success ? (
-          <div className="rs-anyeat__success" role="status"><span>✓</span><h2>Вы в списке</h2><p>Сообщим вам, как только AnyEat станет доступен.</p></div>
+          <div className="rs-anyeat__success" role="status"><span>✓</span><h2>Успешно отправлено</h2><p>Обещаем писать только по важным поводам ♡</p></div>
         ) : <>
           <div className="rs-anyeat__content">
             <span className="rs-anyeat__badge"><Rocket size={17} />Скоро в приложении</span>
@@ -131,6 +141,7 @@ export default function AnyEatLaunchModal({ eligible }) {
               {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /><span>Соглашаюсь получать рассылку RestaurantSecret о запуске AnyEat и других предложениях.</span></label>}
             </div>}
             {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
+            {!token && <p className="rs-anyeat__error">Чтобы сохранить согласия и сообщить о запуске, <a href="/login">войдите в аккаунт</a>.</p>}
             <small className="rs-anyeat__fine">Обещаем писать только по важным поводам <span aria-hidden="true">♡</span></small>
           </form>
         </>}
