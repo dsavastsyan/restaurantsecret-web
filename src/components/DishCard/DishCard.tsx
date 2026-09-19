@@ -3,7 +3,7 @@ import { formatNumeric } from '@/lib/nutrition';
 import { useAuth } from '@/store/auth';
 import { useSubscriptionStore } from '@/store/subscription';
 import { useFavoritesStore } from '@/store/favorites';
-import { useDiaryStore } from '@/store/diary';
+import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { analytics } from '@/services/analytics';
 
@@ -76,40 +76,10 @@ export default function DishCard({ dish, restaurantSlug, restaurantName, showRes
         await toggle(accessToken, Number(dish.id), restaurantSlug);
     };
 
-    const addDiaryEntry = useDiaryStore(s => s.addEntry);
-
-    const handleDiaryAdd = async (e: React.MouseEvent) => {
+    const handleDiaryAdd = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (readOnly) return;
-        if (!accessToken) {
-            navigate('/login', { state: { from: location.pathname + location.search } });
-            return;
-        }
-
-        if (!hasDishAccess) {
-            navigate('/account/subscription', { state: { from: location.pathname + location.search } });
-            return;
-        }
-
-        const safeNum = (val: any) => {
-            const n = Number(val);
-            return Number.isFinite(n) ? n : 0;
-        };
-
-        const dishId = Number(dish.id);
-
-        await addDiaryEntry(accessToken, {
-            date: new Date().toISOString().split('T')[0],
-            dish_id: Number.isFinite(dishId) ? dishId : undefined,
-            restaurant_slug: restaurantSlug,
-            restaurant_name: restaurantName || undefined,
-            name: dish.name || 'Блюдо',
-            calories: safeNum(dish.kcal),
-            protein: safeNum(dish.protein),
-            fat: safeNum(dish.fat),
-            carbs: safeNum(dish.carbs),
-            weight: safeNum(dish.weight) || undefined
-        });
+        openAnyEatLaunchModal();
     };
 
     const handleSubscribe = (e: React.MouseEvent) => {

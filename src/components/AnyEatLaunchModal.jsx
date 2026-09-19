@@ -9,6 +9,7 @@ import './AnyEatLaunchModal.css'
 const WEEK = 7 * 24 * 60 * 60 * 1000
 const STORAGE_KEY = 'rs_anyeat_launch_seen_v1'
 const CONSENT_VERSION = 'restaurantsecret-communications-2026-09-16'
+let launchModalRequested = false
 
 function readLastSeen() {
   try { return Number(window.localStorage.getItem(STORAGE_KEY)) || 0 } catch { return 0 }
@@ -18,11 +19,20 @@ function markSeen() {
   try { window.localStorage.setItem(STORAGE_KEY, String(Date.now())) } catch { /* storage can be disabled */ }
 }
 
-export default function AnyEatLaunchModal({ eligible }) {
+export function openAnyEatLaunchModal() {
+  launchModalRequested = true
+  window.dispatchEvent(new CustomEvent('rs:anyeat-launch-open'))
+}
+
+export default function AnyEatLaunchModal({ eligible = false, embedded = false }) {
   const previewMode = import.meta.env.DEV && new URLSearchParams(window.location.search).get('anyeatPreview') === '1'
   const previewOpened = useRef(false)
   const token = useAuth((state) => state.accessToken)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(() => {
+    const requested = launchModalRequested
+    launchModalRequested = false
+    return embedded || requested
+  })
   const [email, setEmail] = useState('')
   const [accountEmail, setAccountEmail] = useState('')
   const [consents, setConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
@@ -32,13 +42,21 @@ export default function AnyEatLaunchModal({ eligible }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (embedded) return
     if (!previewMode || previewOpened.current) return
     previewOpened.current = true
     setOpen(true)
-  }, [previewMode])
+  }, [embedded, previewMode])
 
   useEffect(() => {
-    if (previewMode || !eligible || open || Date.now() - readLastSeen() < WEEK) return
+    if (embedded) return
+    const show = () => setOpen(true)
+    window.addEventListener('rs:anyeat-launch-open', show)
+    return () => window.removeEventListener('rs:anyeat-launch-open', show)
+  }, [embedded])
+
+  useEffect(() => {
+    if (embedded || previewMode || !eligible || open || Date.now() - readLastSeen() < WEEK) return
     let actions = 0
     const onAction = (event) => {
       if (!event.isTrusted || event.target?.closest?.('.rs-anyeat')) return
@@ -49,7 +67,7 @@ export default function AnyEatLaunchModal({ eligible }) {
     }
     document.addEventListener('click', onAction)
     return () => document.removeEventListener('click', onAction)
-  }, [eligible, open, previewMode])
+  }, [eligible, embedded, open, previewMode])
 
   useEffect(() => {
     if (!open || !token) return
@@ -107,10 +125,10 @@ export default function AnyEatLaunchModal({ eligible }) {
     }
   }
 
-  return createPortal(
-    <div className="rs-anyeat" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}>
-      <section className="rs-anyeat__panel" role="dialog" aria-modal="true" aria-labelledby="rs-anyeat-title">
-        <button className="rs-anyeat__close" type="button" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
+  const content = (
+    <div className={`rs-anyeat${embedded ? ' rs-anyeat--embedded' : ''}`} onMouseDown={(event) => { if (!embedded && event.target === event.currentTarget) setOpen(false) }}>
+      <section className="rs-anyeat__panel" role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : 'true'} aria-labelledby="rs-anyeat-title">
+        {!embedded && <button className="rs-anyeat__close" type="button" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>}
         {success ? (
           <div className="rs-anyeat__success" role="status"><span>✓</span><h2>Успешно отправлено</h2><p>Обещаем писать только по важным поводам ♡</p></div>
         ) : <>
@@ -146,6 +164,8 @@ export default function AnyEatLaunchModal({ eligible }) {
           </form>
         </>}
       </section>
-    </div>, document.body
+    </div>
   )
+
+  return embedded ? content : createPortal(content, document.body)
 }

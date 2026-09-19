@@ -13,7 +13,8 @@ import { clearQrMenuSession, expiredQrMenuSlug, touchQrMenuActivity } from '@/li
 const NavBar = lazy(() => import('@/components/NavBar'))
 const SearchInput = lazy(() => import('@/components/SearchInput'))
 const DishCardModal = lazy(() => import('@/components/DishCardModal'))
-const DiaryFloatingButton = lazy(() => import('@/components/DiaryFloatingButton'))
+// Web diary navigation is temporarily disabled while the feature moves to AnyEat.
+// const DiaryFloatingButton = lazy(() => import('@/components/DiaryFloatingButton'))
 const Footer = lazy(() => import('@/components/Footer.jsx'))
 const AnyEatLaunchModal = lazy(() => import('@/components/AnyEatLaunchModal.jsx'))
 
@@ -373,7 +374,7 @@ export default function AppShell() {
       <Suspense fallback={null}>
         {!isMarketingPage && !isImmersivePage && <NavBar forceGuest={isFeedbackPage} />}
         {!isMarketingPage && <DishCardModal />}
-        {!isMarketingPage && !isImmersivePage && <DiaryFloatingButton />}
+        {/* DiaryFloatingButton is kept in the codebase for possible reactivation. */}
       </Suspense>
       <main className="flex-1">
         {isMarketingPage ? (

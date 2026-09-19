@@ -52,10 +52,10 @@ const Feedback = lazy(() => import('../pages/Feedback.jsx'))
 const HowItWorks = lazy(() => import('../pages/HowItWorks.jsx'))
 const SubscriptionHistoryPage = lazy(() => import('../pages/account/SubscriptionHistoryPage.tsx'))
 const Favorites = lazy(() => import('../pages/account/Favorites.tsx'))
-const Friends = lazy(() => import('../pages/account/Friends.tsx'))
-const FriendFavorites = lazy(() => import('../pages/account/FriendFavorites.tsx'))
-const Goals = lazy(() => import('../pages/account/Goals.tsx'))
-const Statistics = lazy(() => import('../pages/account/Statistics.tsx'))
+// Friends pages are temporarily disabled until the mobile experience launches.
+// const Friends = lazy(() => import('../pages/account/Friends.tsx'))
+// const FriendFavorites = lazy(() => import('../pages/account/FriendFavorites.tsx'))
+const AnyEatComingSoon = lazy(() => import('../pages/account/AnyEatComingSoon.tsx'))
 const PaymentMethods = lazy(() => import('../pages/account/PaymentMethods.tsx'))
 
 // Defines the route tree shared between BrowserRouter and HashRouter. Keeping
@@ -96,10 +96,10 @@ function AppRoutes({ onReady }) {
             <Route path="subscription/history" element={<SubscriptionHistoryPage />} />
             <Route path="payment-methods/*" element={<PaymentMethods />} />
             <Route path="favorites" element={<Favorites />} />
-            <Route path="friends" element={<Friends />} />
-            <Route path="friends/:friendId" element={<FriendFavorites />} />
-            <Route path="goals" element={<Goals />} />
-            <Route path="statistics" element={<Statistics />} />
+            {/* Friends routes are temporarily unavailable; implementation files are kept. */}
+            <Route path="friends/*" element={<Navigate to="/account" replace />} />
+            <Route path="goals" element={<AnyEatComingSoon />} />
+            <Route path="statistics" element={<AnyEatComingSoon />} />
           </Route>
 
           {/* Основной контент */}
@@ -256,4 +256,3 @@ function LegacyMenuRedirect() {
   const { slug = '' } = useParams()
   return <Navigate to={`/restaurants/${slug}/menu/`} replace />
 }
-

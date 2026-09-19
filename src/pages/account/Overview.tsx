@@ -285,6 +285,7 @@ export default function AccountOverview() {
             <span className="account-overview-mobile__menu-arrow" aria-hidden="true">›</span>
           </Link>
 
+          {/* Friends are temporarily disabled; keep this navigation block for reactivation.
           <Link className="account-overview-mobile__menu-item" to="/account/friends">
             <span className="account-overview-mobile__menu-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -299,7 +300,7 @@ export default function AccountOverview() {
               <span className="account-overview-mobile__menu-badge">{`+${incomingFriendRequestsCount}`}</span>
             ) : null}
             <span className="account-overview-mobile__menu-arrow" aria-hidden="true">›</span>
-          </Link>
+          </Link> */}
         </div>
       </div>}
 
