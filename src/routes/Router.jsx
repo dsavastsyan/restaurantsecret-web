@@ -89,6 +89,7 @@ function AppRoutes({ onReady }) {
           <Route path="contact" element={<Navigate to="/support" replace />} />
           <Route path="feedback" element={<Feedback />} />
           <Route path="how-it-works" element={<HowItWorks />} />
+          {import.meta.env.DEV && <Route path="anyeat-account-preview" element={<AnyEatComingSoon />} />}
           <Route path="account" element={<AccountLayout />}>
             <Route index element={<AccountOverview />} />
             <Route path="profile" element={<AccountOverview />} />
