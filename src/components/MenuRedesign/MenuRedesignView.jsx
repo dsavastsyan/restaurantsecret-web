@@ -134,7 +134,7 @@ export default function MenuRedesignView({
       id: dish.id,
       dishName: dish.name,
       restaurantSlug: slug,
-      restaurantName: menu?.name || slug,
+      restaurantName: menu?.name || seoRestaurantName,
       isFreeAccess,
     };
     if (readOnly) {
@@ -165,21 +165,26 @@ export default function MenuRedesignView({
               {seoRestaurantName}
               {menu?.autoUpdated && <AutoUpdatedBadge className="rsm2-hero__auto-updated" />}
             </h1>
-            <div className="rsm2-hero__stats">
-              <div className="rsm2-hero__stat">
-                <span className="rsm2-hero__stat-value">{dishes.length}</span>
-                <span className="rsm2-hero__stat-label">блюд с КБЖУ</span>
+            {/* Never render "0 блюд" while the menu is still loading — a bot
+                snapshotting the page mid-fetch would index that wrong number
+                as fact instead of waiting for the real count. */}
+            {!loading && (
+              <div className="rsm2-hero__stats">
+                <div className="rsm2-hero__stat">
+                  <span className="rsm2-hero__stat-value">{dishes.length}</span>
+                  <span className="rsm2-hero__stat-label">блюд с КБЖУ</span>
+                </div>
+                {!!capturedAt && (
+                  <>
+                    <div className="rsm2-hero__rule" />
+                    <div className="rsm2-hero__stat">
+                      <span className="rsm2-hero__stat-value">{capturedAt}</span>
+                      <span className="rsm2-hero__stat-label">меню обновлено</span>
+                    </div>
+                  </>
+                )}
               </div>
-              {!!capturedAt && (
-                <>
-                  <div className="rsm2-hero__rule" />
-                  <div className="rsm2-hero__stat">
-                    <span className="rsm2-hero__stat-value">{capturedAt}</span>
-                    <span className="rsm2-hero__stat-label">меню обновлено</span>
-                  </div>
-                </>
-              )}
-            </div>
+            )}
           </div>
           <div className="rsm2-hero__actions">
             {!readOnly && (
@@ -300,7 +305,7 @@ export default function MenuRedesignView({
                         key={`${section.name}-${dish.name}`}
                         dish={dish}
                         restaurantSlug={slug}
-                        restaurantName={menu?.name || slug}
+                        restaurantName={menu?.name || seoRestaurantName}
                         isFreeAccess={isFreeAccess}
                         interactive
                         readOnly={readOnly}
@@ -318,7 +323,7 @@ export default function MenuRedesignView({
                         key={`${section.name}-${dish.name}`}
                         dish={dish}
                         restaurantSlug={slug}
-                        restaurantName={menu?.name || slug}
+                        restaurantName={menu?.name || seoRestaurantName}
                         isFreeAccess={isFreeAccess}
                         interactive
                         readOnly={readOnly}
@@ -346,7 +351,7 @@ export default function MenuRedesignView({
 
       {!readOnly && (
         <MenuOutdatedModal
-          restaurantName={menu?.name || slug}
+          restaurantName={menu?.name || seoRestaurantName}
           isOpen={isOutdatedOpen}
           onClose={() => setIsOutdatedOpen(false)}
         />

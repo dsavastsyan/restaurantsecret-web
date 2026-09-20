@@ -33,6 +33,16 @@ const createDefaultRange = () => ({
 // mode; 'include' flips the filter into "только с этим ингредиентом".
 const createDefaultIngredientFilter = () => ({ mode: 'exclude', selected: [] })
 
+// Russian numeral agreement: 1 блюдо / 2-4 блюда / 5+ блюд (11-14 always
+// take the "many" form regardless of the last digit, hence the % 100 check).
+const pluralizeRu = (n, [one, few, many]) => {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
+  return many
+}
+
 const normalizeRestaurantLinkUrl = (rawUrl) => {
   if (!rawUrl) return null
   const text = String(rawUrl).trim()
@@ -286,18 +296,26 @@ export default function Menu({
     [groupedDishes]
   )
   const restaurantLinkUrl = useMemo(() => normalizeRestaurantLinkUrl(menu?.instagramUrl), [menu?.instagramUrl])
-  const seoRestaurantName = menu?.name || slug || 'ресторана'
+  // A slug ("horoshaya-devochka-nan") must never stand in for a real name —
+  // fall back to a generic word instead of leaking the URL to the reader.
+  const isSlugLike = (value) => /^[a-z0-9]+(-[a-z0-9]+)+$/.test(value)
+  const rawSeoName = menu?.name?.trim()
+  const seoRestaurantName =
+    rawSeoName && !isSlugLike(rawSeoName)
+      ? rawSeoName.charAt(0).toUpperCase() + rawSeoName.slice(1)
+      : 'ресторана'
+  const seoDishWord = pluralizeRu(dishes.length, ['блюдо', 'блюда', 'блюд'])
   const seoDescription = useMemo(
-    () => `Меню ${seoRestaurantName} с КБЖУ: калории, белки, жиры и углеводы блюд ресторана. Сравнивайте блюда ${seoRestaurantName} по калорийности и макронутриентам перед посещением ресторана.`,
-    [seoRestaurantName]
+    () => `${dishes.length} ${seoDishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${seoRestaurantName} перед посещением ресторана.`,
+    [dishes.length, seoDishWord, seoRestaurantName]
   )
   const mapOpenUrl = useMemo(() => {
     if (restaurantPoint) {
       const { lat, lon } = restaurantPoint
       return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`
     }
-    return `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${menu?.name || slug} ресторан`)}`
-  }, [menu?.name, restaurantPoint, slug])
+    return `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${seoRestaurantName} ресторан`)}`
+  }, [restaurantPoint, seoRestaurantName])
   const mobileMapOpenUrl = restaurantLinkUrl || mapOpenUrl
 
   // A branch of a chain with a resolvable hub (menu.chainHubPath, set by the
@@ -310,8 +328,11 @@ export default function Menu({
   useMeta({
     title: previewMode
       ? `Превью меню ${seoRestaurantName} — не опубликовано`
-      : `Меню ${seoRestaurantName} с КБЖУ — калории, белки, жиры, углеводы`,
-    description: seoDescription,
+      : `Меню ${seoRestaurantName} с полным КБЖУ — калории, белки, жиры, углеводы`,
+    // While still loading, dishes.length is 0 — leave the description tag
+    // alone (useMeta skips falsy values) rather than briefly overwriting the
+    // correct prerendered "N блюд" with a wrong "0 блюд".
+    description: loading ? undefined : seoDescription,
     canonical: previewMode ? undefined : `https://restaurantsecret.ru${canonicalPath}`,
   })
 
