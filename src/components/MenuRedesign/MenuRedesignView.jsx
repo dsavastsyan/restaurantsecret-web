@@ -33,6 +33,7 @@ function buildDishAccessKey(dish) {
 
 export default function MenuRedesignView({
   seoRestaurantName,
+  heroDishCount,
   dishes,
   filtered,
   groupedDishes,
@@ -165,13 +166,13 @@ export default function MenuRedesignView({
               {seoRestaurantName}
               {menu?.autoUpdated && <AutoUpdatedBadge className="rsm2-hero__auto-updated" />}
             </h1>
-            {/* Never render "0 блюд" while the menu is still loading — a bot
-                snapshotting the page mid-fetch would index that wrong number
-                as fact instead of waiting for the real count. */}
-            {!loading && (
+            {/* heroDishCount falls back to the prerender's real embedded count
+                while still loading, so this never flashes a wrong "0 блюд" —
+                only hidden outright if we truly have no number at all. */}
+            {Number.isFinite(heroDishCount) && (
               <div className="rsm2-hero__stats">
                 <div className="rsm2-hero__stat">
-                  <span className="rsm2-hero__stat-value">{dishes.length}</span>
+                  <span className="rsm2-hero__stat-value">{heroDishCount}</span>
                   <span className="rsm2-hero__stat-label">блюд с КБЖУ</span>
                 </div>
                 {!!capturedAt && (

@@ -244,6 +244,20 @@ function applySeoTags(baseHtml, route) {
     )
   }
 
+  // Deliberately just {name, dishCount} — both already public (same numbers
+  // sit in the description/schema above). This lets the client show the
+  // correct name and dish count on the very first paint, before its own
+  // fetch resolves, without embedding real menu/nutrition data — that stays
+  // behind the paywall's live, authenticated API call (see the deliberate
+  // kcal/protein/fat/carbs omission in dishNamesByCategory below, and the
+  // prior paywall-leak-fix incident this must not repeat).
+  if (route.seoHint) {
+    html = injectBeforeHeadClose(
+      html,
+      `<script id="rs-seo-hint" type="application/json">${JSON.stringify(route.seoHint)}</script>`,
+    )
+  }
+
   if (route.fallbackHtml) {
     html = html.replace('<div id="root"></div>', `<div id="root">${route.fallbackHtml}</div>`)
   }
@@ -607,6 +621,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
         canonical: `${BASE_URL}${canonicalPath}`,
         schema: restaurantSchema(restaurant, dishes),
         fallbackHtml: restaurantFallback(restaurant, dishes),
+        seoHint: { name, dishCount },
       }),
     )
 
