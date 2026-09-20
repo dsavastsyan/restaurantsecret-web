@@ -117,6 +117,17 @@ function stripEmpty(value) {
   return text || undefined
 }
 
+// A slug like "el-gaucho" or "horoshaya-devochka-nan" never comes from a
+// dash-free real-world restaurant name, so it's the one reliable signal
+// that we're about to show a URL slug where a name belongs.
+function looksLikeSlug(value) {
+  return /^[a-z0-9]+(-[a-z0-9]+)+$/.test(value)
+}
+
+function capitalizeFirst(value) {
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
 function toNumber(value) {
   if (value === null || value === undefined || value === '') return NaN
   const numeric = typeof value === 'number' ? value : Number(String(value).replace(',', '.').replace(/\s+/g, ''))
@@ -233,6 +244,20 @@ function applySeoTags(baseHtml, route) {
     )
   }
 
+  // Deliberately just {name, dishCount} — both already public (same numbers
+  // sit in the description/schema above). This lets the client show the
+  // correct name and dish count on the very first paint, before its own
+  // fetch resolves, without embedding real menu/nutrition data — that stays
+  // behind the paywall's live, authenticated API call (see the deliberate
+  // kcal/protein/fat/carbs omission in dishNamesByCategory below, and the
+  // prior paywall-leak-fix incident this must not repeat).
+  if (route.seoHint) {
+    html = injectBeforeHeadClose(
+      html,
+      `<script id="rs-seo-hint" type="application/json">${JSON.stringify(route.seoHint)}</script>`,
+    )
+  }
+
   if (route.fallbackHtml) {
     html = html.replace('<div id="root"></div>', `<div id="root">${route.fallbackHtml}</div>`)
   }
@@ -262,18 +287,16 @@ function createRedirectHtml({ from, to, title = 'Переадресация — 
 }
 
 function getRestaurantName(restaurant) {
-  return stripEmpty(restaurant.name) || stripEmpty(restaurant.title) || stripEmpty(restaurant.slug) || 'Ресторан'
+  const name = stripEmpty(restaurant.name) || stripEmpty(restaurant.title)
+  if (name && !looksLikeSlug(name)) return capitalizeFirst(name)
+  return 'Ресторан'
 }
 
-function getRestaurantDescription(restaurant) {
+function getRestaurantDescription(restaurant, dishCount) {
   const name = getRestaurantName(restaurant)
-  const cuisine = stripEmpty(restaurant.cuisine)
-  const metro = stripEmpty(restaurant.metro || restaurant.metroName || restaurant.metro_name)
-  const parts = [`Меню ${name} с КБЖУ: калории, белки, жиры и углеводы блюд ресторана.`]
-  if (cuisine) parts.push(`Кухня ресторана: ${cuisine}.`)
-  if (metro) parts.push(`Рядом с метро ${metro}.`)
-  parts.push(`Сравнивайте блюда ${name} по калорийности и макронутриентам перед посещением ресторана.`)
-  return parts.join(' ')
+  const n = Number.isFinite(dishCount) ? dishCount : 0
+  const dishWord = pluralizeRu(n, ['блюдо', 'блюда', 'блюд'])
+  return `${n} ${dishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${name} перед посещением ресторана.`
 }
 
 // hasMenu carries dish names only (no NutritionInformation) — same
@@ -340,19 +363,19 @@ function groupChains(restaurants) {
   for (const restaurant of restaurants) {
     const chainSlug = stripEmpty(restaurant.chainSlug)
     if (!chainSlug) continue
-    const entry = chains.get(chainSlug) ?? { chainName: stripEmpty(restaurant.chainName) || chainSlug, branches: [] }
+    const rawChainName = stripEmpty(restaurant.chainName)
+    const chainName = rawChainName && !looksLikeSlug(rawChainName) ? capitalizeFirst(rawChainName) : 'Сеть ресторанов'
+    const entry = chains.get(chainSlug) ?? { chainName, branches: [] }
     entry.branches.push(restaurant)
     chains.set(chainSlug, entry)
   }
   return chains
 }
 
-function chainHubDescription(chainName, branches) {
-  const cities = [...new Set(branches.map((b) => stripEmpty(b.city)).filter(Boolean))]
-  const parts = [`${chainName} — сеть ресторанов с ${branches.length} филиалами${cities.length ? ` в ${cities.slice(0, 6).join(', ')}` : ''}.`]
-  parts.push('КБЖУ меню каждого филиала: калории, белки, жиры и углеводы блюд.')
-  parts.push(`Выберите ближайший адрес ${chainName} и смотрите актуальное меню перед визитом.`)
-  return parts.join(' ')
+function chainHubDescription(chainName, branches, dishCount = 0) {
+  const branchWord = pluralizeRu(branches.length, ['филиал', 'филиала', 'филиалов'])
+  const dishWord = pluralizeRu(dishCount, ['блюдо', 'блюда', 'блюд'])
+  return `${branches.length} ${branchWord} с полным КБЖУ меню. Более ${dishCount} ${dishWord}. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${chainName} перед посещением ресторана.`
 }
 
 function chainHubSchema(chainSlug, chainName, branches) {
@@ -370,8 +393,8 @@ function chainHubSchema(chainSlug, chainName, branches) {
   }
 }
 
-function chainHubFallback(chainSlug, chainName, branches) {
-  const description = chainHubDescription(chainName, branches)
+function chainHubFallback(chainSlug, chainName, branches, dishCount = 0) {
+  const description = chainHubDescription(chainName, branches, dishCount)
   const links = branches
     .filter((b) => b.slug)
     .map((b) => ({
@@ -543,14 +566,20 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   const restaurantSlugs = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
   const resolvableChainSlugs = new Set([...chains.keys()].filter((chainSlug) => !restaurantSlugs.has(chainSlug)))
   for (const [chainSlug, { chainName, branches }] of chains) {
+    // Branches share near-duplicate menus (see chain-duplicate-content.md),
+    // so the hub's dish count is "the biggest branch menu we have", not a sum.
+    const dishCount = Math.max(
+      0,
+      ...branches.map((b) => flattenMenuForSeo(menuBySlug.get(b.slug)).length),
+    )
     writeRouteHtml(
       `/restaurants/${chainSlug}`,
       applySeoTags(baseHtml, {
         title: `${chainName} — адреса и меню сети с КБЖУ`,
-        description: chainHubDescription(chainName, branches),
+        description: chainHubDescription(chainName, branches, dishCount),
         canonical: `${BASE_URL}/restaurants/${chainSlug}/`,
         schema: chainHubSchema(chainSlug, chainName, branches),
-        fallbackHtml: chainHubFallback(chainSlug, chainName, branches),
+        fallbackHtml: chainHubFallback(chainSlug, chainName, branches, dishCount),
       }),
     )
     generatedCount += 1
@@ -559,10 +588,11 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   for (const restaurant of restaurants.filter((r) => r.slug)) {
     const slug = restaurant.slug
     const name = getRestaurantName(restaurant)
-    const description = getRestaurantDescription(restaurant)
     const menu = menuBySlug.get(slug)
     const dishes = flattenMenuForSeo(menu)
-    const title = `Меню ${name} с КБЖУ — калории, белки, жиры, углеводы`
+    const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
+    const description = getRestaurantDescription(restaurant, dishCount)
+    const title = `Меню ${name} с полным КБЖУ — калории, белки, жиры, углеводы`
     // # Branches of a chain with a resolvable hub carry heavily overlapping
     // # menus (often the same name and most of the same dishes across
     // # cities) — canonicalizing to the hub tells Google to consolidate
@@ -591,6 +621,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
         canonical: `${BASE_URL}${canonicalPath}`,
         schema: restaurantSchema(restaurant, dishes),
         fallbackHtml: restaurantFallback(restaurant, dishes),
+        seoHint: { name, dishCount },
       }),
     )
 
