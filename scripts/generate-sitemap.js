@@ -16,6 +16,31 @@ const INDEXNOW_ENABLED = process.env.SITEMAP_SKIP_INDEXNOW !== 'true'
 // # this city when the slug is ambiguous, so that's the one entry we can keep
 // # generating a page for without guessing.
 const DEFAULT_CITY = 'Москва'
+// # A restaurant row's slug occasionally gets retired — renamed off a chain's
+// # bare slug so the chain hub can resolve there instead (see
+// # RestaurantSecret/sql/2026-09-20_unblock_chain_hubs_and_dedupe.sql), or
+// # merged away as a duplicate of a sibling row. The API has no memory of the
+// # old slug once that happens, so without this map the next build would
+// # simply stop emitting anything at the old URL — a hard 404 for whatever
+// # Google/visitors already had indexed or bookmarked there, instead of
+// # carrying that signal to wherever the content actually lives now. Add an
+// # entry here (old restaurant slug → the slug that now serves that content)
+// # every time a migration like this retires a slug that was ever live.
+const RETIRED_RESTAURANT_SLUGS = {
+  // 2026-09-20: unblocked chain hubs by renaming the flagship location off
+  // the bare chain slug — each still serves its own menu, just at a new address.
+  'domino-pizza': 'domino-pizza-moskva',
+  'tkemali': 'tkemali-moskva',
+  'cutfish': 'cutfish-moskva',
+  'fettucciamo': 'fettucciamo-moskva',
+  'coba': 'coba-moskva',
+  'kaia': 'kaia-moskva',
+  // 2026-09-20: deduped — these were the same physical restaurant recorded
+  // twice; the surviving row now carries all the content.
+  'no_sugar': 'no-sugar',
+  'abu_gosh': 'abu-gosh',
+  'papa-john-s': 'papa-john-s-ekaterinburg',
+}
 const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
 const STRICT_API_FETCH = process.env.SITEMAP_STRICT_API_FETCH === 'true'
@@ -606,6 +631,27 @@ function generateStaticRoutes(restaurants, menuBySlug) {
     )
 
     generatedCount += 6
+  }
+
+  // # Redirect stubs for retired restaurant slugs (see RETIRED_RESTAURANT_SLUGS)
+  // # — only emitted when the target actually still exists as a real
+  // # restaurant today and doesn't collide with a slug already generated
+  // # above, so a stale/typo'd map entry degrades to "no stub" rather than
+  // # ever overwriting real content.
+  const restaurantSlugSet = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
+  for (const [oldSlug, newSlug] of Object.entries(RETIRED_RESTAURANT_SLUGS)) {
+    if (restaurantSlugSet.has(oldSlug) || !restaurantSlugSet.has(newSlug)) continue
+    const target = restaurants.find((r) => r.slug === newSlug)
+    const name = getRestaurantName(target)
+    writeRouteHtml(
+      `/restaurants/${oldSlug}/menu`,
+      createRedirectHtml({
+        from: `/restaurants/${oldSlug}/menu`,
+        to: `/restaurants/${newSlug}/menu/`,
+        title: `${name} — меню с КБЖУ | RestaurantSecret`,
+      }),
+    )
+    generatedCount += 1
   }
 
   console.log(`✅ Static route entrypoints generated: ${generatedCount}`)
