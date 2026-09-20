@@ -15,11 +15,9 @@ const spaRoutes = [
   'admin/login',
   'admin/menu-revisions',
   'admin/restaurant-reviews',
-  // City catalog pages are routable in previews, but intentionally stay out of
-  // the production sitemap until the city rollout is approved.
-  'catalog/moskva',
-  'catalog/sankt-peterburg',
-  'catalog/izhevsk',
+  // City catalog pages (/catalog/:city) are NOT listed here — generate-sitemap.js
+  // writes a fully prerendered entrypoint for each real city (title/H1/meta,
+  // not just the bare SPA shell), and runs after this script in `npm run build`.
 ]
 
 await Promise.all(

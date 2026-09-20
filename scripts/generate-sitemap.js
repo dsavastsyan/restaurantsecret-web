@@ -4,6 +4,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
+import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '../src/lib/cityCatalog.js'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
 // Not a secret — IndexNow keys are published at <site>/<key>.txt on purpose,
@@ -358,6 +359,50 @@ function restaurantCatalogLinks(restaurants) {
     .sort((a, b) => a.label.localeCompare(b.label, 'ru'))
 }
 
+// { "Москва" => [restaurant, ...], "Санкт-Петербург" => [...], ... } — every
+// distinct city value on an active restaurant row gets its own catalog
+// landing page, however small (deliberate — not gated on a minimum
+// restaurant count).
+function groupByCity(restaurants) {
+  const byCity = new Map()
+  for (const restaurant of restaurants) {
+    const city = stripEmpty(restaurant.city)
+    if (!city) continue
+    const list = byCity.get(city) ?? []
+    list.push(restaurant)
+    byCity.set(city, list)
+  }
+  return byCity
+}
+
+function cityCatalogSchema(cityName, cityRestaurants) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `Рестораны с КБЖУ — ${cityName}`,
+    itemListElement: cityRestaurants
+      .filter((r) => r.slug)
+      .map((r, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: `${BASE_URL}/restaurants/${r.slug}/menu/`,
+      })),
+  }
+}
+
+function cityCatalogFallback(cityName, cityRestaurants) {
+  const description = cityCatalogDescription(cityName, cityRestaurants.length)
+  const links = restaurantCatalogLinks(cityRestaurants)
+  const linkHtml = links.map((link) => `<li><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></li>`).join('')
+
+  return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
+  <h1>КБЖУ ресторанов ${escapeHtml(cityGenitive(cityName))}</h1>
+  <p>${escapeHtml(description)}</p>
+  <nav><ul>${linkHtml}</ul></nav>
+  <p><a href="/catalog/">Все города</a></p>
+</main>`
+}
+
 function groupChains(restaurants) {
   const chains = new Map()
   for (const restaurant of restaurants) {
@@ -451,13 +496,17 @@ function menuListHtml(dishes) {
 function restaurantFallback(restaurant, dishes) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
-  const description = getRestaurantDescription(restaurant)
+  // Same count feeds the description and the "Блюд в меню" bullet below so
+  // they can't disagree (regression: the description previously always got
+  // called with no count at all, so it silently said "0 блюд" on every page).
+  const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
+  const description = getRestaurantDescription(restaurant, dishCount)
   const cuisine = stripEmpty(restaurant.cuisine)
   const metro = stripEmpty(restaurant.metro || restaurant.metroName || restaurant.metro_name)
   const details = [
     cuisine ? `Кухня: ${cuisine}` : '',
     metro ? `Метро: ${metro}` : '',
-    dishes.length ? `Блюд в меню: ${dishes.length}` : Number.isFinite(Number(restaurant.dishesCount)) ? `Блюд в меню: ${Number(restaurant.dishesCount)}` : '',
+    dishCount ? `Блюд в меню: ${dishCount}` : '',
   ].filter(Boolean)
 
   return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
@@ -555,6 +604,22 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   writeRouteHtml('/restaurants', createRedirectHtml({ from: '/restaurants', to: '/catalog/' }))
 
   let generatedCount = staticRoutes.length + 1
+
+  const byCity = groupByCity(restaurants)
+  for (const [cityName, cityRestaurants] of byCity) {
+    const slug = citySlug(cityName)
+    writeRouteHtml(
+      `/catalog/${slug}`,
+      applySeoTags(baseHtml, {
+        title: cityCatalogTitle(cityName),
+        description: cityCatalogDescription(cityName, cityRestaurants.length),
+        canonical: `${BASE_URL}/catalog/${slug}/`,
+        schema: cityCatalogSchema(cityName, cityRestaurants),
+        fallbackHtml: cityCatalogFallback(cityName, cityRestaurants),
+      }),
+    )
+    generatedCount += 1
+  }
 
   const chains = groupChains(restaurants)
   // # A chain's hub only actually resolves at request time when no restaurant
@@ -942,7 +1007,18 @@ async function main() {
     lastmod: today,
   }))
 
-  const allUrls = [...staticUrls, ...chainHubUrls, ...restaurantUrls]
+  // # Priority scales with how much real content the page has — a 1-restaurant
+  // # city is a legitimate page (real title/H1/listing, not a stub), just a
+  // # weaker one than Moscow's 450+, and the sitemap's priority field exists
+  // # precisely to say that.
+  const cityUrls = [...groupByCity(sitemapRestaurants).entries()].map(([cityName, cityRestaurants]) => ({
+    loc: `${BASE_URL}/catalog/${citySlug(cityName)}/`,
+    priority: cityRestaurants.length >= 50 ? '0.85' : cityRestaurants.length >= 10 ? '0.7' : '0.5',
+    changefreq: 'daily',
+    lastmod: today,
+  }))
+
+  const allUrls = [...staticUrls, ...cityUrls, ...chainHubUrls, ...restaurantUrls]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
