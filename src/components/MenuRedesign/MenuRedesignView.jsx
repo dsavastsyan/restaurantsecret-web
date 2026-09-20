@@ -46,6 +46,9 @@ export default function MenuRedesignView({
 
   query,
   setQuery,
+  selectedSection,
+  setSelectedSection,
+  sectionOptions,
   selectedCategory,
   setSelectedCategory,
   categoryOptions,
@@ -219,6 +222,29 @@ export default function MenuRedesignView({
             aria-label="Поиск блюда"
           />
         </div>
+
+        {sectionOptions.length > 1 && (
+          <div className="rsm2-section-switch" role="tablist" aria-label="Раздел меню">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedSection === 'food'}
+              className={selectedSection === 'food' ? 'is-on' : ''}
+              onClick={() => setSelectedSection('food')}
+            >
+              Еда
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedSection === 'drinks'}
+              className={selectedSection === 'drinks' ? 'is-on' : ''}
+              onClick={() => setSelectedSection('drinks')}
+            >
+              Напитки
+            </button>
+          </div>
+        )}
 
         <div className="rsm2-cats rsm2-desktop-only" style={{ display: 'flex' }}>
           {renderCatPills()}
