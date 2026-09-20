@@ -300,12 +300,19 @@ export default function Menu({
   }, [menu?.name, restaurantPoint, slug])
   const mobileMapOpenUrl = restaurantLinkUrl || mapOpenUrl
 
+  // A branch of a chain with a resolvable hub (menu.chainHubPath, set by the
+  // API — see restaurants.js) canonicalizes to that hub instead of itself:
+  // branch menus overlap heavily with their siblings, so this tells Google to
+  // consolidate ranking signal on the hub rather than treat every branch as a
+  // distinct, competing near-duplicate. The page still renders normally.
+  const canonicalPath = menu?.chainHubPath || `/restaurants/${slug}/menu/`
+
   useMeta({
     title: previewMode
       ? `Превью меню ${seoRestaurantName} — не опубликовано`
       : `Меню ${seoRestaurantName} с КБЖУ — калории, белки, жиры, углеводы`,
     description: seoDescription,
-    canonical: previewMode ? undefined : `https://restaurantsecret.ru/restaurants/${slug}/menu/`,
+    canonical: previewMode ? undefined : `https://restaurantsecret.ru${canonicalPath}`,
   })
 
   // Toggle a preset chip and re-run memoized filtering.

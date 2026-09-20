@@ -509,6 +509,14 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   let generatedCount = staticRoutes.length + 1
 
   const chains = groupChains(restaurants)
+  // # A chain's hub only actually resolves at request time when no restaurant
+  // # owns the bare chain slug outright (see getRestaurantBySlug/getChainHub
+  // # in the Worker) — some legacy single-location rows still squat on it.
+  // # Canonicalizing a branch to a hub URL that 404s or belongs to an
+  // # unrelated restaurant would be actively wrong, so branches only point at
+  // # the hub when it's confirmed to resolve.
+  const restaurantSlugs = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
+  const resolvableChainSlugs = new Set([...chains.keys()].filter((chainSlug) => !restaurantSlugs.has(chainSlug)))
   for (const [chainSlug, { chainName, branches }] of chains) {
     writeRouteHtml(
       `/restaurants/${chainSlug}`,
@@ -530,6 +538,16 @@ function generateStaticRoutes(restaurants, menuBySlug) {
     const menu = menuBySlug.get(slug)
     const dishes = flattenMenuForSeo(menu)
     const title = `Меню ${name} с КБЖУ — калории, белки, жиры, углеводы`
+    // # Branches of a chain with a resolvable hub carry heavily overlapping
+    // # menus (often the same name and most of the same dishes across
+    // # cities) — canonicalizing to the hub tells Google to consolidate
+    // # ranking signal there instead of treating every branch as a distinct,
+    // # competing near-duplicate. The page itself still renders normally for
+    // # visitors; only the search-engine signal changes.
+    const chainSlug = stripEmpty(restaurant.chainSlug)
+    const canonicalPath = chainSlug && resolvableChainSlugs.has(chainSlug)
+      ? `/restaurants/${chainSlug}/`
+      : `/restaurants/${slug}/menu/`
 
     writeRouteHtml(
       `/restaurants/${slug}`,
@@ -545,7 +563,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
       applySeoTags(baseHtml, {
         title,
         description,
-        canonical: `${BASE_URL}/restaurants/${slug}/menu/`,
+        canonical: `${BASE_URL}${canonicalPath}`,
         schema: restaurantSchema(restaurant, dishes),
         fallbackHtml: restaurantFallback(restaurant, dishes),
       }),
