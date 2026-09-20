@@ -12,12 +12,11 @@ import { getRussianPluralWord, matchesSearchQuery } from '@/lib/text'
 import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
+import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 
 // Fetch a large number to emulate "all" items since backend pagination seems flaky
 const FETCH_LIMIT = 1000;
 const PAGE_SIZE = 8;
-const CITY_SLUGS = { 'Москва': 'moskva', 'Санкт-Петербург': 'sankt-peterburg', 'Ижевск': 'izhevsk' }
-const citySlug = (name) => CITY_SLUGS[name] || encodeURIComponent(String(name).toLowerCase())
 
 const CuisineIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -102,12 +101,6 @@ export default function Catalog() {
   const selectedCity = cities.find((item) => citySlug(item.id) === cityPath || item.id === cityPath)
     || cities.find((item) => item.id === localStorage.getItem('catalog_city'))
     || { id: 'Москва', name: 'Москва' }
-
-  useMeta({
-    title: `Рестораны ${selectedCity.name} с КБЖУ — RestaurantSecret`,
-    description: `Рестораны города ${selectedCity.name}: меню, состав блюд и КБЖУ.`,
-    canonical: `https://restaurantsecret.ru/catalog/${citySlug(selectedCity.id)}/`,
-  })
 
   const { data: filters } = useSWRLite(`filters:${selectedCity.id}`, () => api.filters(selectedCity.id))
   const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
@@ -402,6 +395,14 @@ export default function Catalog() {
   const shownTo = Math.min(currentPage * PAGE_SIZE, displayItems.length)
   const totalRestaurantCount = allItems.length || Number(rawData?.total ?? rawData?.count ?? 0)
   const weeklyAdded = Number(landingStats?.weeklyAdded ?? 0)
+  const cityGenitiveName = cityGenitive(selectedCity.name)
+
+  useMeta({
+    title: cityCatalogTitle(selectedCity.name),
+    description: cityCatalogDescription(selectedCity.name, totalRestaurantCount),
+    canonical: `https://restaurantsecret.ru/catalog/${citySlug(selectedCity.id)}/`,
+  })
+
   const crossCitySuggestions = useMemo(() => (
     (crossCityResults?.otherCities || []).map((result) => {
       const city = cities.find((item) => item.id === result.city)
@@ -431,13 +432,14 @@ export default function Catalog() {
   return (
     <div className="catalog-page">
       <header className="catalog-heading">
-        <p className="catalog-heading__eyebrow">Каталог</p>
-        <h1 className="catalog-heading__title">Рестораны — {selectedCity.name}</h1>
+        <p className="catalog-heading__eyebrow">КБЖУ ресторанов</p>
+        <h1 className="catalog-heading__title">КБЖУ ресторанов {cityGenitiveName}</h1>
         <p className="catalog-heading__lead">
+          {'КБЖУ блюд в '}
           <strong>{totalRestaurantCount.toLocaleString('ru-RU')}</strong>
           {' '}
-          {getRussianPluralWord(totalRestaurantCount, 'ресторан', 'ресторана', 'ресторанов')}
-          {` города ${selectedCity.name} с полным меню и КБЖУ`}
+          {getRussianPluralWord(totalRestaurantCount, 'ресторане', 'ресторанах', 'ресторанах')}
+          {` ${cityGenitiveName}: калории, белки, жиры и углеводы из меню`}
           {weeklyAdded > 0 && (
             <>
               <span className="catalog-heading__sep" aria-hidden="true">·</span>
