@@ -27480,3 +27480,107 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
   font-size: 13px;
   line-height: 1.4;
 }
+/* Cloudflare Pages preview controls. This component is never rendered in production. */
+.preview-persona-panel {
+  position: fixed;
+  z-index: 10020;
+  top: 12px;
+  right: 12px;
+  width: min(360px, calc(100vw - 24px));
+  border: 1px solid rgba(126, 52, 24, 0.25);
+  border-radius: 14px;
+  background: #fff7ed;
+  box-shadow: 0 14px 40px rgba(67, 33, 18, 0.2);
+  color: #3f2317;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.preview-persona-panel__toggle {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.preview-persona-panel__toggle strong {
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: #b93815;
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.preview-persona-panel__toggle span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preview-persona-panel__body {
+  padding: 0 12px 12px;
+  border-top: 1px solid rgba(126, 52, 24, 0.12);
+}
+
+.preview-persona-panel__body > p {
+  margin: 10px 0;
+  color: #7c4b36;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.preview-persona-panel__personas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.preview-persona-panel__personas button,
+.preview-persona-panel__reset {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #ddbdad;
+  border-radius: 9px;
+  background: #fff;
+  color: #553021;
+  cursor: pointer;
+  font: 600 11px/1.25 Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.preview-persona-panel__personas button.is-active {
+  border-color: #b93815;
+  background: #fee2d5;
+  color: #8e270d;
+}
+
+.preview-persona-panel button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.preview-persona-panel__reset {
+  width: 100%;
+  margin-top: 8px;
+  border-style: dashed;
+  background: transparent;
+}
+
+.preview-persona-panel__message {
+  margin-bottom: 0 !important;
+  color: #2e6b43 !important;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .preview-persona-panel {
+    top: 8px;
+    right: 8px;
+    width: calc(100vw - 16px);
+  }
+}

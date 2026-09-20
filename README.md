@@ -42,6 +42,9 @@ This repository contains the user interface and client-side logic for Restaurant
 | `npm run dev` | Starts the Vite development server with hot module replacement. |
 | `npm run build` | Compiles the application for production and prepares the `/dist` folder. |
 | `npm run preview` | Locally previews the production build. |
+
+Cloudflare Pages PR previews and the staging-persona checklist are documented
+in [docs/staging-preview.md](docs/staging-preview.md).
 | `npm run test:e2e` | Runs end-to-end tests using Playwright. |
 
 ## Getting Started
