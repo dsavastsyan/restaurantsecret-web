@@ -6,17 +6,38 @@ import preview from '@/assets/anyeat-phone-left.png'
 import { Apple, BookText, Mail, Rocket, Utensils } from 'lucide-react'
 import './AnyEatLaunchModal.css'
 
-const WEEK = 7 * 24 * 60 * 60 * 1000
+const DAY = 24 * 60 * 60 * 1000
+const WEEK = 7 * DAY
 const STORAGE_KEY = 'rs_anyeat_launch_seen_v1'
+const FIRST_SEEN_KEY = 'rs_anyeat_launch_first_seen_v1'
 const CONSENT_VERSION = 'restaurantsecret-communications-2026-09-16'
 let launchModalRequested = false
 
-function readLastSeen() {
-  try { return Number(window.localStorage.getItem(STORAGE_KEY)) || 0 } catch { return 0 }
+function storageKey(base, userKey) {
+  return `${base}:${encodeURIComponent(userKey || 'unknown')}`
 }
 
-function markSeen() {
-  try { window.localStorage.setItem(STORAGE_KEY, String(Date.now())) } catch { /* storage can be disabled */ }
+function readTimestamp(key) {
+  try { return Number(window.localStorage.getItem(key)) || 0 } catch { return 0 }
+}
+
+function writeTimestamp(key, value = Date.now()) {
+  try { window.localStorage.setItem(key, String(value)) } catch { /* storage can be disabled */ }
+}
+
+function markSeen(userKey) {
+  if (!userKey) return
+  writeTimestamp(storageKey(STORAGE_KEY, userKey.trim().toLowerCase()))
+}
+
+function hasActiveTrial(subscription) {
+  const status = typeof subscription?.status === 'string' ? subscription.status.trim().toLowerCase() : ''
+  const statusNorm = typeof subscription?.statusNorm === 'string' ? subscription.statusNorm.trim().toLowerCase() : ''
+  const active = statusNorm === 'active' || status === 'active' || status === 'canceled'
+  if (!active || subscription?.is_trial !== true) return false
+  if (!subscription?.expires_at) return true
+  const expiresDate = new Date(subscription.expires_at)
+  return isNaN(expiresDate.getTime()) || expiresDate > new Date()
 }
 
 export function openAnyEatLaunchModal() {
@@ -28,10 +49,12 @@ export default function AnyEatLaunchModal({ eligible = false, embedded = false }
   const previewMode = import.meta.env.DEV && new URLSearchParams(window.location.search).get('anyeatPreview') === '1'
   const previewOpened = useRef(false)
   const token = useAuth((state) => state.accessToken)
+  const [audienceReady, setAudienceReady] = useState(Boolean(embedded || previewMode))
+  const [canShowAudience, setCanShowAudience] = useState(Boolean(embedded || previewMode))
   const [open, setOpen] = useState(() => {
     const requested = launchModalRequested
     launchModalRequested = false
-    return embedded || requested
+    return embedded || (previewMode && requested)
   })
   const [email, setEmail] = useState('')
   const [accountEmail, setAccountEmail] = useState('')
@@ -45,50 +68,104 @@ export default function AnyEatLaunchModal({ eligible = false, embedded = false }
     if (embedded) return
     if (!previewMode || previewOpened.current) return
     previewOpened.current = true
+    setAudienceReady(true)
+    setCanShowAudience(true)
     setOpen(true)
   }, [embedded, previewMode])
 
   useEffect(() => {
     if (embedded) return
-    const show = () => setOpen(true)
+    const show = () => {
+      if (!canShowAudience) return
+      markSeen(accountEmail)
+      setOpen(true)
+    }
     window.addEventListener('rs:anyeat-launch-open', show)
     return () => window.removeEventListener('rs:anyeat-launch-open', show)
-  }, [embedded])
+  }, [accountEmail, canShowAudience, embedded])
 
   useEffect(() => {
-    if (embedded || previewMode || !eligible || open || Date.now() - readLastSeen() < WEEK) return
+    if (embedded || previewMode || canShowAudience) return
+    setOpen(false)
+  }, [canShowAudience, embedded, previewMode])
+
+  useEffect(() => {
+    if (embedded || previewMode) return
+    if (!token) {
+      setAudienceReady(true)
+      setCanShowAudience(false)
+      setOpen(false)
+      setEmail('')
+      setAccountEmail('')
+      setKnownConsents({ personal_data_advertising: false, marketing_communications: false })
+      setConsents({ personal_data_advertising: false, marketing_communications: false })
+      return
+    }
+
+    let active = true
+    setAudienceReady(false)
+    setCanShowAudience(false)
+
+    Promise.all([
+      apiGet('/api/v1/me', token),
+      apiGet('/api/consent/communications', token),
+      apiGet('/api/subscriptions/status', token).catch(() => null),
+    ]).then(([me, consent, subscription]) => {
+      if (!active) return
+
+      const value = me?.user?.email || ''
+      const userKey = value.trim().toLowerCase()
+      setAccountEmail(value)
+      setEmail(value)
+
+      const known = {
+        personal_data_advertising: consent?.personal_data_advertising === true,
+        marketing_communications: consent?.marketing_communications === true,
+      }
+      setKnownConsents(known)
+      setConsents(known)
+
+      if (!userKey) {
+        setCanShowAudience(false)
+        return
+      }
+
+      const firstSeenKey = storageKey(FIRST_SEEN_KEY, userKey)
+      const now = Date.now()
+      let firstSeen = readTimestamp(firstSeenKey)
+      if (!firstSeen) {
+        firstSeen = now
+        writeTimestamp(firstSeenKey, now)
+      }
+
+      const acceptedBothConsents = known.personal_data_advertising && known.marketing_communications
+      const isRepeatVisit = now - firstSeen >= DAY
+      const lastSeen = readTimestamp(storageKey(STORAGE_KEY, userKey))
+      const recentlyShown = now - lastSeen < WEEK
+      setCanShowAudience(!acceptedBothConsents && hasActiveTrial(subscription) && isRepeatVisit && !recentlyShown)
+    }).catch(() => {
+      if (!active) return
+      setCanShowAudience(false)
+    }).finally(() => {
+      if (active) setAudienceReady(true)
+    })
+
+    return () => { active = false }
+  }, [embedded, previewMode, token])
+
+  useEffect(() => {
+    if (embedded || previewMode || !eligible || open || !audienceReady || !canShowAudience) return
     let actions = 0
     const onAction = (event) => {
       if (!event.isTrusted || event.target?.closest?.('.rs-anyeat')) return
       actions += 1
       if (actions < 2) return
-      markSeen()
+      markSeen(accountEmail)
       setOpen(true)
     }
     document.addEventListener('click', onAction)
     return () => document.removeEventListener('click', onAction)
-  }, [eligible, embedded, open, previewMode])
-
-  useEffect(() => {
-    if (!open || !token) return
-    let active = true
-    apiGet('/api/v1/me', token).then((result) => {
-      if (!active) return
-      const value = result?.user?.email || ''
-      setAccountEmail(value)
-      setEmail(value)
-    }).catch(() => {})
-    apiGet('/api/consent/communications', token).then((result) => {
-      if (!active) return
-      const known = {
-        personal_data_advertising: result?.personal_data_advertising === true,
-        marketing_communications: result?.marketing_communications === true,
-      }
-      setKnownConsents(known)
-      setConsents(known)
-    }).catch(() => {})
-    return () => { active = false }
-  }, [open, token])
+  }, [accountEmail, audienceReady, canShowAudience, eligible, embedded, open, previewMode])
 
   useEffect(() => {
     if (!open) return
@@ -135,8 +212,6 @@ export default function AnyEatLaunchModal({ eligible = false, embedded = false }
           <div className="rs-anyeat__content">
             <span className="rs-anyeat__badge"><Rocket size={17} />Скоро в приложении</span>
             <h2 id="rs-anyeat-title"><span>Вся еда</span><br />в одном месте</h2>
-            <h3>RestaurantSecret скоро будет в AnyEat</h3>
-            <p>Совсем скоро можно будет учитывать не только рестораны. Добавляем продукты, единый дневник питания и всё необходимое, чтобы следить за рационом в одном приложении.</p>
           </div>
           <div className="rs-anyeat__visual" aria-hidden="true">
             <div className="rs-anyeat__orb rs-anyeat__orb--one" /><div className="rs-anyeat__orb rs-anyeat__orb--two" />
@@ -159,7 +234,6 @@ export default function AnyEatLaunchModal({ eligible = false, embedded = false }
               {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /><span>Соглашаюсь получать рассылку RestaurantSecret о запуске AnyEat и других предложениях.</span></label>}
             </div>}
             {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
-            {!token && <p className="rs-anyeat__error">Чтобы сохранить согласия и сообщить о запуске, <a href="/login">войдите в аккаунт</a>.</p>}
             <small className="rs-anyeat__fine">Обещаем писать только по важным поводам <span aria-hidden="true">♡</span></small>
           </form>
         </>}
