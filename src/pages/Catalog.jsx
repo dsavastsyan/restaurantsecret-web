@@ -8,7 +8,7 @@ import { useSWRLite } from '../hooks/useSWRLite.js'
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants'
 import { useAuth } from '@/store/auth'
 import { analytics } from '@/services/analytics'
-import { getRussianPluralWord, matchesSearchQuery } from '@/lib/text'
+import { getRussianPluralWord, getSearchQueryScore, matchesSearchQuery } from '@/lib/text'
 import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
@@ -237,7 +237,7 @@ export default function Catalog() {
     const cuisines = selectedCuisines.map((c) => c?.toLowerCase())
     const metro = selectedMetro.trim().toLowerCase()
 
-    return allItems.filter((item) => {
+    const matches = allItems.filter((item) => {
       const cuisine = item?.cuisine?.toLowerCase() || ''
       const matchesQuery = !debouncedQuery || matchesSearchQuery(item?.name, debouncedQuery)
 
@@ -262,6 +262,13 @@ export default function Catalog() {
 
       return matchesQuery && matchesCuisine && matchesMetro
     })
+
+    if (!debouncedQuery) return matches
+
+    return matches
+      .map((item, index) => ({ item, index, score: getSearchQueryScore(item?.name, debouncedQuery) }))
+      .sort((left, right) => right.score - left.score || left.index - right.index)
+      .map(({ item }) => item)
   }, [debouncedQuery, allItems, selectedCuisines, selectedMetro])
 
   // Reset pagination when filters change
