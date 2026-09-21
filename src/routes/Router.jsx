@@ -18,8 +18,6 @@ const Search = lazy(() => import('../pages/Search.jsx'))
 const PaySuccess = lazy(() => import('../pages/PaySuccess.jsx'))
 const PaymentResult = lazy(() => import('../pages/PaymentResult.jsx'))
 const Login = lazy(() => import('../pages/Login.tsx'))
-const OnboardingWelcome = lazy(() => import('../pages/OnboardingWelcome.tsx'))
-const OnboardingProfile = lazy(() => import('../pages/OnboardingProfile.tsx'))
 const Contact = lazy(() => import('../pages/Contact.jsx'))
 const Legal = lazy(() => import('../pages/Legal.jsx'))
 const Privacy = lazy(() => import('../pages/Privacy.jsx'))
@@ -77,8 +75,6 @@ function AppRoutes({ onReady }) {
           {/* Публичные страницы */}
           <Route index element={<Landing />} />
           <Route path="login" element={<Login />} />
-          <Route path="onboarding/welcome" element={<OnboardingWelcome />} />
-          <Route path="onboarding/profile/:step" element={<OnboardingProfile />} />
           <Route path="legal" element={<Legal />} />
           <Route path="legal/versions/:date" element={<LegalVersionRoute />} />
           <Route path="tariffs" element={<Tariffs />} />
