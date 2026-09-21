@@ -6,7 +6,15 @@ import { useEffect } from 'react'
 /**
  * @param {{ title?: string, description?: string, canonical?: string, robots?: string }} params
  */
-export function useMeta({ title, description, canonical, robots } = {}) {
+export function useMeta(params = {}) {
+  const { title, description, canonical, robots } = params
+  // Distinguish "caller has an opinion about robots" (Menu.jsx always passes
+  // this key, even as undefined for an indexable page) from "caller never
+  // mentioned robots" (every other page) — only the former may clear an
+  // existing tag, so pages that don't opt in never fight a global default
+  // (e.g. the preview persona panel's blanket noindex).
+  const hasRobotsOpinion = Object.prototype.hasOwnProperty.call(params, 'robots')
+
   useEffect(() => {
     // Title
     if (title) {
@@ -35,27 +43,38 @@ export function useMeta({ title, description, canonical, robots } = {}) {
       el.setAttribute('href', canonical)
     }
 
-    let robotsEl = null
-    let previousRobots = null
-    let createdRobots = false
-    if (robots) {
-      robotsEl = document.querySelector('meta[name="robots"]')
-      if (!robotsEl) {
-        robotsEl = document.createElement('meta')
-        robotsEl.setAttribute('name', 'robots')
-        document.head.appendChild(robotsEl)
-        createdRobots = true
-      } else {
-        previousRobots = robotsEl.getAttribute('content')
+    let restoreRobots = null
+    if (hasRobotsOpinion) {
+      const existing = document.querySelector('meta[name="robots"]')
+      if (robots) {
+        if (existing) {
+          const previousContent = existing.getAttribute('content')
+          existing.setAttribute('content', robots)
+          restoreRobots = () => existing.setAttribute('content', previousContent)
+        } else {
+          const created = document.createElement('meta')
+          created.setAttribute('name', 'robots')
+          created.setAttribute('content', robots)
+          document.head.appendChild(created)
+          restoreRobots = () => created.remove()
+        }
+      } else if (existing) {
+        // The page explicitly has no robots restriction — remove any tag left
+        // by a global default (e.g. the preview persona panel) instead of
+        // silently inheriting it.
+        const previousContent = existing.getAttribute('content')
+        existing.remove()
+        restoreRobots = () => {
+          const restored = document.createElement('meta')
+          restored.setAttribute('name', 'robots')
+          restored.setAttribute('content', previousContent)
+          document.head.appendChild(restored)
+        }
       }
-      robotsEl.setAttribute('content', robots)
     }
 
     return () => {
-      if (!robotsEl) return
-      if (createdRobots) robotsEl.remove()
-      else if (previousRobots === null) robotsEl.removeAttribute('content')
-      else robotsEl.setAttribute('content', previousRobots)
+      restoreRobots?.()
     }
-  }, [title, description, canonical, robots])
+  }, [title, description, canonical, robots, hasRobotsOpinion])
 }
