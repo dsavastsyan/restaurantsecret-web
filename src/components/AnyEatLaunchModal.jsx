@@ -6,10 +6,8 @@ import preview from '@/assets/anyeat-phone-left.png'
 import { Apple, BookText, Mail, Rocket, Utensils } from 'lucide-react'
 import './AnyEatLaunchModal.css'
 
-const DAY = 24 * 60 * 60 * 1000
-const WEEK = 7 * DAY
+const WEEK = 7 * 24 * 60 * 60 * 1000
 const STORAGE_KEY = 'rs_anyeat_launch_seen_v1'
-const FIRST_SEEN_KEY = 'rs_anyeat_launch_first_seen_v1'
 const CONSENT_VERSION = 'restaurantsecret-communications-2026-09-16'
 let launchModalRequested = false
 
@@ -130,19 +128,10 @@ export default function AnyEatLaunchModal({ eligible = false, embedded = false }
         return
       }
 
-      const firstSeenKey = storageKey(FIRST_SEEN_KEY, userKey)
       const now = Date.now()
-      let firstSeen = readTimestamp(firstSeenKey)
-      if (!firstSeen) {
-        firstSeen = now
-        writeTimestamp(firstSeenKey, now)
-      }
-
-      const acceptedBothConsents = known.personal_data_advertising && known.marketing_communications
-      const isRepeatVisit = now - firstSeen >= DAY
       const lastSeen = readTimestamp(storageKey(STORAGE_KEY, userKey))
       const recentlyShown = now - lastSeen < WEEK
-      setCanShowAudience(!acceptedBothConsents && hasActiveTrial(subscription) && isRepeatVisit && !recentlyShown)
+      setCanShowAudience(hasActiveTrial(subscription) && !recentlyShown)
     }).catch(() => {
       if (!active) return
       setCanShowAudience(false)
