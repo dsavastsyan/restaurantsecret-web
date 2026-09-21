@@ -28,7 +28,9 @@ test('@smoke a chain branch menu page canonicalizes to the chain hub', async ({ 
   // origin — see src/config/api.js), not the SPA's own /restaurants/.../menu
   // route, which the app's client-side router also navigates to and which a
   // bare "**/restaurants/.../menu*" glob would incorrectly intercept too.
-  await page.route('**restaurantsecret-api-staging*/restaurants/syrovarnya-almetevsk/menu*', (route) =>
+  await page.route((url) =>
+    url.pathname.endsWith('/restaurants/syrovarnya-almetevsk/menu')
+      && (url.pathname.startsWith('/api/') || !['127.0.0.1', 'localhost'].includes(url.hostname)), (route) =>
     route.fulfill({ json: MENU_FIXTURE })
   )
 
@@ -39,10 +41,13 @@ test('@smoke a chain branch menu page canonicalizes to the chain hub', async ({ 
     'href',
     'https://restaurantsecret.ru/restaurants/syrovarnya/'
   )
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow')
 })
 
 test('@smoke a standalone restaurant menu page still canonicalizes to itself', async ({ page }) => {
-  await page.route('**restaurantsecret-api-staging*/restaurants/solo-restaurant/menu*', (route) =>
+  await page.route((url) =>
+    url.pathname.endsWith('/restaurants/solo-restaurant/menu')
+      && (url.pathname.startsWith('/api/') || !['127.0.0.1', 'localhost'].includes(url.hostname)), (route) =>
     route.fulfill({
       json: {
         ...MENU_FIXTURE,
@@ -64,4 +69,5 @@ test('@smoke a standalone restaurant menu page still canonicalizes to itself', a
     'href',
     'https://restaurantsecret.ru/restaurants/solo-restaurant/menu/'
   )
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0)
 })

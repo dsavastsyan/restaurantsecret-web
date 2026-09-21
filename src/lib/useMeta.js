@@ -4,9 +4,9 @@
 import { useEffect } from 'react'
 
 /**
- * @param {{ title?: string, description?: string, canonical?: string }} params
+ * @param {{ title?: string, description?: string, canonical?: string, robots?: string }} params
  */
-export function useMeta({ title, description, canonical } = {}) {
+export function useMeta({ title, description, canonical, robots } = {}) {
   useEffect(() => {
     // Title
     if (title) {
@@ -34,5 +34,28 @@ export function useMeta({ title, description, canonical } = {}) {
       }
       el.setAttribute('href', canonical)
     }
-  }, [title, description, canonical])
+
+    let robotsEl = null
+    let previousRobots = null
+    let createdRobots = false
+    if (robots) {
+      robotsEl = document.querySelector('meta[name="robots"]')
+      if (!robotsEl) {
+        robotsEl = document.createElement('meta')
+        robotsEl.setAttribute('name', 'robots')
+        document.head.appendChild(robotsEl)
+        createdRobots = true
+      } else {
+        previousRobots = robotsEl.getAttribute('content')
+      }
+      robotsEl.setAttribute('content', robots)
+    }
+
+    return () => {
+      if (!robotsEl) return
+      if (createdRobots) robotsEl.remove()
+      else if (previousRobots === null) robotsEl.removeAttribute('content')
+      else robotsEl.setAttribute('content', previousRobots)
+    }
+  }, [title, description, canonical, robots])
 }
