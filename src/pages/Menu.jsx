@@ -355,6 +355,7 @@ export default function Menu({
       : `Меню ${seoRestaurantName} с полным КБЖУ — калории, белки, жиры, углеводы`,
     description: seoDescription,
     canonical: previewMode ? undefined : `https://restaurantsecret.ru${canonicalPath}`,
+    robots: !previewMode && menu?.chainHubPath ? 'noindex, follow' : undefined,
   })
 
   // Toggle a preset chip and re-run memoized filtering.

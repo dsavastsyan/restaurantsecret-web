@@ -13,6 +13,7 @@ import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
+import { collapseChainRestaurants } from '@/lib/catalogChains'
 
 // Fetch a large number to emulate "all" items since backend pagination seems flaky
 const FETCH_LIMIT = 1000;
@@ -276,41 +277,12 @@ export default function Catalog() {
     setCurrentPage(1)
   }, [debouncedQuery, selectedCuisines, selectedMetro])
 
-  // Only while actively searching: a query like "сыроварня" matches every
-  // branch of a chain individually (each branch's own name already starts
-  // with the chain name) and would otherwise flood the results with 20+
-  // near-identical cards. Collapse each chain's matches into one card
-  // linking to its hub — browsing without a query still shows every branch
-  // as its own card, unchanged.
-  const displayItems = useMemo(() => {
-    if (!debouncedQuery) return filteredItems
-
-    const chainMatchCounts = new Map()
-    for (const item of filteredItems) {
-      if (!item.chainSlug) continue
-      chainMatchCounts.set(item.chainSlug, (chainMatchCounts.get(item.chainSlug) || 0) + 1)
-    }
-
-    const emittedChains = new Set()
-    const result = []
-    for (const item of filteredItems) {
-      const chainCount = item.chainSlug ? chainMatchCounts.get(item.chainSlug) : 0
-      if (item.chainSlug && chainCount >= 2) {
-        if (emittedChains.has(item.chainSlug)) continue
-        emittedChains.add(item.chainSlug)
-        result.push({
-          isChainCard: true,
-          slug: item.chainSlug,
-          name: item.chainName,
-          cuisine: item.cuisine,
-          chainCount,
-        })
-      } else {
-        result.push(item)
-      }
-    }
-    return result
-  }, [filteredItems, debouncedQuery])
+  // Physical branches remain reachable from their chain hub, but the catalog
+  // itself presents one card per chain rather than exposing branch pages.
+  const displayItems = useMemo(
+    () => collapseChainRestaurants(filteredItems),
+    [filteredItems],
+  )
 
   const totalPages = Math.max(1, Math.ceil(displayItems.length / PAGE_SIZE))
 
