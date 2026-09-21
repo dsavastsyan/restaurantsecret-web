@@ -15,7 +15,6 @@ const COMMUNICATION_CONSENT_VERSION = "restaurantsecret-communications-2026-09-1
 type PendingLogin = {
   token: string;
   nextPath: string;
-  needsOnboarding: boolean;
 };
 
 const normalizeAppPath = (value: unknown) => {
@@ -88,15 +87,11 @@ export default function LoginPage() {
     return hasActiveSubscription ? returnTo : redirectTo;
   };
 
-  const finishLogin = (token: string, needsOnboarding: boolean, nextPath: string) => {
+  const finishLogin = (token: string, nextPath: string) => {
     setToken(token);
     analytics.recordPolicyAcceptance();
     resetImmersiveViewport({ blurActiveElement: true });
-    if (needsOnboarding) {
-      navigate("/onboarding/welcome", { replace: true, state: { next: nextPath } });
-    } else {
-      navigate(nextPath, { replace: true });
-    }
+    navigate(nextPath, { replace: true });
   };
 
   useEffect(() => {
@@ -141,21 +136,18 @@ export default function LoginPage() {
       if (res?.ok && res?.access_token) {
         const nextPath = await resolvePostLoginRedirect(res.access_token);
 
-        const needsOnboarding = res.onboarding_completed !== true;
-
-        if (res.created && needsOnboarding) {
+        if (res.created) {
           analytics.reachGoal("signup_completed", { source_page: "login" });
           analytics.track("signup_completed", { source_page: "login" });
-          analytics.track("onboarding_started", { step: "welcome" });
         }
         analytics.track("login_success", { source_page: "login" });
 
         if (res.communication_consents_required === true) {
-          setPendingLogin({ token: res.access_token, nextPath, needsOnboarding });
+          setPendingLogin({ token: res.access_token, nextPath });
           resetImmersiveViewport({ blurActiveElement: true });
           setStep("consent");
         } else {
-          finishLogin(res.access_token, needsOnboarding, nextPath);
+          finishLogin(res.access_token, nextPath);
         }
       } else {
         setErr(res?.message || "Неверный код");
@@ -181,7 +173,7 @@ export default function LoginPage() {
         },
         pendingLogin.token,
       );
-      finishLogin(pendingLogin.token, pendingLogin.needsOnboarding, pendingLogin.nextPath);
+      finishLogin(pendingLogin.token, pendingLogin.nextPath);
     } catch {
       setErr("Не удалось сохранить выбор. Попробуйте ещё раз");
     } finally {
