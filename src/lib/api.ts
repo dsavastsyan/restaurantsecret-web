@@ -423,6 +423,8 @@ export async function getRestaurants(limit = 2000, city = "Москва"): Promi
   return publicGet<RestaurantListResponse>(`/restaurants?limit=${limit}&city=${encodeURIComponent(city)}`);
 }
 // Goals
+const USER_GOALS_PATH = "/api/v1/goals";
+
 export type UserGoalData = {
   user_id?: string;
   gender: 'male' | 'female' | null;
@@ -440,11 +442,11 @@ export type UserGoalData = {
 };
 
 export async function fetchUserGoals(token: string) {
-  return apiGet<{ ok: boolean; goals: UserGoalData | null }>("/api/goals", token);
+  return apiGet<{ ok: boolean; goals: UserGoalData | null }>(USER_GOALS_PATH, token);
 }
 
 export async function updateUserGoals(data: Partial<UserGoalData>, token: string) {
-  return apiPut("/api/goals", data, token);
+  return apiPut(USER_GOALS_PATH, data, token);
 }
 
 export async function apiPut<T = unknown>(path: string, body?: unknown, token?: string): Promise<T> {
