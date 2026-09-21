@@ -317,7 +317,14 @@ function isNearEditMatch(queryToken: string, targetToken: string): boolean {
 
 function tokenVariantMatches(queryToken: string, targetToken: string): boolean {
   if (!queryToken || !targetToken) return false;
-  if (targetToken.includes(queryToken) || queryToken.includes(targetToken)) return true;
+  // The user's (possibly long) query containing a candidate's word is a
+  // normal, wanted case — e.g. a short typed prefix like "си" should still
+  // find "Синнабон". But the reverse only means something if the candidate
+  // word being found isn't trivially short: otherwise a 2-letter word like
+  // "el" (from "El gaucho") coincidentally shows up inside an unrelated
+  // longer query ("ribambelle" contains "el") and counts as a match.
+  if (targetToken.includes(queryToken)) return true;
+  if (targetToken.length >= 3 && queryToken.includes(targetToken)) return true;
   if (almostEqualByPrefix(queryToken, targetToken)) return true;
   if (isNearSubsequence(queryToken, targetToken)) return true;
   if (isNearEditMatch(queryToken, targetToken)) return true;
@@ -364,7 +371,10 @@ function tokenMatchScore(queryToken: string, targetToken: string): number {
   if (queryToken === targetToken) return 100;
   if (targetToken.startsWith(queryToken)) return 80;
   if (targetToken.includes(queryToken)) return 60;
-  if (queryToken.includes(targetToken)) return 45;
+  // Same guard as tokenVariantMatches: don't let a trivially short (<3 char)
+  // candidate token count as a "containment" match just because it
+  // coincidentally occurs inside a longer, unrelated query.
+  if (targetToken.length >= 3 && queryToken.includes(targetToken)) return 45;
   if (almostEqualByPrefix(queryToken, targetToken)) return 35;
   if (isNearEditMatch(queryToken, targetToken)) return 25;
   if (isNearSubsequence(queryToken, targetToken)) return 15;
