@@ -1,5 +1,5 @@
 const env = typeof import.meta !== 'undefined' ? (import.meta.env ?? {}) : {}
-const API_BASE = (env.VITE_RESTAURANT_API_BASE || 'https://tg.restaurantsecret.ru').replace(/\/+$/, '')
+const API_BASE = (env.VITE_RESTAURANT_API_BASE || (env.DEV ? 'https://tg.restaurantsecret.ru' : '')).replace(/\/+$/, '')
 const CSRF_HEADER = 'X-CSRF-Token'
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -90,6 +90,16 @@ export const adminMenuRevisionsApi = {
     return request(`/api/admin/restaurants${params.size ? `?${params}` : ''}`)
   },
   parserRuns: () => request('/api/admin/parser-runs'),
+  manualMenus: () => request('/api/admin/manual-menu-freshness'),
+  updateManualMenuSource: (slug, body) =>
+    request(`/api/admin/manual-menu-freshness/${encodeURIComponent(slug)}/source`, {
+      method: 'PATCH',
+      body,
+    }),
+  confirmManualMenu: (slug) =>
+    request(`/api/admin/manual-menu-freshness/${encodeURIComponent(slug)}/confirm`, {
+      method: 'POST',
+    }),
   createRestaurant: (body) => request('/api/admin/restaurants', { method: 'POST', body }),
   updateRestaurant: (slug, body) =>
     request(`/api/admin/restaurants/${encodeURIComponent(slug)}`, { method: 'PATCH', body }),
@@ -122,6 +132,11 @@ export const adminMenuRevisionsApi = {
       body: { decision },
     }),
   kbjuFlaggedProducts: () => request('/api/admin/kbju-flagged-products'),
+  kbjuFlaggedRestaurantItems: () => request('/api/admin/kbju-flagged-restaurant-items'),
+  approveKbjuFlag: (kind, itemId) =>
+    request(`/api/admin/kbju-flags/${encodeURIComponent(kind)}/${encodeURIComponent(itemId)}/approve`, {
+      method: 'POST',
+    }),
   restaurantAttributeReviews: (status = 'pending') => {
     const params = new URLSearchParams({ status })
     return request(`/api/admin/restaurant-attribute-reviews?${params}`)
@@ -140,4 +155,12 @@ export const adminMenuRevisionsApi = {
       method: 'PATCH',
       body,
     }),
+  outreach: ({ city = '' } = {}) => {
+    const params = new URLSearchParams()
+    if (city) params.set('city', city)
+    return request(`/api/admin/outreach${params.size ? `?${params}` : ''}`)
+  },
+  importOutreach: (city) => request('/api/admin/outreach/import', { method: 'POST', body: { city } }),
+  updateOutreach: (candidateId, body) =>
+    request(`/api/admin/outreach/${encodeURIComponent(candidateId)}`, { method: 'PATCH', body }),
 }

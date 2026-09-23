@@ -1,18 +1,18 @@
 export type Gender = 'male' | 'female';
-export type ActivityLevel = 'min' | 'light' | 'avg' | 'high';
-export type GoalType = 'lose' | 'maintain' | 'gain';
+export type ActivityLevel = 'low' | 'medium' | 'high' | 'very_high';
+export type GoalType = 'lose_weight' | 'maintain_weight' | 'gain_weight';
 
 export const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
-    min: 1.2,
-    light: 1.375,
-    avg: 1.55,
-    high: 1.725
+    low: 1.2,
+    medium: 1.375,
+    high: 1.55,
+    very_high: 1.725
 };
 
 export const GOAL_MULTIPLIERS: Record<GoalType, number> = {
-    lose: 0.8,
-    maintain: 1.0,
-    gain: 1.1
+    lose_weight: 0.8,
+    maintain_weight: 1.0,
+    gain_weight: 1.1
 };
 
 export type UserStats = {

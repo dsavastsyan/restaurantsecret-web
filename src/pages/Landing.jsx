@@ -11,11 +11,13 @@ import { getLandingStats, getRestaurants, postSuggest } from '@/lib/api'
 import { toast } from '@/lib/toast'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
-import { useDiaryStore } from '@/store/diary'
+import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal'
 import { useFavoritesStore } from '@/store/favorites'
 import { analytics } from '@/services/analytics'
 import { useMeta } from '@/lib/useMeta'
 import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
+import { api } from '@/api/client'
+import { persistCityPreference, saveCatalogCity } from '@/lib/cityPreference'
 
 const STATS_FALLBACK = {
   restaurants: 0,
@@ -23,13 +25,21 @@ const STATS_FALLBACK = {
   points: 0,
   weeklyAdded: 0,
 }
-// Временная заглушка: показываем базовые 5 "добавлено за неделю" + реальный счётчик поверх.
-// Убрать, когда бэкенд будет стабильно отдавать реальные еженедельные добавления.
-const WEEKLY_ADDED_BASELINE = 5
 const FEATURED_RESTAURANTS_LIMIT = 12
 const RestaurantMap = lazy(() => import('@/components/RestaurantMap'))
 
 const POPULAR_QUERIES = ['бургер', 'боул с лососем', 'салат цезарь', 'стейк', 'паста']
+const CITY_SLUGS = {
+  'Москва': 'moskva',
+  'Санкт-Петербург': 'sankt-peterburg',
+  'Нижний Новгород': 'nizhniy-novgorod',
+  'Екатеринбург': 'ekaterinburg',
+  'Казань': 'kazan',
+  'Ижевск': 'izhevsk',
+}
+const DEV_DETECTED_CITY = import.meta.env.DEV
+  ? new URLSearchParams(window.location.search).get('detected_city')?.trim() || null
+  : null
 
 const SAMPLE_DISHES = [
   {
@@ -91,10 +101,6 @@ const VALUE_CARDS = [
   },
 ]
 
-function buildSearchUrl(query) {
-  return `/search?q=${encodeURIComponent(query)}&type=dish`
-}
-
 function getRussianPluralWord(value, one, few, many) {
   const abs = Math.abs(Number(value))
   const mod10 = abs % 10
@@ -127,7 +133,6 @@ export default function Landing() {
   const showTrialAction = !accessToken || (isSubscriptionStatusLoaded && !showAccountAction)
   const subscriptionCheckoutLink = getSubscriptionCheckoutLink(accessToken, location.pathname + location.search)
   const accessTokenOrUndefined = accessToken || undefined
-  const addDiaryEntry = useDiaryStore((state) => state.addEntry)
   const isFavoriteDish = useFavoritesStore((state) => state.isFavorite)
   const toggleFavoriteDish = useFavoritesStore((state) => state.toggle)
 
@@ -135,6 +140,10 @@ export default function Landing() {
   const [heroStats, setHeroStats] = useState({ restaurants: 0, dishes: 0, weeklyAdded: 0 })
   const [mapStats, setMapStats] = useState({ points: 0 })
   const [query, setQuery] = useState('')
+  const [catalogCities, setCatalogCities] = useState([])
+  const [selectedCatalogCity, setSelectedCatalogCity] = useState(() => localStorage.getItem('catalog_city') || 'Москва')
+  const [cityPickerOpen, setCityPickerOpen] = useState(false)
+  const [suggestedCity, setSuggestedCity] = useState(null)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [isCookieModalOpen, setIsCookieModalOpen] = useState(false)
   const [restaurant, setRestaurant] = useState('')
@@ -150,6 +159,43 @@ export default function Landing() {
   const suggestZoneRef = useRef(null)
   const mapSectionRef = useRef(null)
 
+  useEffect(() => {
+    api.cities().then((response) => setCatalogCities(response.items || [])).catch(() => setCatalogCities([]))
+  }, [])
+
+  useEffect(() => {
+    if (localStorage.getItem('catalog_city')) return
+    if (DEV_DETECTED_CITY) {
+      setSuggestedCity(DEV_DETECTED_CITY)
+      return
+    }
+    api.detectedCity()
+      .then((response) => {
+        if (localStorage.getItem('catalog_city')) return
+        const detectedCity = response?.city || null
+        setSuggestedCity(detectedCity || 'Москва')
+        if (detectedCity) {
+          persistCityPreference(detectedCity, 'ip', accessToken).catch((error) => {
+            console.error('Failed to persist detected city', error)
+          })
+        }
+      })
+      .catch(() => {
+        if (!localStorage.getItem('catalog_city')) setSuggestedCity('Москва')
+      })
+  }, [accessToken])
+
+  useEffect(() => {
+    if (!cityPickerOpen) return undefined
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') setCityPickerOpen(false)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [cityPickerOpen])
+
   const resolvedStats = useMemo(() => ({
     restaurants: heroStats.restaurants > 0 ? heroStats.restaurants : STATS_FALLBACK.restaurants,
     dishes: heroStats.dishes > 0 ? heroStats.dishes : STATS_FALLBACK.dishes,
@@ -163,14 +209,17 @@ export default function Landing() {
   const dishesLabel = resolvedStats.dishes > 0
     ? resolvedStats.dishes.toLocaleString('ru-RU')
     : '—'
-  const weeklyAddedLabel = `+${(WEEKLY_ADDED_BASELINE + resolvedStats.weeklyAdded).toLocaleString('ru-RU')}`
+  const weeklyAddedLabel = `+${resolvedStats.weeklyAdded.toLocaleString('ru-RU')}`
   const pointsLabel = resolvedStats.points > 0
     ? resolvedStats.points.toLocaleString('ru-RU')
     : '—'
+  const pointsWord = resolvedStats.points > 0
+    ? getRussianPluralWord(resolvedStats.points, 'точка', 'точки', 'точек')
+    : 'точек'
   const extraRestaurantsCount = Math.max(totalRestaurantsCount - featuredRestaurants.length, 0)
   const extraRestaurantsLabel = totalRestaurantsCount > 0
-    ? `- и ещё ${extraRestaurantsCount.toLocaleString('ru-RU')} заведений Москвы -`
-    : '- и ещё — заведений Москвы -'
+    ? `- и ещё ${extraRestaurantsCount.toLocaleString('ru-RU')} заведений города ${selectedCatalogCity} -`
+    : `- и ещё — заведений города ${selectedCatalogCity} -`
 
   useEffect(() => {
     analytics.track('landing_open')
@@ -180,7 +229,8 @@ export default function Landing() {
   useEffect(() => {
     let cancelled = false
 
-    getLandingStats()
+    setHeroStats({ restaurants: 0, dishes: 0, weeklyAdded: 0 })
+    getLandingStats(selectedCatalogCity)
       .then((payload) => {
         if (cancelled) return
         setHeroStats({
@@ -196,12 +246,14 @@ export default function Landing() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [selectedCatalogCity])
 
   useEffect(() => {
     let cancelled = false
 
-    getRestaurants(2000)
+    setFeaturedRestaurants([])
+    setTotalRestaurantsCount(0)
+    getRestaurants(2000, selectedCatalogCity)
       .then((payload) => {
         if (cancelled) return
         const items = Array.isArray(payload?.items) ? payload.items : []
@@ -228,7 +280,7 @@ export default function Landing() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [selectedCatalogCity])
 
   useEffect(() => {
     if (!suggestOpen) return
@@ -288,16 +340,20 @@ export default function Landing() {
 
   function handleSearchSubmit(event) {
     event.preventDefault()
-    const trimmed = query.trim()
+    openCatalogSearch(query)
+  }
+
+  function openCatalogSearch(value) {
+    const trimmed = value.trim()
     if (!trimmed) return
-    analytics.track('search_submit', { type: 'query', query: trimmed })
-    navigate(buildSearchUrl(trimmed))
+    analytics.track('search_submit', { type: 'query', selected_city: selectedCatalogCity, has_query: true })
+    navigate(`/catalog/${CITY_SLUGS[selectedCatalogCity] || encodeURIComponent(selectedCatalogCity.toLowerCase())}/?q=${encodeURIComponent(trimmed)}`)
   }
 
   function handlePopularClick(value) {
     setQuery(value)
     analytics.track('search_submit', { type: 'query', query: value, source: 'landing_popular_chip' })
-    navigate(buildSearchUrl(value))
+    navigate(`/catalog/${CITY_SLUGS[selectedCatalogCity] || encodeURIComponent(selectedCatalogCity.toLowerCase())}/?q=${encodeURIComponent(value)}`)
   }
 
   async function toggleDishLike(event, dishCard) {
@@ -319,30 +375,9 @@ export default function Landing() {
     await toggleFavoriteDish(accessToken, dishCard.id, dishCard.restaurantSlug)
   }
 
-  async function addDishToDiary(event, dishCard) {
+  function addDishToDiary(event) {
     event.stopPropagation()
-    if (!accessToken) {
-      navigate('/login', { state: { from: location.pathname + location.search } })
-      return
-    }
-
-    await addDiaryEntry(accessToken, {
-      dish_id: dishCard.id,
-      restaurant_slug: dishCard.restaurantSlug,
-      restaurant_name: dishCard.restaurant,
-      name: dishCard.name,
-      calories: dishCard.kcal,
-      protein: dishCard.p,
-      fat: dishCard.f,
-      carbs: dishCard.c,
-    })
-
-    analytics.track('diary_add', {
-      dish_id: dishCard.id,
-      name: dishCard.name,
-      restaurant: dishCard.restaurantSlug,
-      source: 'landing_sample_card',
-    })
+    openAnyEatLaunchModal()
   }
 
   async function handleSuggestSubmit(event) {
@@ -430,6 +465,38 @@ export default function Landing() {
         <section className="landing-warm__hero landing-warm__hero--botanic" id="top" style={{ position: 'relative' }}>
           <CityMapBackground themeMode={themeMode} variant="botanic" />
           <BotanicDecor />
+          <div className="landing-warm__city-picker landing-warm__city-picker--mobile">
+            <button
+              type="button"
+              className="landing-warm__city-trigger"
+              aria-haspopup="dialog"
+              aria-expanded={cityPickerOpen}
+              onClick={() => setCityPickerOpen(true)}
+            >
+              <span aria-hidden="true" className="landing-warm__city-pin">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M12 21s7-6.1 7-12A7 7 0 1 0 5 9c0 5.9 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>
+              </span>
+              <span className="landing-warm__city-mobile-label">Ваш город:</span>
+              <strong>{selectedCatalogCity}</strong>
+              <span aria-hidden="true" className="landing-warm__city-chevron">⌄</span>
+            </button>
+          </div>
+          {suggestedCity && (
+            <aside className="landing-warm__city-suggestion landing-warm__city-suggestion--mobile" aria-live="polite">
+              <span>Ваш город — <strong>{suggestedCity}</strong>?</span>
+              <span className="landing-warm__city-suggestion-actions">
+                <button className="landing-warm__city-confirm" type="button" onClick={() => {
+                  setSelectedCatalogCity(suggestedCity)
+                  saveCatalogCity(suggestedCity, 'confirmed', accessToken)
+                  setSuggestedCity(null)
+                }}>Да, это мой город</button>
+                <button type="button" onClick={() => {
+                  setSuggestedCity(null)
+                  setCityPickerOpen(true)
+                }}>Сменить</button>
+              </span>
+            </aside>
+          )}
           <h1 className="landing-warm__hero-title">
             Ешь вкусно,
             <br />
@@ -440,13 +507,84 @@ export default function Landing() {
             Все меню ресторанов с КБЖУ и составом блюд - выбирайте то, что подходит именно вам
           </p>
 
-          <form className="landing-warm__search" onSubmit={handleSearchSubmit}>
-            <span className="landing-warm__search-icon" aria-hidden="true">
-              <SearchIcon />
-            </span>
-            <SearchInput value={query} onChange={setQuery} />
-            <button type="submit" className="landing-warm__search-submit">Найти</button>
-          </form>
+          <div className="landing-warm__search-shell">
+            {suggestedCity && (
+              <aside className="landing-warm__city-suggestion landing-warm__city-suggestion--desktop" aria-live="polite">
+                <span>Ваш город — <strong>{suggestedCity}</strong>?</span>
+                <span className="landing-warm__city-suggestion-actions">
+                  <button className="landing-warm__city-confirm" type="button" onClick={() => {
+                    setSelectedCatalogCity(suggestedCity)
+                    saveCatalogCity(suggestedCity, 'confirmed', accessToken)
+                    setSuggestedCity(null)
+                  }}>Да, это мой город</button>
+                  <button type="button" onClick={() => {
+                    setSuggestedCity(null)
+                    setCityPickerOpen(true)
+                  }}>Сменить</button>
+                </span>
+              </aside>
+            )}
+            <div className="landing-warm__city-picker landing-warm__city-picker--desktop">
+              <span className="landing-warm__city-caption">Ищем рестораны в</span>
+              <button
+                type="button"
+                className="landing-warm__city-trigger"
+                aria-haspopup="dialog"
+                aria-expanded={cityPickerOpen}
+                onClick={() => setCityPickerOpen(true)}
+              >
+                <span aria-hidden="true" className="landing-warm__city-pin">
+                  <svg viewBox="0 0 24 24" focusable="false"><path d="M12 21s7-6.1 7-12A7 7 0 1 0 5 9c0 5.9 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>
+                </span>
+                {selectedCatalogCity}
+                <span aria-hidden="true" className="landing-warm__city-chevron">⌄</span>
+              </button>
+            </div>
+
+            <form className="landing-warm__search" onSubmit={handleSearchSubmit}>
+              <span className="landing-warm__search-icon" aria-hidden="true">
+                <SearchIcon />
+              </span>
+              <SearchInput value={query} onChange={setQuery} onSubmit={openCatalogSearch} />
+              <button type="submit" className="landing-warm__search-submit">Найти</button>
+            </form>
+          </div>
+
+          {cityPickerOpen && (
+            <div className="landing-warm__city-modal" role="presentation" onMouseDown={() => setCityPickerOpen(false)}>
+              <section
+                className="landing-warm__city-sheet"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="landing-city-title"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <div className="landing-warm__city-sheet-handle" aria-hidden="true" />
+                <div className="landing-warm__city-sheet-head">
+                  <h2 id="landing-city-title">Выберите город</h2>
+                  <button type="button" aria-label="Закрыть выбор города" onClick={() => setCityPickerOpen(false)}>×</button>
+                </div>
+                <div className="landing-warm__city-options">
+                  {(catalogCities.length ? catalogCities : [{ id: 'Москва', name: 'Москва' }]).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={item.id === selectedCatalogCity ? 'is-selected' : ''}
+                      onClick={() => {
+                        setSelectedCatalogCity(item.id)
+                        saveCatalogCity(item.id, 'manual', accessToken)
+                        setSuggestedCity(null)
+                        setCityPickerOpen(false)
+                      }}
+                    >
+                      <span>{item.name}</span>
+                      {item.id === selectedCatalogCity && <span aria-hidden="true">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
 
           <div className="landing-warm__chips" aria-label="Популярные запросы">
             <span className="landing-warm__chips-label">Популярно:</span>
@@ -464,7 +602,7 @@ export default function Landing() {
 
           <div className="landing-warm__stats">
             <Link
-              to="/catalog/"
+              to={`/catalog/${CITY_SLUGS[selectedCatalogCity] || encodeURIComponent(selectedCatalogCity.toLowerCase())}/`}
               className="landing-warm__stat"
               aria-label="Открыть список ресторанов"
             >
@@ -479,7 +617,7 @@ export default function Landing() {
               </span>
             </Link>
             <Link
-              to="/catalog/"
+              to={`/catalog/${CITY_SLUGS[selectedCatalogCity] || encodeURIComponent(selectedCatalogCity.toLowerCase())}/`}
               className="landing-warm__stat"
               aria-label="Открыть список ресторанов с блюдами КБЖУ"
             >
@@ -487,7 +625,7 @@ export default function Landing() {
               <span>блюд с КБЖУ</span>
             </Link>
             <Link
-              to="/catalog/"
+              to={`/catalog/${CITY_SLUGS[selectedCatalogCity] || encodeURIComponent(selectedCatalogCity.toLowerCase())}/`}
               className="landing-warm__stat"
               aria-label="Открыть список ресторанов с новыми блюдами"
             >
@@ -609,7 +747,7 @@ export default function Landing() {
             ))}
           </div>
 
-          <Link className="landing-warm__featured-caption" to="/catalog/">
+          <Link className="landing-warm__featured-caption" to={`/catalog/${CITY_SLUGS[selectedCatalogCity] || encodeURIComponent(selectedCatalogCity.toLowerCase())}/`}>
             {extraRestaurantsLabel}
           </Link>
 
@@ -687,6 +825,7 @@ export default function Landing() {
               <Suspense fallback={<div className="landing-warm__map-placeholder" aria-hidden="true" />}>
                 <RestaurantMap
                   themeMode={themeMode}
+                  selectedCity={selectedCatalogCity}
                   showSummaryHeader={false}
                   openFullscreenSignal={openMapFullscreenSignal}
                   onStatsChange={(next) => {
@@ -699,7 +838,7 @@ export default function Landing() {
             )}
 
             <aside className="landing-warm__map-overlay">
-              <h3>{pointsLabel} точек на карте Москвы</h3>
+              <h3>{pointsLabel} {pointsWord} на карте города {selectedCatalogCity}</h3>
               <p>Посмотрите ближайшие рестораны и их меню.</p>
               <button
                 type="button"

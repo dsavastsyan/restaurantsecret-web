@@ -4,20 +4,69 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
+import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '../src/lib/cityCatalog.js'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
+// Not a secret — IndexNow keys are published at <site>/<key>.txt on purpose,
+// so engines can verify site ownership. The matching file lives at
+// public/8d5bab7bc21a1fbe825eed5f83c91fa8.txt.
+const INDEXNOW_KEY = '8d5bab7bc21a1fbe825eed5f83c91fa8'
+const INDEXNOW_ENABLED = process.env.SITEMAP_SKIP_INDEXNOW !== 'true'
+// # Matches the API's own DEFAULT_CITY (functions/routes/restaurants.js) — a
+// # bare `/restaurants/{slug}/menu/` URL with no ?city= always resolves to
+// # this city when the slug is ambiguous, so that's the one entry we can keep
+// # generating a page for without guessing.
+const DEFAULT_CITY = 'Москва'
+// # A restaurant row's slug occasionally gets retired — renamed off a chain's
+// # bare slug so the chain hub can resolve there instead (see
+// # RestaurantSecret/sql/2026-09-20_unblock_chain_hubs_and_dedupe.sql), or
+// # merged away as a duplicate of a sibling row. The API has no memory of the
+// # old slug once that happens, so without this map the next build would
+// # simply stop emitting anything at the old URL — a hard 404 for whatever
+// # Google/visitors already had indexed or bookmarked there, instead of
+// # carrying that signal to wherever the content actually lives now. Add an
+// # entry here (old restaurant slug → the slug that now serves that content)
+// # every time a migration like this retires a slug that was ever live.
+const RETIRED_RESTAURANT_SLUGS = {
+  // 2026-09-20: unblocked chain hubs by renaming the flagship location off
+  // the bare chain slug — each still serves its own menu, just at a new address.
+  'domino-pizza': 'domino-pizza-moskva',
+  'tkemali': 'tkemali-moskva',
+  'cutfish': 'cutfish-moskva',
+  'fettucciamo': 'fettucciamo-moskva',
+  'coba': 'coba-moskva',
+  'kaia': 'kaia-moskva',
+  // 2026-09-20: deduped — these were the same physical restaurant recorded
+  // twice; the surviving row now carries all the content.
+  'no_sugar': 'no-sugar',
+  'abu_gosh': 'abu-gosh',
+  'papa-john-s': 'papa-john-s-ekaterinburg',
+}
 const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
 const STRICT_API_FETCH = process.env.SITEMAP_STRICT_API_FETCH === 'true'
-const API_URLS = Array.from(
-  new Set(
-    [
+const API_KEY = process.env.SITEMAP_API_KEY || ''
+const MIN_RESTAURANTS = Math.max(0, Number(process.env.SITEMAP_MIN_RESTAURANTS || 0))
+const cloudflarePagesBranch = process.env.CF_PAGES_BRANCH
+const isCloudflarePagesPreview = Boolean(
+  cloudflarePagesBranch && !['main', 'master'].includes(cloudflarePagesBranch)
+)
+const defaultApiUrls = isCloudflarePagesPreview
+  ? ['https://restaurantsecret-api-staging.dsavastyan.workers.dev']
+  : ['https://pd.restaurantsecret.ru/cf', 'https://api.restaurantsecret.ru/cf']
+const configuredApiUrls = isCloudflarePagesPreview
+  ? []
+  : [
       process.env.SITEMAP_API_URL,
       process.env.VITE_API_BASE_URL,
       process.env.VITE_API_BASE,
       process.env.VITE_API_URL,
-      'https://pd.restaurantsecret.ru/cf',
-      'https://api.restaurantsecret.ru/cf',
+    ]
+const API_URLS = Array.from(
+  new Set(
+    [
+      ...configuredApiUrls,
+      ...defaultApiUrls,
     ]
       .filter(Boolean)
       .map((url) => url.replace(/\/+$/, '')),
@@ -29,7 +78,10 @@ async function fetchJson(url) {
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    const res = await fetch(url, { signal: controller.signal })
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: API_KEY ? { 'X-RS-Sitemap-Key': API_KEY } : undefined,
+    })
     if (!res.ok) {
       throw new Error(`${res.status} ${res.statusText}`)
     }
@@ -64,6 +116,17 @@ function escapeHtml(value) {
 function stripEmpty(value) {
   const text = String(value ?? '').trim()
   return text || undefined
+}
+
+// A slug like "el-gaucho" or "horoshaya-devochka-nan" never comes from a
+// dash-free real-world restaurant name, so it's the one reliable signal
+// that we're about to show a URL slug where a name belongs.
+function looksLikeSlug(value) {
+  return /^[a-z0-9]+(-[a-z0-9]+)+$/.test(value)
+}
+
+function capitalizeFirst(value) {
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function toNumber(value) {
@@ -182,6 +245,20 @@ function applySeoTags(baseHtml, route) {
     )
   }
 
+  // Deliberately just {name, dishCount} — both already public (same numbers
+  // sit in the description/schema above). This lets the client show the
+  // correct name and dish count on the very first paint, before its own
+  // fetch resolves, without embedding real menu/nutrition data — that stays
+  // behind the paywall's live, authenticated API call (see the deliberate
+  // kcal/protein/fat/carbs omission in dishNamesByCategory below, and the
+  // prior paywall-leak-fix incident this must not repeat).
+  if (route.seoHint) {
+    html = injectBeforeHeadClose(
+      html,
+      `<script id="rs-seo-hint" type="application/json">${JSON.stringify(route.seoHint)}</script>`,
+    )
+  }
+
   if (route.fallbackHtml) {
     html = html.replace('<div id="root"></div>', `<div id="root">${route.fallbackHtml}</div>`)
   }
@@ -211,21 +288,35 @@ function createRedirectHtml({ from, to, title = 'Переадресация — 
 }
 
 function getRestaurantName(restaurant) {
-  return stripEmpty(restaurant.name) || stripEmpty(restaurant.title) || stripEmpty(restaurant.slug) || 'Ресторан'
+  const name = stripEmpty(restaurant.name) || stripEmpty(restaurant.title)
+  if (name && !looksLikeSlug(name)) return capitalizeFirst(name)
+  return 'Ресторан'
 }
 
-function getRestaurantDescription(restaurant) {
+function getRestaurantDescription(restaurant, dishCount) {
   const name = getRestaurantName(restaurant)
-  const cuisine = stripEmpty(restaurant.cuisine)
-  const metro = stripEmpty(restaurant.metro || restaurant.metroName || restaurant.metro_name)
-  const parts = [`Меню ${name} с КБЖУ: калории, белки, жиры и углеводы блюд ресторана.`]
-  if (cuisine) parts.push(`Кухня ресторана: ${cuisine}.`)
-  if (metro) parts.push(`Рядом с метро ${metro}.`)
-  parts.push(`Сравнивайте блюда ${name} по калорийности и макронутриентам перед посещением ресторана.`)
-  return parts.join(' ')
+  const n = Number.isFinite(dishCount) ? dishCount : 0
+  const dishWord = pluralizeRu(n, ['блюдо', 'блюда', 'блюд'])
+  return `${n} ${dishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${name} перед посещением ресторана.`
 }
 
-function restaurantSchema(restaurant) {
+// hasMenu carries dish names only (no NutritionInformation) — same
+// numbers-stay-in-the-app rule as the HTML fallback above.
+function restaurantMenuSchema(dishes) {
+  if (!dishes.length) return undefined
+
+  const groups = dishNamesByCategory(dishes)
+  return {
+    '@type': 'Menu',
+    hasMenuSection: groups.map((group) => ({
+      '@type': 'MenuSection',
+      name: group.category,
+      hasMenuItem: group.names.map((name) => ({ '@type': 'MenuItem', name })),
+    })),
+  }
+}
+
+function restaurantSchema(restaurant, dishes = []) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
   return {
@@ -238,10 +329,11 @@ function restaurantSchema(restaurant) {
       ? {
           '@type': 'PostalAddress',
           streetAddress: stripEmpty(restaurant.address),
-          addressLocality: 'Москва',
+          addressLocality: stripEmpty(restaurant.city) || 'Москва',
           addressCountry: 'RU',
         }
       : undefined,
+    hasMenu: restaurantMenuSchema(dishes),
   }
 }
 
@@ -267,23 +359,162 @@ function restaurantCatalogLinks(restaurants) {
     .sort((a, b) => a.label.localeCompare(b.label, 'ru'))
 }
 
-function restaurantFallback(restaurant, menu) {
+// { "Москва" => [restaurant, ...], "Санкт-Петербург" => [...], ... } — every
+// distinct city value on an active restaurant row gets its own catalog
+// landing page, however small (deliberate — not gated on a minimum
+// restaurant count).
+function groupByCity(restaurants) {
+  const byCity = new Map()
+  for (const restaurant of restaurants) {
+    const city = stripEmpty(restaurant.city)
+    if (!city) continue
+    const list = byCity.get(city) ?? []
+    list.push(restaurant)
+    byCity.set(city, list)
+  }
+  return byCity
+}
+
+function cityCatalogSchema(cityName, cityRestaurants) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `Рестораны с КБЖУ — ${cityName}`,
+    itemListElement: cityRestaurants
+      .filter((r) => r.slug)
+      .map((r, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: `${BASE_URL}/restaurants/${r.slug}/menu/`,
+      })),
+  }
+}
+
+function cityCatalogFallback(cityName, cityRestaurants) {
+  const description = cityCatalogDescription(cityName, cityRestaurants.length)
+  const links = restaurantCatalogLinks(cityRestaurants)
+  const linkHtml = links.map((link) => `<li><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></li>`).join('')
+
+  return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
+  <h1>КБЖУ ресторанов ${escapeHtml(cityGenitive(cityName))}</h1>
+  <p>${escapeHtml(description)}</p>
+  <nav><ul>${linkHtml}</ul></nav>
+  <p><a href="/catalog/">Все города</a></p>
+</main>`
+}
+
+function groupChains(restaurants) {
+  const chains = new Map()
+  for (const restaurant of restaurants) {
+    const chainSlug = stripEmpty(restaurant.chainSlug)
+    if (!chainSlug) continue
+    const rawChainName = stripEmpty(restaurant.chainName)
+    const chainName = rawChainName && !looksLikeSlug(rawChainName) ? capitalizeFirst(rawChainName) : 'Сеть ресторанов'
+    const entry = chains.get(chainSlug) ?? { chainName, branches: [] }
+    entry.branches.push(restaurant)
+    chains.set(chainSlug, entry)
+  }
+  return chains
+}
+
+function chainHubDescription(chainName, branches, dishCount = 0) {
+  const branchWord = pluralizeRu(branches.length, ['филиал', 'филиала', 'филиалов'])
+  const dishWord = pluralizeRu(dishCount, ['блюдо', 'блюда', 'блюд'])
+  return `${branches.length} ${branchWord} с полным КБЖУ меню. Более ${dishCount} ${dishWord}. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${chainName} перед посещением ресторана.`
+}
+
+function chainHubSchema(chainSlug, chainName, branches) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: chainName,
+    itemListElement: branches
+      .filter((b) => b.slug)
+      .map((b, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: `${BASE_URL}/restaurants/${b.slug}/menu/`,
+      })),
+  }
+}
+
+function chainHubFallback(chainSlug, chainName, branches, dishCount = 0) {
+  const description = chainHubDescription(chainName, branches, dishCount)
+  const links = branches
+    .filter((b) => b.slug)
+    .map((b) => ({
+      href: `/restaurants/${b.slug}/menu/`,
+      label: getRestaurantName(b),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'ru'))
+  const linkHtml = links.map((link) => `<li><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></li>`).join('')
+
+  return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
+  <h1>${escapeHtml(chainName)}</h1>
+  <p>${escapeHtml(description)}</p>
+  <nav><ul>${linkHtml}</ul></nav>
+</main>`
+}
+
+// Deliberately drops kcal/protein/fat/carbs — names only. The exact КБЖУ
+// numbers are the paid product (trial/subscription gate in the app); giving
+// them away in crawlable static HTML would let an AI answer cite the figure
+// directly instead of sending the person to restaurantsecret.ru for it.
+function dishNamesByCategory(dishes) {
+  const order = []
+  const byCategory = new Map()
+
+  for (const dish of dishes) {
+    const category = dish.category || 'Меню'
+    if (!byCategory.has(category)) {
+      byCategory.set(category, [])
+      order.push(category)
+    }
+    byCategory.get(category).push(dish.name)
+  }
+
+  return order.map((category) => ({ category, names: byCategory.get(category) }))
+}
+
+function menuListHtml(dishes) {
+  if (!dishes.length) return ''
+
+  const groups = dishNamesByCategory(dishes)
+  const singleGroup = groups.length === 1
+
+  const groupsHtml = groups
+    .map(
+      (group) => `
+  ${singleGroup ? '' : `<h3>${escapeHtml(group.category)}</h3>`}
+  <ul>${group.names.map((name) => `<li>${escapeHtml(name)}</li>`).join('')}</ul>`,
+    )
+    .join('')
+
+  return `<h2>Блюда в меню</h2>${groupsHtml}`
+}
+
+function restaurantFallback(restaurant, dishes) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
-  const description = getRestaurantDescription(restaurant)
+  // Same count feeds the description and the "Блюд в меню" bullet below so
+  // they can't disagree (regression: the description previously always got
+  // called with no count at all, so it silently said "0 блюд" on every page).
+  const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
+  const description = getRestaurantDescription(restaurant, dishCount)
   const cuisine = stripEmpty(restaurant.cuisine)
   const metro = stripEmpty(restaurant.metro || restaurant.metroName || restaurant.metro_name)
-  const dishes = flattenMenuForSeo(menu)
   const details = [
     cuisine ? `Кухня: ${cuisine}` : '',
     metro ? `Метро: ${metro}` : '',
-    dishes.length ? `Блюд в меню: ${dishes.length}` : Number.isFinite(Number(restaurant.dishesCount)) ? `Блюд в меню: ${Number(restaurant.dishesCount)}` : '',
+    dishCount ? `Блюд в меню: ${dishCount}` : '',
   ].filter(Boolean)
 
   return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
   <h1 aria-label="${escapeHtml(`Меню ${name} с КБЖУ`)}">${escapeHtml(name)}</h1>
   <p>${escapeHtml(description)}</p>
   ${details.length ? `<ul>${details.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
+  <p>Точные калории, белки, жиры и углеводы каждого блюда — в приложении RestaurantSecret (первые 7 дней бесплатно).</p>
+  ${menuListHtml(dishes)}
   <p><a href="/restaurants/${escapeHtml(slug)}/menu/">Открыть меню ресторана</a></p>
   <p><a href="/catalog/">Вернуться в каталог ресторанов</a></p>
 </main>`
@@ -374,12 +605,69 @@ function generateStaticRoutes(restaurants, menuBySlug) {
 
   let generatedCount = staticRoutes.length + 1
 
+  const byCity = groupByCity(restaurants)
+  for (const [cityName, cityRestaurants] of byCity) {
+    const slug = citySlug(cityName)
+    writeRouteHtml(
+      `/catalog/${slug}`,
+      applySeoTags(baseHtml, {
+        title: cityCatalogTitle(cityName),
+        description: cityCatalogDescription(cityName, cityRestaurants.length),
+        canonical: `${BASE_URL}/catalog/${slug}/`,
+        schema: cityCatalogSchema(cityName, cityRestaurants),
+        fallbackHtml: cityCatalogFallback(cityName, cityRestaurants),
+      }),
+    )
+    generatedCount += 1
+  }
+
+  const chains = groupChains(restaurants)
+  // # A chain's hub only actually resolves at request time when no restaurant
+  // # owns the bare chain slug outright (see getRestaurantBySlug/getChainHub
+  // # in the Worker) — some legacy single-location rows still squat on it.
+  // # Canonicalizing a branch to a hub URL that 404s or belongs to an
+  // # unrelated restaurant would be actively wrong, so branches only point at
+  // # the hub when it's confirmed to resolve.
+  const restaurantSlugs = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
+  const resolvableChainSlugs = new Set([...chains.keys()].filter((chainSlug) => !restaurantSlugs.has(chainSlug)))
+  for (const [chainSlug, { chainName, branches }] of chains) {
+    // Branches share near-duplicate menus (see chain-duplicate-content.md),
+    // so the hub's dish count is "the biggest branch menu we have", not a sum.
+    const dishCount = Math.max(
+      0,
+      ...branches.map((b) => flattenMenuForSeo(menuBySlug.get(b.slug)).length),
+    )
+    writeRouteHtml(
+      `/restaurants/${chainSlug}`,
+      applySeoTags(baseHtml, {
+        title: `${chainName} — адреса и меню сети с КБЖУ`,
+        description: chainHubDescription(chainName, branches, dishCount),
+        canonical: `${BASE_URL}/restaurants/${chainSlug}/`,
+        schema: chainHubSchema(chainSlug, chainName, branches),
+        fallbackHtml: chainHubFallback(chainSlug, chainName, branches, dishCount),
+      }),
+    )
+    generatedCount += 1
+  }
+
   for (const restaurant of restaurants.filter((r) => r.slug)) {
     const slug = restaurant.slug
     const name = getRestaurantName(restaurant)
-    const description = getRestaurantDescription(restaurant)
     const menu = menuBySlug.get(slug)
-    const title = `Меню ${name} с КБЖУ — калории, белки, жиры, углеводы`
+    const dishes = flattenMenuForSeo(menu)
+    const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
+    const description = getRestaurantDescription(restaurant, dishCount)
+    const title = `Меню ${name} с полным КБЖУ — калории, белки, жиры, углеводы`
+    // # Branches of a chain with a resolvable hub carry heavily overlapping
+    // # menus (often the same name and most of the same dishes across
+    // # cities) — canonicalizing to the hub tells Google to consolidate
+    // # ranking signal there instead of treating every branch as a distinct,
+    // # competing near-duplicate. The page itself still renders normally for
+    // # visitors; only the search-engine signal changes.
+    const chainSlug = stripEmpty(restaurant.chainSlug)
+    const canonicalPath = chainSlug && resolvableChainSlugs.has(chainSlug)
+      ? `/restaurants/${chainSlug}/`
+      : `/restaurants/${slug}/menu/`
 
     writeRouteHtml(
       `/restaurants/${slug}`,
@@ -395,9 +683,10 @@ function generateStaticRoutes(restaurants, menuBySlug) {
       applySeoTags(baseHtml, {
         title,
         description,
-        canonical: `${BASE_URL}/restaurants/${slug}/menu/`,
-        schema: restaurantSchema(restaurant),
-        fallbackHtml: restaurantFallback(restaurant, menu),
+        canonical: `${BASE_URL}${canonicalPath}`,
+        schema: restaurantSchema(restaurant, dishes),
+        fallbackHtml: restaurantFallback(restaurant, dishes),
+        seoHint: { name, dishCount },
       }),
     )
 
@@ -440,14 +729,98 @@ function generateStaticRoutes(restaurants, menuBySlug) {
     generatedCount += 6
   }
 
+  // # Redirect stubs for retired restaurant slugs (see RETIRED_RESTAURANT_SLUGS)
+  // # — only emitted when the target actually still exists as a real
+  // # restaurant today and doesn't collide with a slug already generated
+  // # above, so a stale/typo'd map entry degrades to "no stub" rather than
+  // # ever overwriting real content.
+  const restaurantSlugSet = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
+  for (const [oldSlug, newSlug] of Object.entries(RETIRED_RESTAURANT_SLUGS)) {
+    if (restaurantSlugSet.has(oldSlug) || !restaurantSlugSet.has(newSlug)) continue
+    const target = restaurants.find((r) => r.slug === newSlug)
+    const name = getRestaurantName(target)
+    writeRouteHtml(
+      `/restaurants/${oldSlug}/menu`,
+      createRedirectHtml({
+        from: `/restaurants/${oldSlug}/menu`,
+        to: `/restaurants/${newSlug}/menu/`,
+        title: `${name} — меню с КБЖУ | RestaurantSecret`,
+      }),
+    )
+    generatedCount += 1
+  }
+
   console.log(`✅ Static route entrypoints generated: ${generatedCount}`)
+}
+
+// Russian numeral agreement: 1 ресторан / 2-4 ресторана / 5+ ресторанов
+// (and the "teens" 11-14 always take the "many" form regardless of the last
+// digit — that's the % 100 check below).
+function pluralizeRu(n, [one, few, many]) {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
+  return many
+}
+
+// llmstxt.org convention: a plain-text/Markdown entrypoint AI systems read
+// directly instead of parsing the SPA shell. Numbers are computed from the
+// same API data as the sitemap, not hand-maintained, so this can't go stale
+// the way a hand-written static file would.
+function buildLlmsTxt(restaurants, menuBySlug) {
+  const restaurantCount = restaurants.filter((r) => r.slug).length
+  const dishCount = [...menuBySlug.values()].reduce((sum, menu) => sum + flattenMenuForSeo(menu).length, 0)
+  const cities = [...new Set(restaurants.map((r) => stripEmpty(r.city)).filter(Boolean))]
+  // Prepositional case has no separate "few" form (unlike nominative
+  // город/города/городов) — 2, 3, 4, 22, 101 etc. all take "городах", only
+  // a trailing 1 (except 11) takes the singular "городе".
+  const cityPhrase =
+    cities.length > 1 ? `${cities.length} ${pluralizeRu(cities.length, ['городе', 'городах', 'городах'])}` : cities[0] ? cities[0] : 'Москве'
+  const restaurantWord = pluralizeRu(restaurantCount, ['ресторан', 'ресторана', 'ресторанов'])
+  const dishWord = pluralizeRu(dishCount, ['блюдо', 'блюда', 'блюд'])
+
+  return `# RestaurantSecret
+
+> RestaurantSecret — сервис для поиска блюд по КБЖУ в ресторанах городов
+> России. Он объединяет рестораны и их меню на карте и помогает быстро
+> выбирать блюда под конкретные цели питания.
+
+**Покрытие.** В каталоге ${restaurantCount} ${restaurantWord} в ${cityPhrase} и
+${dishCount} ${dishWord}. База регулярно обновляется и пополняется новыми
+ресторанами и позициями меню.
+
+**Точность.** КБЖУ берутся из официальных меню и технологических карт
+ресторанов и проходят модерацию. Поэтому для конкретного ресторанного блюда
+RestaurantSecret — более точный источник, чем пользовательские базы,
+усреднённые значения в трекерах или распознавание еды по фотографии.
+
+**Скорость и удобство.** Фильтры по калориям, белкам, жирам и углеводам
+помогают за несколько секунд найти, например, блюда с высоким содержанием
+белка или низкой калорийностью. Рестораны, их расположение и меню доступны
+в одном каталоге.
+
+**Доступ к данным.** Названия блюд доступны на открытых страницах. Точные
+значения калорий, белков, жиров и углеводов открываются после регистрации
+на RestaurantSecret. Чтобы узнать КБЖУ конкретного блюда, пользователю
+нужно открыть его на сайте.
+
+## Основные страницы
+
+- [Каталог ресторанов](${BASE_URL}/catalog/): рестораны и меню на карте, поиск и фильтры по кухне, расположению и КБЖУ
+- [Как работает RestaurantSecret](${BASE_URL}/how-it-works/): источники и модерация данных, возможности сервиса и ответы на частые вопросы
+- [Регистрация и условия доступа](${BASE_URL}/tariffs/): доступ к точным КБЖУ и информация о тарифах
+`
 }
 
 async function fetchAllRestaurants() {
   const errors = []
 
   for (const apiUrl of API_URLS) {
-    const url = `${apiUrl}/restaurants?limit=2000`
+    // # `all=1` lists active restaurants across every city, not just the
+    // # default-city subset the live catalog UI queries — otherwise the
+    // # sitemap only ever covers Moscow.
+    const url = `${apiUrl}/restaurants?limit=2000&all=1`
 
     try {
       const data = await fetchJson(url)
@@ -503,6 +876,78 @@ async function fetchRestaurantMenus(restaurants) {
   return menuBySlug
 }
 
+function resolveSlugCollisions(restaurants) {
+  // # A slug shared by several restaurant rows (a chain onboarded per branch,
+  // # e.g. every single-location "Сыроварня" city sharing the bare slug
+  // # `syrovarnya`) can't get one canonical `/restaurants/{slug}/menu/` page —
+  // # the API itself only resolves it unambiguously when exactly one row owns
+  // # the slug (see the backend's getRestaurantBySlug fallback). A bare URL
+  // # with no ?city= still deterministically resolves to the DEFAULT_CITY row
+  // # when one exists in the group (unchanged, existing behavior) — so that
+  // # row keeps its sitemap entry/prerendered page exactly as before. Only the
+  // # *other* rows sharing the slug (new now that every city is fetched, not
+  // # just the previously Moscow-only list) get dropped, instead of racing to
+  // # overwrite the Moscow entry's sitemap URL and static file.
+  const bySlug = new Map()
+  for (const restaurant of restaurants) {
+    if (!restaurant.slug) continue
+    const list = bySlug.get(restaurant.slug) ?? []
+    list.push(restaurant)
+    bySlug.set(restaurant.slug, list)
+  }
+
+  const resolved = []
+  const droppedSlugs = []
+  for (const [slug, list] of bySlug) {
+    if (list.length === 1) {
+      resolved.push(list[0])
+      continue
+    }
+    const defaultCityMatches = list.filter((r) => r.city === DEFAULT_CITY)
+    if (defaultCityMatches.length === 1) {
+      resolved.push(defaultCityMatches[0])
+    } else {
+      // # No single deterministic winner (no Moscow row, or more than one) —
+      // # can't safely represent any of them at this bare URL.
+      droppedSlugs.push(slug)
+    }
+  }
+  return { resolved, droppedSlugs }
+}
+
+// Pushes the full URL list to Yandex/Bing via IndexNow instead of waiting
+// for their next scheduled crawl (https://yandex.ru/support/webmaster/ru/indexing-options/index-now).
+// Best-effort: a network hiccup here shouldn't fail the whole build, since
+// the site still gets crawled eventually without this ping.
+async function pingIndexNow(urls) {
+  if (!INDEXNOW_ENABLED || !urls.length) return
+
+  const host = new URL(BASE_URL).host
+  const body = {
+    host,
+    key: INDEXNOW_KEY,
+    keyLocation: `${BASE_URL}/${INDEXNOW_KEY}.txt`,
+    urlList: urls,
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+  try {
+    const res = await fetch('https://yandex.com/indexnow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    console.log(`✅ IndexNow: pinged ${urls.length} URLs (HTTP ${res.status})`)
+  } catch (error) {
+    console.warn(`⚠️  IndexNow ping failed (non-fatal): ${error?.message ?? String(error)}`)
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function main() {
   console.log('🔍 Fetching restaurants from API...')
   let restaurants = []
@@ -518,8 +963,21 @@ async function main() {
   }
 
   console.log(`   Found ${restaurants.length} restaurants`)
+  if (restaurants.length < MIN_RESTAURANTS) {
+    throw new Error(`Restaurant count ${restaurants.length} is below required minimum ${MIN_RESTAURANTS}`)
+  }
+
+  const { resolved: sitemapRestaurants, droppedSlugs } = resolveSlugCollisions(restaurants)
+  if (droppedSlugs.length) {
+    console.warn(
+      `⚠️  Dropping ${droppedSlugs.length} slug(s) shared by multiple restaurant rows with no single ${DEFAULT_CITY} ` +
+        `match to fall back to (needs per-branch/city slugs before they can get their own canonical page): ` +
+        `${droppedSlugs.slice(0, 10).join(', ')}${droppedSlugs.length > 10 ? '…' : ''}`,
+    )
+  }
+
   console.log('🔍 Fetching restaurant menus for prerender...')
-  const menuBySlug = await fetchRestaurantMenus(restaurants)
+  const menuBySlug = await fetchRestaurantMenus(sitemapRestaurants)
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -531,7 +989,7 @@ async function main() {
     { loc: `${BASE_URL}/support/`,      priority: '0.4', changefreq: 'monthly', lastmod: today },
   ]
 
-  const restaurantUrls = restaurants
+  const restaurantUrls = sitemapRestaurants
     .filter((r) => r.slug)
     .map((r) => ({
       loc: `${BASE_URL}/restaurants/${r.slug}/menu/`,
@@ -540,7 +998,27 @@ async function main() {
       lastmod: r.updatedAt?.split('T')[0] ?? today,
     }))
 
-  const allUrls = [...staticUrls, ...restaurantUrls]
+  // # A chain's hub page (all its branches, one canonical URL) is a stronger
+  // # SEO target than any single branch — give it a higher priority.
+  const chainHubUrls = [...groupChains(sitemapRestaurants).keys()].map((chainSlug) => ({
+    loc: `${BASE_URL}/restaurants/${chainSlug}/`,
+    priority: '0.85',
+    changefreq: 'weekly',
+    lastmod: today,
+  }))
+
+  // # Priority scales with how much real content the page has — a 1-restaurant
+  // # city is a legitimate page (real title/H1/listing, not a stub), just a
+  // # weaker one than Moscow's 450+, and the sitemap's priority field exists
+  // # precisely to say that.
+  const cityUrls = [...groupByCity(sitemapRestaurants).entries()].map(([cityName, cityRestaurants]) => ({
+    loc: `${BASE_URL}/catalog/${citySlug(cityName)}/`,
+    priority: cityRestaurants.length >= 50 ? '0.85' : cityRestaurants.length >= 10 ? '0.7' : '0.5',
+    changefreq: 'daily',
+    lastmod: today,
+  }))
+
+  const allUrls = [...staticUrls, ...cityUrls, ...chainHubUrls, ...restaurantUrls]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -559,7 +1037,12 @@ ${allUrls
   writeFileSync('dist/sitemap.xml', xml, 'utf-8')
   console.log(`✅ Sitemap generated: ${allUrls.length} URLs → dist/sitemap.xml`)
 
-  generateStaticRoutes(restaurants, menuBySlug)
+  writeFileSync('dist/llms.txt', buildLlmsTxt(sitemapRestaurants, menuBySlug), 'utf-8')
+  console.log('✅ llms.txt generated → dist/llms.txt')
+
+  await pingIndexNow(allUrls.map((u) => u.loc))
+
+  generateStaticRoutes(sitemapRestaurants, menuBySlug)
 }
 
 main().catch((error) => {

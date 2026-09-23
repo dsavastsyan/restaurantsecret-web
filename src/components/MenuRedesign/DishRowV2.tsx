@@ -173,17 +173,16 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
                 )}
               </>
             ) : (
-              <>
-                <span className="rsm2-row__locked-label">КБЖУ по подписке</span>
+              <div className="rsm2-row__footer-actions">
                 <div className="rsm2-row__actions">
                   <button type="button" className="rsm2-fav rsm2-fav--row" onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
                     <HeartIcon filled={favorited} size={19} />
                   </button>
                   <button type="button" className="rsm2-row__open-btn" onClick={handleOpen}>
-                    Открыть
+                    Попробовать бесплатно
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>

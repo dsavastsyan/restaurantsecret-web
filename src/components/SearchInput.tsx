@@ -13,18 +13,21 @@ import {
   type SearchSuggestionRestaurant,
   type SearchSuggestions,
 } from "@/lib/api";
+import { getSearchQueryScore } from "@/lib/text";
 import { useDishCardStore } from "@/store/dishCard";
 import { analytics } from "@/services/analytics";
 
 export type SearchInputProps = {
   value: string;
   onChange: (value: string) => void;
+  onSubmit?: (value: string) => void;
 };
 
-export function SearchInput({ value, onChange }: SearchInputProps) {
+export function SearchInput({ value, onChange, onSubmit }: SearchInputProps) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [suggestions, setSuggestions] = useState<SearchSuggestions | null>(null);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const openDishCard = useDishCardStore((state) => state.open);
@@ -33,18 +36,29 @@ export function SearchInput({ value, onChange }: SearchInputProps) {
     const q = value.trim();
     if (q.length < 2) {
       setSuggestions(null);
+      setIsLoadingSuggestions(false);
       setIsOpen(false);
       setHighlightedIndex(null);
       return;
     }
 
     let cancelled = false;
+    setIsOpen(true);
+    setIsLoadingSuggestions(true);
     const handle = setTimeout(async () => {
       try {
         const resp = await searchSuggest(q);
         if (cancelled) return;
-        setSuggestions(resp);
+        setSuggestions({
+          restaurants: [...(resp.restaurants || [])].sort((left, right) =>
+            getSearchQueryScore(right.name, q) - getSearchQueryScore(left.name, q)
+          ),
+          dishes: [...(resp.dishes || [])].sort((left, right) =>
+            getSearchQueryScore(right.dishName, q) - getSearchQueryScore(left.dishName, q)
+          ),
+        });
         setIsOpen(true);
+        setIsLoadingSuggestions(false);
         setHighlightedIndex(null);
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -53,11 +67,12 @@ export function SearchInput({ value, onChange }: SearchInputProps) {
         }
         if (!cancelled) {
           setSuggestions(null);
+          setIsLoadingSuggestions(false);
           setIsOpen(false);
           setHighlightedIndex(null);
         }
       }
-    }, 250);
+    }, 150);
 
     return () => {
       cancelled = true;
@@ -144,6 +159,10 @@ export function SearchInput({ value, onChange }: SearchInputProps) {
       const q = value.trim();
       if (!q) return;
       e.preventDefault();
+      if (onSubmit) {
+        onSubmit(q);
+        return;
+      }
       analytics.track("search_submit", { type: "query", query: q });
       navigate(buildSearchUrl(q));
       return;
@@ -199,7 +218,7 @@ export function SearchInput({ value, onChange }: SearchInputProps) {
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => {
           analytics.track("search_open");
-          if (suggestions && (suggestions.restaurants.length || suggestions.dishes.length)) {
+          if (value.trim().length >= 2 || (suggestions && (suggestions.restaurants.length || suggestions.dishes.length))) {
             setIsOpen(true);
           }
         }}
@@ -211,9 +230,13 @@ export function SearchInput({ value, onChange }: SearchInputProps) {
         aria-activedescendant={activeDescendant}
       />
 
-      {isOpen && suggestions && (
+      {isOpen && (suggestions || isLoadingSuggestions) && (
         <div className="search-input__dropdown" role="listbox">
-          {suggestions.restaurants.length > 0 && (
+          {isLoadingSuggestions && !suggestions && (
+            <div className="search-input__empty">Ищем...</div>
+          )}
+
+          {suggestions && suggestions.restaurants.length > 0 && (
             <div className="search-input__group">
               <div className="search-input__heading">Рестораны</div>
               <ul className="search-input__list">
@@ -244,7 +267,7 @@ export function SearchInput({ value, onChange }: SearchInputProps) {
             </div>
           )}
 
-          {suggestions.dishes.length > 0 && (
+          {suggestions && suggestions.dishes.length > 0 && (
             <div className="search-input__group">
               <div className="search-input__heading">Блюда</div>
               <ul className="search-input__list">
@@ -275,7 +298,7 @@ export function SearchInput({ value, onChange }: SearchInputProps) {
             </div>
           )}
 
-          {suggestions.restaurants.length === 0 && suggestions.dishes.length === 0 && (
+          {suggestions && !isLoadingSuggestions && suggestions.restaurants.length === 0 && suggestions.dishes.length === 0 && (
             <div className="search-input__empty">Ничего не нашли, попробуйте другой запрос</div>
           )}
         </div>

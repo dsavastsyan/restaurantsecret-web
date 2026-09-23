@@ -8,7 +8,7 @@ import { useSubscriptionStore } from "@/store/subscription";
 import { postSuggest } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { useFavoritesStore } from "@/store/favorites";
-import { useDiaryStore } from "@/store/diary";
+import { openAnyEatLaunchModal } from "@/components/AnyEatLaunchModal";
 import { computeMacroGeometry, formatNumeric, formatPriceRub } from "@/lib/nutrition";
 import { analytics } from "@/services/analytics";
 import MacroRing from "@/components/MenuRedesign/MacroRing";
@@ -38,7 +38,6 @@ export default function DishCardModal() {
     isFavorite: state.isFavorite(Number(data?.id)),
     toggleFavorite: state.toggle,
   }));
-  const addDiaryEntry = useDiaryStore((s) => s.addEntry);
   const hasDishAccess = isReadOnly || hasActiveSub || Boolean(data?.isFreeAccess);
   const subscriptionCtaText = hasSubscriptionHistory ? "Возобновить подписку" : "Попробовать бесплатно";
 
@@ -140,42 +139,11 @@ export default function DishCardModal() {
     await toggleFavorite(accessToken, Number(data.id), data.restaurantSlug);
   };
 
-  const handleDiaryAdd = async (e: React.MouseEvent) => {
+  const handleDiaryAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isReadOnly || !data) return;
-    if (!accessToken) {
-      close();
-      navigate("/login", { state: { from: location.pathname + location.search } });
-      return;
-    }
-
-    if (!hasDishAccess) {
-      close();
-      navigate("/account/subscription", { state: { from: location.pathname + location.search } });
-      return;
-    }
-
-    const safeNum = (val: any) => {
-      const n = Number(val);
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    const dishId = Number(data.id);
-
-    await addDiaryEntry(accessToken, {
-      date: new Date().toISOString().split('T')[0],
-      dish_id: Number.isFinite(dishId) ? dishId : undefined,
-      restaurant_slug: data.restaurantSlug,
-      restaurant_name: data.restaurantName || undefined,
-      name: data.name || "Блюдо",
-      calories: safeNum(data.kcal),
-      protein: safeNum(data.proteins_g),
-      fat: safeNum(data.fats_g),
-      carbs: safeNum(data.carbs_g),
-      weight: safeNum(data.weight) || undefined
-    });
-
-    analytics.track("diary_add", { dish_id: data.id, name: data.name, restaurant: data.restaurantSlug });
+    close();
+    openAnyEatLaunchModal();
   };
 
   if (!isOpen || !root) return null;

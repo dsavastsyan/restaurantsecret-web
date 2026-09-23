@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
+import { PARTNER_ADMIN_ENABLED } from './adminFeatures'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -44,6 +45,171 @@ const PARSER_STATUS = {
   error: 'Ошибка',
   never: 'Не запускался',
   disabled: 'Отключён',
+}
+
+const MANUAL_MENU_STATUS = {
+  current: 'Актуально',
+  needs_check: 'Нужно проверить',
+  source_missing: 'Источник не указан',
+}
+
+const MANUAL_MENU_SOURCE = {
+  instagram_dm: 'Instagram Direct',
+  instagram_highlight: 'Instagram Highlights',
+  website: 'Сайт',
+}
+
+function statusWithSource(lastCheckedAt, staleAfterDays) {
+  const checkedAt = lastCheckedAt ? Date.parse(lastCheckedAt) : Number.NaN
+  if (Number.isNaN(checkedAt)) return 'needs_check'
+  return Date.now() - checkedAt >= staleAfterDays * 86400000 ? 'needs_check' : 'current'
+}
+
+function ManualMenuRow({ restaurant, staleAfterDays, onChanged }) {
+  const [sourceType, setSourceType] = useState(restaurant.source_type || '')
+  const [sourceUrl, setSourceUrl] = useState(restaurant.source_url || '')
+  const [busy, setBusy] = useState('')
+  const [message, setMessage] = useState('')
+
+  const saveSource = async () => {
+    setBusy('source')
+    setMessage('')
+    try {
+      const result = await adminMenuRevisionsApi.updateManualMenuSource(restaurant.slug, {
+        source_type: sourceType,
+        source_url: sourceUrl,
+      })
+      onChanged({
+        source_type: result.source_type || sourceType,
+        source_url: result.source_url || sourceUrl,
+        status: statusWithSource(restaurant.last_checked_at, staleAfterDays),
+      })
+      setMessage('Источник сохранён')
+    } catch (requestError) {
+      setMessage(requestError.message || 'Не удалось сохранить источник.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const confirm = async () => {
+    setBusy('confirm')
+    setMessage('')
+    try {
+      const result = await adminMenuRevisionsApi.confirmManualMenu(restaurant.slug)
+      onChanged({ last_checked_at: result.last_checked_at, status: 'current' })
+    } catch (requestError) {
+      setMessage(requestError.message || 'Не удалось подтвердить актуальность.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <tr>
+      <td><strong>{restaurant.name}</strong><small>{restaurant.cities.join(', ') || 'Город не указан'}</small></td>
+      <td>
+        <div className="admin-manual-menu__source">
+          <select aria-label={`Источник меню ${restaurant.name}`} value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
+            <option value="">Выберите источник</option>
+            {Object.entries(MANUAL_MENU_SOURCE).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+          </select>
+          <div>
+            <input aria-label={`Ссылка на меню ${restaurant.name}`} type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://…" />
+            {restaurant.source_url && <a href={restaurant.source_url} target="_blank" rel="noreferrer" aria-label={`Открыть источник ${restaurant.name}`}><ExternalLink size={16} /></a>}
+          </div>
+          <button type="button" disabled={busy !== '' || !sourceType || !sourceUrl.trim()} onClick={saveSource}>{busy === 'source' ? 'Сохраняем…' : 'Сохранить'}</button>
+          {message && <small role="status">{message}</small>}
+        </div>
+      </td>
+      <td>{formatDate(restaurant.last_checked_at)}</td>
+      <td><span className={`admin-manual-menu__status admin-manual-menu__status--${restaurant.status}`}>{MANUAL_MENU_STATUS[restaurant.status]}</span></td>
+      <td><button className="admin-crm__primary" type="button" disabled={busy !== ''} onClick={confirm}>{busy === 'confirm' ? 'Подтверждаем…' : 'Подтвердить актуальность'}</button></td>
+    </tr>
+  )
+}
+
+function ManualMenuDashboard() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('')
+  const [checkedAtOrder, setCheckedAtOrder] = useState(null)
+  const [staleAfterDays, setStaleAfterDays] = useState(90)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError('')
+    adminMenuRevisionsApi.manualMenus()
+      .then((data) => {
+        if (!active) return
+        setItems(data.restaurants || [])
+        setStaleAfterDays(data.stale_after_days || 90)
+      })
+      .catch((requestError) => active && setError(requestError.message || 'Не удалось загрузить ручные меню.'))
+      .finally(() => active && setLoading(false))
+    return () => { active = false }
+  }, [])
+
+  const updateItem = (slug, patch) => {
+    setItems((current) => current.map((item) => item.slug === slug ? { ...item, ...patch } : item))
+  }
+
+  const visible = useMemo(() => {
+    const filtered = items.filter((restaurant) => {
+      if (status && restaurant.status !== status) return false
+      return `${restaurant.name} ${restaurant.slug} ${restaurant.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
+    })
+    if (!checkedAtOrder) return filtered
+    return [...filtered].sort((left, right) => {
+      const leftTime = left.last_checked_at ? Date.parse(left.last_checked_at) : Number.NaN
+      const rightTime = right.last_checked_at ? Date.parse(right.last_checked_at) : Number.NaN
+      const leftMissing = Number.isNaN(leftTime)
+      const rightMissing = Number.isNaN(rightTime)
+      if (leftMissing !== rightMissing) return leftMissing ? 1 : -1
+      if (leftMissing) return left.name.localeCompare(right.name, 'ru')
+      return checkedAtOrder === 'desc' ? rightTime - leftTime : leftTime - rightTime
+    })
+  }, [items, query, status, checkedAtOrder])
+
+  if (loading) return <p className="admin-crm__loading">Загружаем ручные меню…</p>
+  if (error) return <p className="admin-menu__error" role="alert">{error}</p>
+  return (
+    <>
+      <div className="admin-crm__filters">
+        <label className="admin-crm__search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ресторан" /></label>
+        <select aria-label="Статус актуальности" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="">Все статусы</option>
+          {Object.entries(MANUAL_MENU_STATUS).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+        </select>
+      </div>
+      <div className="admin-crm__table-wrap admin-manual-menu__table-wrap">
+        <table className="admin-crm__table admin-manual-menu__table">
+          <thead><tr><th>Ресторан</th><th>Источник меню</th><th aria-sort={checkedAtOrder === 'desc' ? 'descending' : checkedAtOrder === 'asc' ? 'ascending' : 'none'}><button className="admin-crm__sort" type="button" onClick={() => setCheckedAtOrder((current) => current === 'desc' ? 'asc' : 'desc')}>Последняя проверка <span aria-hidden="true">{checkedAtOrder === 'asc' ? '↑' : '↓'}</span></button></th><th>Статус</th><th /></tr></thead>
+          <tbody>{visible.map((restaurant) => <ManualMenuRow restaurant={restaurant} staleAfterDays={staleAfterDays} onChanged={(patch) => updateItem(restaurant.slug, patch)} key={restaurant.slug} />)}</tbody>
+        </table>
+        {!visible.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет.</div>}
+      </div>
+    </>
+  )
+}
+
+function MenuMaintenanceDashboard() {
+  const [section, setSection] = useState('manual')
+  return (
+    <section className="admin-crm">
+      <div className="admin-menu__title admin-crm__title">
+        <div><span>Обновление меню</span><h1>Рестораны</h1><p>Контроль актуальности ручных меню и статусы парсеров.</p></div>
+      </div>
+      <div className="admin-crm__section-tabs" role="tablist" aria-label="Способ обновления меню">
+        <button type="button" role="tab" aria-selected={section === 'manual'} className={section === 'manual' ? 'active' : ''} onClick={() => setSection('manual')}>Ручные меню</button>
+        <button type="button" role="tab" aria-selected={section === 'parsers'} className={section === 'parsers' ? 'active' : ''} onClick={() => setSection('parsers')}>Автоматическое обновление</button>
+      </div>
+      {section === 'manual' ? <ManualMenuDashboard /> : <ParserDashboard />}
+    </section>
+  )
 }
 
 function ParserDashboard() {
@@ -320,6 +486,10 @@ function RestaurantActions({ restaurant, onEdit, onChanged, notify }) {
 }
 
 export default function AdminRestaurantList() {
+  if (!PARTNER_ADMIN_ENABLED) {
+    return <MenuMaintenanceDashboard />
+  }
+
   const [section, setSection] = useState('restaurants')
   const [items, setItems] = useState([])
   const [filterOptions, setFilterOptions] = useState({ cities: [], menu_statuses: [], partnerships: [] })
