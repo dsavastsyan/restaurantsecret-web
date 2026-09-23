@@ -3,6 +3,7 @@
 import { API_BASE } from '@/config/api';
 
 const BASE = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
+const URL_BASE = new URL(BASE, globalThis.location?.origin ?? 'http://localhost');
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 const createApiError = (status, message, kind) => ({
@@ -27,7 +28,7 @@ const parseJsonResponse = async (res) => {
 };
 
 const request = async (path, { method = 'GET', params = {}, body, headers = {}, timeout = DEFAULT_TIMEOUT_MS } = {}) => {
-  const url = new URL(path, BASE);
+  const url = new URL(path, URL_BASE);
   Object.entries(params).forEach(([k, v]) => {
     if (v == null) return;
     if (Array.isArray(v)) v.forEach(x => url.searchParams.append(k, x));
@@ -77,10 +78,12 @@ async function post(path, body, options = {}) {
 
 // Export a small client surface the rest of the app can use.
 export const api = {
-  filters: () => get('filters'),
+  cities: () => get('cities'),
+  detectedCity: () => get('location'),
+  filters: (city = 'Москва') => get('filters', { city }),
   restaurants: (opts) => get('restaurants', opts),
-  restaurant: (slug) => get(`restaurants/${encodeURIComponent(slug)}`),
-  menu: (slug) => get(`restaurants/${encodeURIComponent(slug)}/menu`),
+  restaurant: (slug, city = 'Москва') => get(`restaurants/${encodeURIComponent(slug)}`, { city }),
+  menu: (slug, city = 'Москва') => get(`restaurants/${encodeURIComponent(slug)}/menu`, { city }),
   search: (query, opts) => get('search', { query, ...opts }),
   post
 };

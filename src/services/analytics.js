@@ -1,4 +1,4 @@
-import { PD_API_BASE } from "@/config/api";
+import { ANALYTICS_ENABLED, PD_API_BASE } from "@/config/api";
 import { tryRefresh } from "@/lib/api";
 
 export const COOKIE_POLICY_VERSION = "cookies_v1_2026-01-16";
@@ -18,6 +18,16 @@ function uuidv4() {
             (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))
         ).toString(16)
     );
+}
+
+// Search engines and other crawlers execute our client JS while rendering pages
+// (to see SPA content), which would otherwise fire real analytics events on every
+// crawl. None of that traffic is a real visitor, so we skip sending analytics for it.
+const CRAWLER_USER_AGENT_PATTERN = /bot|spider|crawl|slurp|mediapartners|facebookexternalhit|embedly|quora link preview|whatsapp|telegrambot|w3c_validator|headlesschrome/i;
+
+function isCrawlerUserAgent() {
+    if (typeof navigator === "undefined") return false;
+    return CRAWLER_USER_AGENT_PATTERN.test(navigator.userAgent || "");
 }
 
 class AnalyticsService {
@@ -148,6 +158,7 @@ class AnalyticsService {
     }
 
     getConsentStatus() {
+        if (!ANALYTICS_ENABLED) return "denied";
         try {
             const stored = localStorage.getItem(CONSENT_KEY);
             if (!stored) return "unset";
@@ -193,6 +204,7 @@ class AnalyticsService {
     }
 
     async setConsent(status) {
+        if (!ANALYTICS_ENABLED) return;
         const validStatuses = ["granted", "denied"];
         if (!validStatuses.includes(status)) return;
 
@@ -306,6 +318,7 @@ class AnalyticsService {
             viewport_width: window.innerWidth,
             viewport_height: window.innerHeight,
             device_pixel_ratio: window.devicePixelRatio,
+            selected_city: localStorage.getItem("catalog_city") || "Москва",
         };
 
         const sent = await this.track("session_start", props, {
@@ -334,6 +347,9 @@ class AnalyticsService {
     }
 
     async track(eventName, props = {}, options = {}) {
+        if (!ANALYTICS_ENABLED) return false;
+        if (isCrawlerUserAgent()) return false;
+
         const { ignoreConsent = false, withAttribution = true } = options;
         if (!ignoreConsent && this.getConsentStatus() !== "granted") return false;
 
@@ -396,6 +412,7 @@ class AnalyticsService {
      * Линкует все прошлые анонимные события с user_id на сервере.
      */
     async identify() {
+        if (!ANALYTICS_ENABLED) return;
         const token = this.getAccessToken();
         if (!token) return;
         const anonId = this.getAnonId();
@@ -416,6 +433,7 @@ class AnalyticsService {
     }
 
     reachGoal(goalName, props = {}) {
+        if (!ANALYTICS_ENABLED) return false;
         if (!goalName || typeof window === "undefined") return false;
 
         try {
@@ -429,6 +447,7 @@ class AnalyticsService {
     }
 
     trackPageView(url = window.location.href) {
+        if (!ANALYTICS_ENABLED) return false;
         if (typeof window === "undefined") return false;
 
         try {
@@ -449,6 +468,7 @@ class AnalyticsService {
      * Called upon login.
      */
     async recordPolicyAcceptance() {
+        if (!ANALYTICS_ENABLED) return;
         const sendPolicy = async (tokenOverride) => {
             const token = tokenOverride || this.getAccessToken();
             if (!token || typeof token !== "string" || token.split('.').length !== 3) return null;

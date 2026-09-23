@@ -25,8 +25,8 @@ export default function AccountOverview() {
     age: '',
     weight: '',
     height: '',
-    activity: 'min',
-    goal: 'maintain'
+    activity: 'low',
+    goal: 'maintain_weight'
   });
   const [isFormDirty, setIsFormDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'' | 'saving' | 'saved'>('');
@@ -170,11 +170,11 @@ export default function AccountOverview() {
   }, [profileCompletion]);
   const isProfileDetailsPage = location.pathname === "/account/profile";
   const activityOptions = [
-    { value: "min", label: "Низкая" },
-    { value: "avg", label: "Умеренная" },
-    { value: "high", label: "Высокая" },
+    { value: "low", label: "Низкая" },
+    { value: "high", label: "Умеренная" },
+    { value: "very_high", label: "Высокая" },
   ];
-  const desktopActivity = form.activity === "light" ? "min" : form.activity;
+  const desktopActivity = form.activity === "medium" ? "low" : form.activity;
   const profileAbout = me?.user?.profile_about?.trim() || "";
   const profileAboutPlaceholder = "Добавьте информацию";
 
@@ -285,6 +285,7 @@ export default function AccountOverview() {
             <span className="account-overview-mobile__menu-arrow" aria-hidden="true">›</span>
           </Link>
 
+          {/* Friends are temporarily disabled; keep this navigation block for reactivation.
           <Link className="account-overview-mobile__menu-item" to="/account/friends">
             <span className="account-overview-mobile__menu-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -299,7 +300,7 @@ export default function AccountOverview() {
               <span className="account-overview-mobile__menu-badge">{`+${incomingFriendRequestsCount}`}</span>
             ) : null}
             <span className="account-overview-mobile__menu-arrow" aria-hidden="true">›</span>
-          </Link>
+          </Link> */}
         </div>
       </div>}
 

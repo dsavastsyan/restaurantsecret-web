@@ -39,6 +39,8 @@ export type SearchRestaurant = {
   slug: string;
   name: string;
   city?: string | null;
+  cuisine?: string | null;
+  branchesCount?: number;
 };
 
 export type SearchDish = {
@@ -46,11 +48,19 @@ export type SearchDish = {
   dishName: string;
   restaurantName: string;
   restaurantSlug: string;
+  city?: string | null;
+};
+
+export type SearchOtherCity = {
+  city: string;
+  restaurants: SearchRestaurant[];
+  dishes: SearchDish[];
 };
 
 export type SearchResult = {
   restaurants: SearchRestaurant[];
   dishes: SearchDish[];
+  otherCities?: SearchOtherCity[];
 };
 
 export type LandingStats = {
@@ -156,7 +166,10 @@ async function doFetch(path: string, init: RequestInit = {}, token?: string) {
 async function publicGet<T>(path: string): Promise<T> {
   const res = await fetch(`${PUBLIC_API_BASE}${path}`, {
     method: "GET",
-    credentials: "omit",
+    // Same-origin production requests must carry the Anubis clearance cookie.
+    // Browsers still omit credentials automatically for the absolute staging
+    // origin because `same-origin` never sends them cross-origin.
+    credentials: "same-origin",
   });
   if (!res.ok) {
     throw new Error(`Public API error ${res.status}`);
@@ -390,9 +403,9 @@ export async function searchSuggest(query: string): Promise<SearchSuggestions> {
   );
 }
 
-export async function searchFull(query: string): Promise<SearchResult> {
+export async function searchFull(query: string, city = "Москва"): Promise<SearchResult> {
   return publicGet<SearchResult>(
-    `/search?query=${encodeURIComponent(query)}`
+    `/search?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`
   );
 }
 
@@ -402,22 +415,24 @@ export async function searchStoreProducts(query: string, limit = 12): Promise<St
   );
 }
 
-export async function getLandingStats(): Promise<LandingStats> {
-  return publicGet<LandingStats>("/landing/stats");
+export async function getLandingStats(city = "Москва"): Promise<LandingStats> {
+  return publicGet<LandingStats>(`/landing/stats?city=${encodeURIComponent(city)}`);
 }
 
-export async function getRestaurants(limit = 2000): Promise<RestaurantListResponse> {
-  return publicGet<RestaurantListResponse>(`/restaurants?limit=${limit}`);
+export async function getRestaurants(limit = 2000, city = "Москва"): Promise<RestaurantListResponse> {
+  return publicGet<RestaurantListResponse>(`/restaurants?limit=${limit}&city=${encodeURIComponent(city)}`);
 }
 // Goals
+const USER_GOALS_PATH = "/api/v1/goals";
+
 export type UserGoalData = {
   user_id?: string;
   gender: 'male' | 'female' | null;
   age: number | null;
   weight: number | null;
   height: number | null;
-  activity_level: 'min' | 'light' | 'avg' | 'high' | null;
-  goal_type: 'lose' | 'maintain' | 'gain' | null;
+  activity_level: 'low' | 'medium' | 'high' | 'very_high' | null;
+  goal_type: 'lose_weight' | 'maintain_weight' | 'gain_weight' | null;
   target_calories: number | null;
   target_protein: number | null;
   target_fat: number | null;
@@ -427,11 +442,11 @@ export type UserGoalData = {
 };
 
 export async function fetchUserGoals(token: string) {
-  return apiGet<{ ok: boolean; goals: UserGoalData | null }>("/api/goals", token);
+  return apiGet<{ ok: boolean; goals: UserGoalData | null }>(USER_GOALS_PATH, token);
 }
 
 export async function updateUserGoals(data: Partial<UserGoalData>, token: string) {
-  return apiPut("/api/goals", data, token);
+  return apiPut(USER_GOALS_PATH, data, token);
 }
 
 export async function apiPut<T = unknown>(path: string, body?: unknown, token?: string): Promise<T> {

@@ -112,6 +112,7 @@ export default function AccountLayout() {
     }
   }, [accessToken, logout]);
 
+  /* Friends are temporarily disabled. Keep the loader for reactivation.
   const loadIncomingFriendRequestsCount = useCallback(async () => {
     if (!accessToken) {
       setIncomingFriendRequestsCount(0);
@@ -163,6 +164,7 @@ export default function AccountLayout() {
       window.removeEventListener("rs:friends-incoming-count", onIncomingRequestsCountUpdate as EventListener);
     };
   }, []);
+  */
 
   const sub = me?.user?.subscription || null;
   const hasPremium = Boolean(sub && sub.status !== "none" && !sub.expired);
@@ -179,7 +181,6 @@ export default function AccountLayout() {
     { to: "/account/goals", label: "Мои цели" },
     { to: "/account/statistics", label: "Дневник питания" },
     { to: "/account/favorites", label: "Избранное" },
-    { to: "/account/friends", label: "Друзья", badge: incomingFriendRequestsCount > 0 ? `+${incomingFriendRequestsCount}` : null },
   ];
   const mobileTopNavItems = [
     { to: "/account/subscription", label: "Управлять подпиской" },

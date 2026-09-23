@@ -1,16 +1,19 @@
 // Catalog page showing the full list of restaurants with lightweight filters.
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMeta } from '@/lib/useMeta'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client.js'
 import CuisineFilter from '../components/CuisineFilter.jsx'
 import { useSWRLite } from '../hooks/useSWRLite.js'
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants'
 import { useAuth } from '@/store/auth'
 import { analytics } from '@/services/analytics'
-import { getRussianPluralWord, matchesSearchQuery } from '@/lib/text'
+import { getRussianPluralWord, getSearchQueryScore, matchesSearchQuery } from '@/lib/text'
 import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
+import { saveCatalogCity } from '@/lib/cityPreference'
+import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
+import { collapseChainRestaurants } from '@/lib/catalogChains'
 
 // Fetch a large number to emulate "all" items since backend pagination seems flaky
 const FETCH_LIMIT = 1000;
@@ -39,6 +42,43 @@ const RestaurantWebIcon = () => (
   </svg>
 )
 
+const ScrollingRestaurantName = ({ name }) => {
+  const viewportRef = useRef(null)
+  const measureRef = useRef(null)
+  const [isOverflowing, setIsOverflowing] = useState(false)
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    const measure = measureRef.current
+    if (!viewport || !measure) return undefined
+
+    const update = () => setIsOverflowing(measure.offsetWidth > viewport.clientWidth + 1)
+    update()
+
+    const observer = new ResizeObserver(update)
+    observer.observe(viewport)
+    observer.observe(measure)
+    return () => observer.disconnect()
+  }, [name])
+
+  return (
+    <span
+      ref={viewportRef}
+      className={`catalog-card__title-text${isOverflowing ? ' is-overflowing' : ''}`}
+      title={name}
+      aria-label={name}
+    >
+      <span ref={measureRef} className="catalog-card__title-measure" aria-hidden="true">{name}</span>
+      {isOverflowing ? (
+        <span className="catalog-card__title-marquee" aria-hidden="true">
+          <span>{name}</span>
+          <span>{name}</span>
+        </span>
+      ) : name}
+    </span>
+  )
+}
+
 const normalizeRestaurantLinkUrl = (rawUrl) => {
   if (!rawUrl) return null
   const text = String(rawUrl).trim()
@@ -55,18 +95,20 @@ const normalizeRestaurantLinkUrl = (rawUrl) => {
 }
 
 export default function Catalog() {
-  useMeta({
-    title: 'Каталог ресторанов с КБЖУ — RestaurantSecret',
-    description: 'Все рестораны Москвы с полным меню и данными КБЖУ. Фильтрация по кухне, метро и целям питания.',
-    canonical: 'https://restaurantsecret.ru/catalog/',
-  })
+  const { city: cityPath } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { data: citiesData } = useSWRLite('cities', () => api.cities())
+  const cities = citiesData?.items || []
+  const selectedCity = cities.find((item) => citySlug(item.id) === cityPath || item.id === cityPath)
+    || cities.find((item) => item.id === localStorage.getItem('catalog_city'))
+    || { id: 'Москва', name: 'Москва' }
 
-  const { data: filters } = useSWRLite('filters', () => api.filters())
+  const { data: filters } = useSWRLite(`filters:${selectedCity.id}`, () => api.filters(selectedCity.id))
   const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
   const [selectedCuisines, setSelectedCuisines] = useState([])
   const [selectedMetro, setSelectedMetro] = useState('')
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [query, setQuery] = useState(searchParams.get('q') || '')
+  const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
   const [currentPage, setCurrentPage] = useState(1)
 
   const navigate = useNavigate()
@@ -108,6 +150,14 @@ export default function Catalog() {
     return () => clearTimeout(handle)
   }, [query])
 
+  const changeCity = useCallback((city) => {
+    analytics.track('city_changed', { from_city: selectedCity.id, selected_city: city.id })
+    saveCatalogCity(city.id, 'manual', accessToken)
+    navigate(`/catalog/${citySlug(city.id)}/${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`)
+    setSelectedMetro('')
+    setCurrentPage(1)
+  }, [accessToken, navigate, query, selectedCity.id])
+
   // Ask the parent layout for access; show the paywall if the user is not
   // subscribed yet.
   const ensureAccess = useCallback(() => {
@@ -123,18 +173,37 @@ export default function Catalog() {
   const openMenu = useCallback((slug) => {
     if (!slug) return
     if (ensureAccess()) {
-      navigate(`/restaurants/${slug}/menu/`)
+      analytics.track('restaurant_open', { slug, selected_city: selectedCity.id })
+      navigate(`/restaurants/${slug}/menu/?city=${encodeURIComponent(selectedCity.id)}`)
     }
-  }, [ensureAccess, navigate])
+  }, [ensureAccess, navigate, selectedCity.id])
+
+  // The hub just lists a chain's locations (no nutrition data of its own),
+  // so — like the catalog itself — it isn't behind the paywall gate.
+  const openChainHub = useCallback((chainSlug) => {
+    if (!chainSlug) return
+    analytics.track('catalog_chain_open', { chain_slug: chainSlug, selected_city: selectedCity.id })
+    navigate(`/restaurants/${chainSlug}/`)
+  }, [navigate, selectedCity.id])
+
+  useEffect(() => {
+    if (debouncedQuery) analytics.track('catalog_search', { selected_city: selectedCity.id, has_query: true })
+  }, [debouncedQuery, selectedCity.id])
 
   // Fetch ALL restaurants once (or as many as limit allows)
   // We remove 'query' from here because we want to filter locally to ensure search works reliably
   // We remove 'page' because we want to fetch everything upfront
   const { data: rawData, loading, error } = useSWRLite(
-    'restaurants-all',
+    `restaurants-all:${selectedCity.id}`,
     () => api.restaurants({
       limit: FETCH_LIMIT,
+      city: selectedCity.id,
     })
+  )
+  const { data: crossCityResults } = useSWRLite(
+    debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}` : null,
+    () => api.search(debouncedQuery, { city: selectedCity.id }),
+    { enabled: Boolean(debouncedQuery) },
   )
 
   // Normalize data
@@ -169,7 +238,7 @@ export default function Catalog() {
     const cuisines = selectedCuisines.map((c) => c?.toLowerCase())
     const metro = selectedMetro.trim().toLowerCase()
 
-    return allItems.filter((item) => {
+    const matches = allItems.filter((item) => {
       const cuisine = item?.cuisine?.toLowerCase() || ''
       const matchesQuery = !debouncedQuery || matchesSearchQuery(item?.name, debouncedQuery)
 
@@ -194,6 +263,13 @@ export default function Catalog() {
 
       return matchesQuery && matchesCuisine && matchesMetro
     })
+
+    if (!debouncedQuery) return matches
+
+    return matches
+      .map((item, index) => ({ item, index, score: getSearchQueryScore(item?.name, debouncedQuery) }))
+      .sort((left, right) => right.score - left.score || left.index - right.index)
+      .map(({ item }) => item)
   }, [debouncedQuery, allItems, selectedCuisines, selectedMetro])
 
   // Reset pagination when filters change
@@ -201,14 +277,27 @@ export default function Catalog() {
     setCurrentPage(1)
   }, [debouncedQuery, selectedCuisines, selectedMetro])
 
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE))
+  // Physical branches remain reachable from their chain hub, but the catalog
+  // itself presents one card per chain rather than exposing branch pages.
+  const displayItems = useMemo(
+    () => collapseChainRestaurants(filteredItems),
+    [filteredItems],
+  )
+
+  const totalPages = Math.max(1, Math.ceil(displayItems.length / PAGE_SIZE))
 
   const visibleItems = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE
-    return filteredItems.slice(start, start + PAGE_SIZE)
-  }, [currentPage, filteredItems])
+    return displayItems.slice(start, start + PAGE_SIZE)
+  }, [currentPage, displayItems])
 
   const isInitialLoading = loading && !allItems.length
+
+  useEffect(() => {
+    if (!loading && !error && allItems.length === 0) {
+      analytics.track('catalog_empty_city', { selected_city: selectedCity.id })
+    }
+  }, [allItems.length, error, loading, selectedCity.id])
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -281,27 +370,55 @@ export default function Catalog() {
     ].filter(Boolean).join(' ')
   }, [getInitials])
 
-  const shownFrom = filteredItems.length ? ((currentPage - 1) * PAGE_SIZE) + 1 : 0
-  const shownTo = Math.min(currentPage * PAGE_SIZE, filteredItems.length)
+  const shownFrom = displayItems.length ? ((currentPage - 1) * PAGE_SIZE) + 1 : 0
+  const shownTo = Math.min(currentPage * PAGE_SIZE, displayItems.length)
   const totalRestaurantCount = allItems.length || Number(rawData?.total ?? rawData?.count ?? 0)
   const weeklyAdded = Number(landingStats?.weeklyAdded ?? 0)
+  const cityGenitiveName = cityGenitive(selectedCity.name)
+
+  useMeta({
+    title: cityCatalogTitle(selectedCity.name),
+    description: cityCatalogDescription(selectedCity.name, totalRestaurantCount),
+    canonical: `https://restaurantsecret.ru/catalog/${citySlug(selectedCity.id)}/`,
+  })
+
+  const crossCitySuggestions = useMemo(() => (
+    (crossCityResults?.otherCities || []).map((result) => {
+      const city = cities.find((item) => item.id === result.city)
+      return city ? { ...result, city } : null
+    }).filter(Boolean)
+  ), [cities, crossCityResults?.otherCities])
 
   const handleSubmit = useCallback((event) => {
     event.preventDefault()
-    setDebouncedQuery(query.trim())
+    const trimmedQuery = query.trim()
+    setDebouncedQuery(trimmedQuery)
     setCurrentPage(1)
-  }, [query])
+    const next = new URLSearchParams(searchParams)
+    if (trimmedQuery) next.set('q', trimmedQuery); else next.delete('q')
+    setSearchParams(next, { replace: true })
+  }, [query, searchParams, setSearchParams])
+
+  const handleClearSearch = useCallback(() => {
+    setQuery('')
+    setDebouncedQuery('')
+    setCurrentPage(1)
+    const next = new URLSearchParams(searchParams)
+    next.delete('q')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   return (
     <div className="catalog-page">
       <header className="catalog-heading">
-        <p className="catalog-heading__eyebrow">Каталог</p>
-        <h1 className="catalog-heading__title">Рестораны</h1>
+        <p className="catalog-heading__eyebrow">КБЖУ ресторанов</p>
+        <h1 className="catalog-heading__title">КБЖУ ресторанов {cityGenitiveName}</h1>
         <p className="catalog-heading__lead">
+          {'КБЖУ блюд в '}
           <strong>{totalRestaurantCount.toLocaleString('ru-RU')}</strong>
           {' '}
-          {getRussianPluralWord(totalRestaurantCount, 'ресторан', 'ресторана', 'ресторанов')}
-          {' Москвы с полным меню и КБЖУ'}
+          {getRussianPluralWord(totalRestaurantCount, 'ресторане', 'ресторанах', 'ресторанах')}
+          {` ${cityGenitiveName}: калории, белки, жиры и углеводы из меню`}
           {weeklyAdded > 0 && (
             <>
               <span className="catalog-heading__sep" aria-hidden="true">·</span>
@@ -335,7 +452,7 @@ export default function Catalog() {
                 <button
                   type="button"
                   className="catalog-search__clear"
-                  onClick={() => setQuery('')}
+                  onClick={handleClearSearch}
                   aria-label="Очистить поиск"
                 >
                   ×
@@ -359,6 +476,21 @@ export default function Catalog() {
               </svg>
             </button>
             <div className="catalog-filter-row">
+              <div className="catalog-filter">
+                <label className="catalog-filter__label" htmlFor="catalog-city">Город</label>
+                <div className="catalog-filter__select-wrap">
+                  <select id="catalog-city" className="catalog-metro-select" value={selectedCity.id}
+                    onFocus={() => analytics.track('city_selector_open', { selected_city: selectedCity.id })}
+                    onChange={(event) => {
+                    const city = cities.find((item) => item.id === event.target.value)
+                    if (city) changeCity(city)
+                  }}>
+                    {cities.length ? cities.map((city) => (
+                      <option key={city.id} value={city.id}>{city.name}</option>
+                    )) : <option value="Москва">Москва</option>}
+                  </select>
+                </div>
+              </div>
               <div className="catalog-filter">
                 <div className="catalog-filter__label">Кухня</div>
                 <div className="catalog-filter__control">
@@ -396,14 +528,72 @@ export default function Catalog() {
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
         {error && <p className="err">Ошибка: {String(error.message || error)}</p>}
         {!loading && !visibleItems.length && !error && (
-          <div className="catalog-state catalog-state--empty">
-            <div className="catalog-state__badge">Ничего не нашли</div>
-            <p className="catalog-state__text">Попробуйте изменить запрос или выбрать другую кухню.</p>
-          </div>
+          crossCitySuggestions.length > 0 ? (
+            <div className="catalog-empty" role="status">
+              <div className="catalog-empty__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <circle cx="10.75" cy="10.75" r="6.75" />
+                  <path d="m15.8 15.8 4.2 4.2" />
+                </svg>
+              </div>
+              <h2 className="catalog-empty__title">Здесь пока пусто</h2>
+              <p className="catalog-empty__text">
+                Попробуйте другой запрос или посмотрите результаты в другом городе.
+              </p>
+              <div className="catalog-empty__cities" aria-label="Результаты в других городах">
+                {crossCitySuggestions.map(({ city }) => (
+                  <button
+                    className="catalog-empty__city"
+                    key={city.id}
+                    type="button"
+                    onClick={() => changeCity(city)}
+                  >
+                    {city.name}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="catalog-state catalog-state--empty">
+              <div className="catalog-state__badge">Ничего не нашли</div>
+              <p className="catalog-state__text">Попробуйте изменить запрос или выбрать другую кухню.</p>
+            </div>
+          )
         )}
 
         <ul className="catalog-grid">
           {visibleItems.map((r, i) => {
+            if (r.isChainCard) {
+              const badgeText = getInitials(r.name)
+              return (
+                <li key={`chain-${r.slug}`} className="catalog-card catalog-card--chain" role="group" aria-label={r.name}>
+                  <div className="catalog-card__top">
+                    <div className="catalog-card__identity">
+                      <div className={`${getBadgeClassName(r.name)} catalog-card__badge--tone-${i % 4}`} aria-hidden="true">{badgeText}</div>
+                      <div className="catalog-card__copy">
+                        <h3 className="catalog-card__title">{r.name}</h3>
+                        <div className="catalog-card__meta">
+                          {r.cuisine && (
+                            <span className="catalog-card__meta-item">
+                              <CuisineIcon />
+                              {r.cuisine}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="catalog-card__bottom">
+                    <div className="catalog-card__label">
+                      Сеть: {r.chainCount} {getRussianPluralWord(r.chainCount, 'ресторан', 'ресторана', 'ресторанов')}
+                    </div>
+                    <button type="button" className="btn btn--primary" onClick={() => openChainHub(r.slug)}>Все рестораны сети</button>
+                  </div>
+                </li>
+              )
+            }
+
             const allDishes = extractDishes(r)
             const restaurantLinkUrl = normalizeRestaurantLinkUrl(r.instagramUrl)
             const dishesCount = typeof r?.dishesCount === 'number'
@@ -417,7 +607,7 @@ export default function Catalog() {
                     <div className={`${getBadgeClassName(r?.name)} catalog-card__badge--tone-${i % 4}`} aria-hidden="true">{badgeText}</div>
                     <div className="catalog-card__copy">
                       <h3 className="catalog-card__title">
-                        <span className="catalog-card__title-text">{r.name}</span>
+                        <ScrollingRestaurantName name={r.name} />
                         {r?.autoUpdated && <AutoUpdatedBadge className="catalog-card__auto-updated" />}
                       </h3>
                       <div className="catalog-card__meta">
@@ -472,7 +662,7 @@ export default function Catalog() {
           })}
         </ul>
 
-        {!isInitialLoading && filteredItems.length > 0 && (
+        {!isInitialLoading && displayItems.length > 0 && (
           <nav className="catalog-pagination" aria-label="Навигация по ресторанам">
             <button
               type="button"
@@ -484,7 +674,7 @@ export default function Catalog() {
               ‹
             </button>
             <span className="catalog-pagination__text">
-              Показано {shownFrom}–{shownTo} из {filteredItems.length} {getRussianPluralWord(filteredItems.length, 'ресторан', 'ресторана', 'ресторанов')}
+              Показано {shownFrom}–{shownTo} из {displayItems.length} {getRussianPluralWord(displayItems.length, 'ресторан', 'ресторана', 'ресторанов')}
             </span>
             <button
               type="button"

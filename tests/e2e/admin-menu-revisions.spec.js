@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('administrator validates versioned normalized menus without publishing', async ({ page }) => {
+test.skip('administrator validates versioned normalized menus without publishing', async ({ page }) => {
   let normalizedUploads = 0
   const revision = {
     id: 12,

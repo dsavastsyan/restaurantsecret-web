@@ -215,7 +215,7 @@ export default function AdminRestaurantAttributeReviews() {
         <div>
           <span>Рестораны</span>
           <h1>Ревью и правки</h1>
-          <p>Находки агента-обогащения (Instagram/координаты/кухня) и точечное редактирование любого ресторана.</p>
+          <p>Находки агента-обогащения по координатам и кухне, а также точечное редактирование любого ресторана.</p>
         </div>
         <strong>{reviews.length}</strong>
       </header>

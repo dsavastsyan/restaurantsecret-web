@@ -7,17 +7,17 @@ import AppShell from '../app/AppShell.jsx'
 import { isTelegramLaunch } from '../lib/telegram'
 import NotFound from '../pages/NotFound.jsx'
 import { analytics } from '../services/analytics'
+import { PARTNER_ADMIN_ENABLED } from '../pages/admin/adminFeatures'
 
 const Landing = lazy(() => import('../pages/Landing.jsx'))
 const QrMenuAccess = lazy(() => import('../pages/QrMenuAccess.jsx'))
 const Catalog = lazy(() => import('../pages/Catalog.jsx'))
 const Menu = lazy(() => import('../pages/Menu.jsx'))
+const ChainHub = lazy(() => import('../pages/ChainHub.jsx'))
 const Search = lazy(() => import('../pages/Search.jsx'))
 const PaySuccess = lazy(() => import('../pages/PaySuccess.jsx'))
 const PaymentResult = lazy(() => import('../pages/PaymentResult.jsx'))
 const Login = lazy(() => import('../pages/Login.tsx'))
-const OnboardingWelcome = lazy(() => import('../pages/OnboardingWelcome.tsx'))
-const OnboardingProfile = lazy(() => import('../pages/OnboardingProfile.tsx'))
 const Contact = lazy(() => import('../pages/Contact.jsx'))
 const Legal = lazy(() => import('../pages/Legal.jsx'))
 const Privacy = lazy(() => import('../pages/Privacy.jsx'))
@@ -37,6 +37,7 @@ const PartnersSeasonalMenu = lazy(() => import('../pages/partners/SeasonalMenuFl
 const AdminShell = lazy(() => import('../pages/admin/AdminShell.jsx'))
 const AdminLogin = lazy(() => import('../pages/admin/AdminLogin.jsx'))
 const AdminRestaurants = lazy(() => import('../pages/admin/AdminRestaurantList.jsx'))
+const AdminOutreach = lazy(() => import('../pages/admin/AdminOutreach.jsx'))
 const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.jsx'))
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
 const AdminProductMatches = lazy(() => import('../pages/admin/ProductMatchReview.jsx'))
@@ -49,10 +50,10 @@ const Feedback = lazy(() => import('../pages/Feedback.jsx'))
 const HowItWorks = lazy(() => import('../pages/HowItWorks.jsx'))
 const SubscriptionHistoryPage = lazy(() => import('../pages/account/SubscriptionHistoryPage.tsx'))
 const Favorites = lazy(() => import('../pages/account/Favorites.tsx'))
-const Friends = lazy(() => import('../pages/account/Friends.tsx'))
-const FriendFavorites = lazy(() => import('../pages/account/FriendFavorites.tsx'))
-const Goals = lazy(() => import('../pages/account/Goals.tsx'))
-const Statistics = lazy(() => import('../pages/account/Statistics.tsx'))
+// Friends pages are temporarily disabled until the mobile experience launches.
+// const Friends = lazy(() => import('../pages/account/Friends.tsx'))
+// const FriendFavorites = lazy(() => import('../pages/account/FriendFavorites.tsx'))
+const AnyEatComingSoon = lazy(() => import('../pages/account/AnyEatComingSoon.tsx'))
 const PaymentMethods = lazy(() => import('../pages/account/PaymentMethods.tsx'))
 
 // Defines the route tree shared between BrowserRouter and HashRouter. Keeping
@@ -74,8 +75,6 @@ function AppRoutes({ onReady }) {
           {/* Публичные страницы */}
           <Route index element={<Landing />} />
           <Route path="login" element={<Login />} />
-          <Route path="onboarding/welcome" element={<OnboardingWelcome />} />
-          <Route path="onboarding/profile/:step" element={<OnboardingProfile />} />
           <Route path="legal" element={<Legal />} />
           <Route path="legal/versions/:date" element={<LegalVersionRoute />} />
           <Route path="tariffs" element={<Tariffs />} />
@@ -86,6 +85,7 @@ function AppRoutes({ onReady }) {
           <Route path="contact" element={<Navigate to="/support" replace />} />
           <Route path="feedback" element={<Feedback />} />
           <Route path="how-it-works" element={<HowItWorks />} />
+          {import.meta.env.DEV && <Route path="anyeat-account-preview" element={<AnyEatComingSoon />} />}
           <Route path="account" element={<AccountLayout />}>
             <Route index element={<AccountOverview />} />
             <Route path="profile" element={<AccountOverview />} />
@@ -93,17 +93,18 @@ function AppRoutes({ onReady }) {
             <Route path="subscription/history" element={<SubscriptionHistoryPage />} />
             <Route path="payment-methods/*" element={<PaymentMethods />} />
             <Route path="favorites" element={<Favorites />} />
-            <Route path="friends" element={<Friends />} />
-            <Route path="friends/:friendId" element={<FriendFavorites />} />
-            <Route path="goals" element={<Goals />} />
-            <Route path="statistics" element={<Statistics />} />
+            {/* Friends routes are temporarily unavailable; implementation files are kept. */}
+            <Route path="friends/*" element={<Navigate to="/account" replace />} />
+            <Route path="goals" element={<AnyEatComingSoon />} />
+            <Route path="statistics" element={<AnyEatComingSoon />} />
           </Route>
 
           {/* Основной контент */}
           <Route path="catalog" element={<Catalog />} />
+          <Route path="catalog/:city" element={<Catalog />} />
           <Route path="restaurants" element={<Catalog />} />
           <Route path="search" element={<Search />} />
-          <Route path="restaurants/:slug" element={<RestaurantMenuRedirect />} />
+          <Route path="restaurants/:slug" element={<ChainHub />} />
           <Route path="restaurants/:slug/menu" element={<Menu />} />
           <Route path="qr/:token" element={<QrMenuAccess />} />
           <Route path="r/:slug" element={<ShortRestaurantRedirect />} />
@@ -146,8 +147,9 @@ function AppRoutes({ onReady }) {
           <Route index element={<Navigate to="/admin/restaurants" replace />} />
           <Route path="login" element={<AdminLogin />} />
           <Route path="restaurants" element={<AdminRestaurants />} />
-          <Route path="menu-revisions" element={<AdminMenuRevisions />} />
-          <Route path="menu-revisions/:revisionId" element={<AdminMenuRevisionDetail />} />
+          <Route path="outreach" element={<AdminOutreach />} />
+          {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions" element={<AdminMenuRevisions />} />}
+          {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions/:revisionId" element={<AdminMenuRevisionDetail />} />}
           <Route path="product-matches" element={<AdminProductMatches />} />
           <Route path="kbju-flags" element={<AdminKbjuFlags />} />
           <Route path="restaurant-reviews" element={<AdminRestaurantAttributeReviews />} />
@@ -248,12 +250,6 @@ function LegacyRestaurantRedirect() {
 
 // Redirect old `/restaurant/:slug/menu` paths to the canonical menu URL.
 function LegacyMenuRedirect() {
-  const { slug = '' } = useParams()
-  return <Navigate to={`/restaurants/${slug}/menu/`} replace />
-}
-
-// Keep indexed/direct restaurant entrypoints on the same menu experience as catalog links.
-function RestaurantMenuRedirect() {
   const { slug = '' } = useParams()
   return <Navigate to={`/restaurants/${slug}/menu/`} replace />
 }
