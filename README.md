@@ -44,6 +44,13 @@ This repository contains the user interface and client-side logic for Restaurant
 | `npm run preview` | Locally previews the production build. |
 | `npm run test:e2e` | Runs end-to-end tests using Playwright. |
 
+## Staging preview
+
+The permanent staging build is available at
+<https://develop.restaurantsecret-web.pages.dev>. It is deployed from `develop` and is
+built against the staging public API and PD API. Pull requests targeting `develop` get
+an isolated Cloudflare Pages preview from the same workflow.
+
 ## Getting Started
 
 1. **Install dependencies**:
