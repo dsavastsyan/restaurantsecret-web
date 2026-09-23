@@ -16,7 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  STAGING_PUBLIC_API: https://restaurantsecret-api-staging.dsavastyan.workers.dev
+  STAGING_PUBLIC_API: /api
+  STAGING_PUBLIC_API_UPSTREAM: https://restaurantsecret-api-staging.dsavastyan.workers.dev
   STAGING_PD_API: https://staging-pd.restaurantsecret.ru
   PERMANENT_PREVIEW_URL: https://develop.restaurantsecret-web.pages.dev
 
@@ -41,8 +42,8 @@ jobs:
           VITE_API_URL: ${{ env.STAGING_PUBLIC_API }}
           VITE_PD_API_BASE: ${{ env.STAGING_PD_API }}
           VITE_DEPLOY_ENV: preview
-          SITEMAP_API_URL: ${{ env.STAGING_PUBLIC_API }}
-        run: npm run build
+          SITEMAP_API_URL: ${{ env.STAGING_PUBLIC_API_UPSTREAM }}
+        run: npm run build:preview
 
       - name: Select Cloudflare Pages branch
         id: branch
@@ -80,6 +81,8 @@ jobs:
           E2E_TEST_OTP: ${{ secrets.E2E_TEST_OTP }}
         run: |
           curl --fail --show-error --silent --retry 5 --retry-all-errors "$PLAYWRIGHT_BASE_URL/" > /dev/null
+          curl --fail --show-error --silent --retry 5 --retry-all-errors \
+            "$PLAYWRIGHT_BASE_URL/api/health" > /dev/null
           curl --fail --show-error --silent --location --retry 5 --retry-all-errors \
             "$PLAYWRIGHT_BASE_URL/restaurants/maya/menu/" > /dev/null
           npx playwright install --with-deps chromium
@@ -93,7 +96,7 @@ jobs:
         with:
           script: |
             const marker = '<!-- cloudflare-pages-preview -->'
-            const body = `${marker}\nCloudflare Pages preview: ${process.env.PREVIEW_URL}\n\nAPI: staging data (${process.env.STAGING_PUBLIC_API})\nSmoke: passed.`
+            const body = `${marker}\nCloudflare Pages preview: ${process.env.PREVIEW_URL}\n\nAPI: same-origin ${process.env.STAGING_PUBLIC_API} proxy to staging Worker (${process.env.STAGING_PUBLIC_API_UPSTREAM})\nSmoke: passed.`
             const { owner, repo } = context.repo
             const issue_number = context.issue.number
             const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number })
