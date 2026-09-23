@@ -303,14 +303,27 @@ export default function SubscriptionPlans({
                 )}
             </div>
 
-            {/* Main CTA */}
-            <button
-                className={`rsMainCta ${isFreeAccessNoCard ? 'rsMainCta--free' : ''}`}
-                onClick={onProceed}
-                disabled={loading || (!isFreeAccessNoCard && !selectedPlan)}
-            >
-                {getCtaText()}
-            </button>
+            <div className="rsCheckoutActions">
+                {/* Main CTA */}
+                <button
+                    className={`rsMainCta ${isFreeAccessNoCard ? 'rsMainCta--free' : ''}`}
+                    onClick={onProceed}
+                    disabled={loading || (!isFreeAccessNoCard && !selectedPlan)}
+                >
+                    {getCtaText()}
+                </button>
+
+                <div className="rsCheckoutSupport">
+                    Проблемы с оформлением?{" "}
+                    <a
+                        href="https://t.me/RestSecretSupport_bot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Поддержка
+                    </a>
+                </div>
+            </div>
         </div>
     );
 }
