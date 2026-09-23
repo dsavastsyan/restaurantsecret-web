@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildStagingApiUrl, onRequest } from '../functions/api/[[path]].js'
+import { buildStagingApiUrl, isPreviewHostname, onRequest } from '../functions/api/[[path]].js'
 
 test('preview API proxy preserves the path and query on the staging Worker', () => {
   const upstreamUrl = buildStagingApiUrl(
@@ -23,6 +23,22 @@ test('preview API proxy cannot be redirected to another origin through its path'
   assert.equal(upstreamUrl.pathname, '//attacker.example/collect')
 })
 
+test('preview API proxy is limited to Pages branch hostnames', () => {
+  assert.equal(isPreviewHostname('develop.restaurantsecret-web.pages.dev'), true)
+  assert.equal(isPreviewHostname('7e8a7279.restaurantsecret-web.pages.dev'), true)
+  assert.equal(isPreviewHostname('restaurantsecret-web.pages.dev'), false)
+  assert.equal(isPreviewHostname('restaurantsecret.ru'), false)
+})
+
+test('production hostname cannot reach the staging proxy', async () => {
+  const response = await onRequest({
+    request: new Request('https://restaurantsecret-web.pages.dev/api/health'),
+  })
+
+  assert.equal(response.status, 404)
+  assert.deepEqual(await response.json(), { error: 'NOT_FOUND' })
+})
+
 test('preview API proxy streams the upstream response and filters browser-only headers', async () => {
   const originalFetch = globalThis.fetch
   let proxiedRequest
@@ -34,7 +50,7 @@ test('preview API proxy streams the upstream response and filters browser-only h
 
   try {
     const response = await onRequest({
-      request: new Request('https://preview.example/api/landing/stats', {
+      request: new Request('https://branch.restaurantsecret-web.pages.dev/api/landing/stats', {
         headers: {
           Authorization: 'Bearer test-token',
           Cookie: 'preview-session=private',
@@ -62,7 +78,7 @@ test('preview API proxy returns a bounded 502 when the upstream is unavailable',
 
   try {
     const response = await onRequest({
-      request: new Request('https://preview.example/api/health'),
+      request: new Request('https://branch.restaurantsecret-web.pages.dev/api/health'),
     })
 
     assert.equal(response.status, 502)

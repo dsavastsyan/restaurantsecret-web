@@ -1,5 +1,6 @@
 const STAGING_API_ORIGIN = 'https://restaurantsecret-api-staging.dsavastyan.workers.dev'
 const PREVIEW_API_PREFIX = '/api'
+const PAGES_PRODUCTION_HOSTNAME = 'restaurantsecret-web.pages.dev'
 const FORWARDED_REQUEST_HEADERS = [
   'accept',
   'accept-language',
@@ -21,6 +22,10 @@ export function buildStagingApiUrl(requestUrl) {
   return upstreamUrl
 }
 
+export function isPreviewHostname(hostname) {
+  return hostname.endsWith('.restaurantsecret-web.pages.dev') && hostname !== PAGES_PRODUCTION_HOSTNAME
+}
+
 function buildUpstreamHeaders(requestHeaders) {
   const upstreamHeaders = new Headers()
 
@@ -34,6 +39,10 @@ function buildUpstreamHeaders(requestHeaders) {
 
 export async function onRequest(context) {
   const { request } = context
+  if (!isPreviewHostname(new URL(request.url).hostname)) {
+    return Response.json({ error: 'NOT_FOUND' }, { status: 404 })
+  }
+
   const method = request.method.toUpperCase()
 
   try {
