@@ -9,6 +9,13 @@ import { expect, test } from '@playwright/test'
 // backend change deployed yet.
 const STAGING_API_HOSTNAME = 'restaurantsecret-api-staging.dsavastyan.workers.dev'
 
+const isMenuApiUrl = (url, slug) => {
+  const isKnownApiOrigin = url.hostname === STAGING_API_HOSTNAME
+    || /^\/api(?:\/catalog)?\//.test(url.pathname)
+
+  return isKnownApiOrigin && url.pathname.endsWith(`/restaurants/${slug}/menu`)
+}
+
 const MENU_FIXTURE = {
   name: 'Сыроварня',
   slug: 'syrovarnya-almetevsk',
@@ -26,17 +33,9 @@ const MENU_FIXTURE = {
 }
 
 test('@smoke a chain branch menu page canonicalizes to the chain hub', async ({ page }) => {
-  // Match only the API fetch to the staging Worker (see STAGING_PUBLIC_API_BASE
-  // in src/config/api.js), never the SPA's own /restaurants/.../menu route,
-  // which the app's client-side router also navigates to. A hostname
-  // exclude-list of just localhost/127.0.0.1 (the previous approach) is not
-  // enough: it also matches the SPA's own request whenever the app is
-  // running anywhere other than localhost — e.g. a Cloudflare Pages preview
-  // or production — silently replacing the whole page navigation with this
-  // JSON fixture instead of the real app shell.
-  await page.route((url) =>
-    url.hostname === STAGING_API_HOSTNAME
-      && url.pathname.endsWith('/restaurants/syrovarnya-almetevsk/menu'), (route) =>
+  // Match direct staging requests and the same-origin Pages/production proxy,
+  // but never the SPA's own /restaurants/.../menu navigation.
+  await page.route((url) => isMenuApiUrl(url, 'syrovarnya-almetevsk'), (route) =>
     route.fulfill({ json: MENU_FIXTURE })
   )
 
@@ -51,9 +50,7 @@ test('@smoke a chain branch menu page canonicalizes to the chain hub', async ({ 
 })
 
 test('@smoke a standalone restaurant menu page still canonicalizes to itself', async ({ page }) => {
-  await page.route((url) =>
-    url.hostname === STAGING_API_HOSTNAME
-      && url.pathname.endsWith('/restaurants/solo-restaurant/menu'), (route) =>
+  await page.route((url) => isMenuApiUrl(url, 'solo-restaurant'), (route) =>
     route.fulfill({
       json: {
         ...MENU_FIXTURE,

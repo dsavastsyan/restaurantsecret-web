@@ -62,7 +62,8 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // rest behind a subscribe prompt on each card).
   const restaurantResponsePromise = waitForSuccessfulResponse(page, (response) => {
     const path = new URL(response.url()).pathname
-    return /^\/restaurants\/[^/]+\/menu\/?$/.test(path) && response.request().method() === 'GET'
+    return /^\/api(?:\/catalog)?\/restaurants\/[^/]+\/menu\/?$/.test(path)
+      && response.request().method() === 'GET'
   })
 
   await Promise.all([
