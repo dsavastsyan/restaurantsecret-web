@@ -41,9 +41,8 @@ jobs:
           VITE_API_URL: ${{ env.STAGING_PUBLIC_API }}
           VITE_PD_API_BASE: ${{ env.STAGING_PD_API }}
           VITE_DEPLOY_ENV: preview
-        run: |
-          npx vite build
-          node scripts/generate-spa-entrypoints.js
+          SITEMAP_API_URL: ${{ env.STAGING_PUBLIC_API }}
+        run: npm run build
 
       - name: Select Cloudflare Pages branch
         id: branch
