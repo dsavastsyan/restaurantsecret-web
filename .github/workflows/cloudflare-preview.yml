@@ -1,0 +1,118 @@
+name: Cloudflare Pages preview
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: cloudflare-preview-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  STAGING_PUBLIC_API: https://restaurantsecret-api-staging.dsavastyan.workers.dev
+  STAGING_PD_API: https://staging-pd.restaurantsecret.ru
+  PERMANENT_PREVIEW_URL: https://develop.restaurantsecret-web.pages.dev
+
+jobs:
+  preview:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build preview against staging APIs
+        env:
+          VITE_API_BASE_URL: ${{ env.STAGING_PUBLIC_API }}
+          VITE_API_BASE: ${{ env.STAGING_PUBLIC_API }}
+          VITE_API_URL: ${{ env.STAGING_PUBLIC_API }}
+          VITE_PD_API_BASE: ${{ env.STAGING_PD_API }}
+          VITE_DEPLOY_ENV: preview
+          SITEMAP_API_URL: ${{ env.STAGING_PUBLIC_API }}
+        run: npm run build
+
+      - name: Select Cloudflare Pages branch
+        id: branch
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BRANCH: ${{ github.head_ref }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "name=$PR_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=develop" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy Cloudflare Pages preview
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CF_ACCOUNT_ID }}
+          PREVIEW_BRANCH: ${{ steps.branch.outputs.name }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          DEPLOY_OUTPUT=$(npx wrangler@4 pages deploy dist \
+            --project-name restaurantsecret-web \
+            --branch "$PREVIEW_BRANCH" \
+            --commit-hash "$COMMIT_SHA")
+          echo "$DEPLOY_OUTPUT"
+          DEPLOYMENT_URL=$(echo "$DEPLOY_OUTPUT" | sed -n 's/.*Take a peek over at \(https:\/\/[^[:space:]]*\.pages\.dev\).*/\1/p' | tail -1)
+          test -n "$DEPLOYMENT_URL"
+          echo "url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke deployed preview
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ steps.deploy.outputs.url }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_OTP: ${{ secrets.E2E_TEST_OTP }}
+        run: |
+          curl --fail --show-error --silent --retry 5 --retry-all-errors "$PLAYWRIGHT_BASE_URL/" > /dev/null
+          curl --fail --show-error --silent --location --retry 5 --retry-all-errors \
+            "$PLAYWRIGHT_BASE_URL/restaurants/maya/menu/" > /dev/null
+          npx playwright install --with-deps chromium
+          npx playwright test --grep @smoke
+
+      - name: Publish pull request preview link
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+        with:
+          script: |
+            const marker = '<!-- cloudflare-pages-preview -->'
+            const body = `${marker}\nCloudflare Pages preview: ${process.env.PREVIEW_URL}\n\nAPI: staging data (${process.env.STAGING_PUBLIC_API})\nSmoke: passed.`
+            const { owner, repo } = context.repo
+            const issue_number = context.issue.number
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number })
+            const existing = comments.find((comment) => comment.user.type === 'Bot' && comment.body.includes(marker))
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body })
+            }
+
+      - name: Publish permanent preview link
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "Permanent staging preview: $PERMANENT_PREVIEW_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment: ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cloudflare-preview-test-results
+          path: test-results/
+          retention-days: 7
