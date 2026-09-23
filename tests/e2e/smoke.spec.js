@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+const STAGING_API_HOSTNAME = 'restaurantsecret-api-staging.dsavastyan.workers.dev'
+
 const waitForSuccessfulResponse = (page, predicate) =>
   page.waitForResponse((response) => {
     if (!predicate(response)) return false
@@ -61,8 +63,12 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // — the site now gates per dish, showing the first few free and hiding the
   // rest behind a subscribe prompt on each card).
   const restaurantResponsePromise = waitForSuccessfulResponse(page, (response) => {
-    const path = new URL(response.url()).pathname
-    return /^\/api(?:\/catalog)?\/restaurants\/[^/]+\/menu\/?$/.test(path)
+    const url = new URL(response.url())
+    const isDirectStagingRequest = url.hostname === STAGING_API_HOSTNAME
+      && /^\/restaurants\/[^/]+\/menu\/?$/.test(url.pathname)
+    const isSameOriginProxyRequest = /^\/api(?:\/catalog)?\/restaurants\/[^/]+\/menu\/?$/.test(url.pathname)
+
+    return (isDirectStagingRequest || isSameOriginProxyRequest)
       && response.request().method() === 'GET'
   })
 
