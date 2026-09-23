@@ -111,6 +111,7 @@ export default function Menu({
   const [restaurantPoint, setRestaurantPoint] = useState(null)
 
   const [query, setQuery] = useState('')
+  const [selectedSection, setSelectedSection] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
   const [presets, setPresets] = useState(createDefaultPresets)
@@ -122,6 +123,7 @@ export default function Menu({
   // Reset filters whenever the restaurant slug changes.
   useEffect(() => {
     setQuery('')
+    setSelectedSection('all')
     setSelectedCategory('all')
     setIsAdvancedFiltersOpen(false)
     setPresets(createDefaultPresets())
@@ -213,6 +215,26 @@ export default function Menu({
   }, [city, slug])
 
   const dishes = useMemo(() => flattenMenuDishes(menu), [menu])
+  const sectionOptions = useMemo(() => {
+    const categories = Array.isArray(menu?.categories) ? menu.categories : []
+    if (!categories.length || categories.some((category) => !['food', 'drinks'].includes(category?.menuSection))) {
+      return []
+    }
+    return ['food', 'drinks'].filter((section) => categories.some((category) => category.menuSection === section))
+  }, [menu?.categories])
+
+  useEffect(() => {
+    const nextSection = sectionOptions.includes('food') ? 'food' : sectionOptions[0] || 'all'
+    setSelectedSection(nextSection)
+    setSelectedCategory('all')
+    setAllCategoriesExpanded(false)
+  }, [sectionOptions])
+
+  const handleSectionChange = (section) => {
+    setSelectedSection(section)
+    setSelectedCategory('all')
+    setAllCategoriesExpanded(false)
+  }
   const freeDishKeys = useMemo(() => {
     const isQrAccess = !previewMode && hasQrMenuAccess(slug)
     const visibleDishes = (previewMode || isQrAccess) ? dishes : dishes.slice(0, 3)
@@ -224,6 +246,7 @@ export default function Menu({
   const filtered = useMemo(() => {
     const q = query.trim()
     return dishes.filter((dish) => {
+      if (selectedSection !== 'all' && dish.menuSection !== selectedSection) return false
       const categoryName = formatDescription(dish.category, '') || 'Без категории'
       if (selectedCategory !== 'all' && categoryName !== selectedCategory) return false
       const searchableComposition = formatDescription(dish.ingredients ?? dish.description, '')
@@ -238,7 +261,7 @@ export default function Menu({
       if (!dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)) return false
       return true
     })
-  }, [dishes, query, selectedCategory, presets, range, ingredientFilter])
+  }, [dishes, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
 
   // The ingredient control only makes sense when the restaurant actually filled
   // compositions in — many menus have none, and an empty picker is worse than
@@ -266,10 +289,11 @@ export default function Menu({
   const categoryOptions = useMemo(() => {
     const source = Array.isArray(menu?.categories) ? menu.categories : []
     const names = source
+      .filter((category) => selectedSection === 'all' || category?.menuSection === selectedSection)
       .map((category) => formatDescription(category?.name, '') || 'Без категории')
       .filter(Boolean)
     return Array.from(new Set(names))
-  }, [menu?.categories])
+  }, [menu?.categories, selectedSection])
 
   const groupedDishes = useMemo(() => {
     if (!menu?.categories?.length) {
@@ -447,6 +471,9 @@ export default function Menu({
       menu={menu}
       query={query}
       setQuery={setQuery}
+      selectedSection={selectedSection}
+      setSelectedSection={handleSectionChange}
+      sectionOptions={sectionOptions}
       selectedCategory={selectedCategory}
       setSelectedCategory={setSelectedCategory}
       categoryOptions={categoryOptions}
