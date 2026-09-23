@@ -19,6 +19,10 @@ test('@smoke landing search and restaurant menu use the configured API', async (
   expect(landingStats?.restaurants).toBeGreaterThan(0)
   expect(landingStats?.dishes).toBeGreaterThan(0)
 
+  const heroStatValues = page.locator('.landing-warm__stat > p')
+  await expect(heroStatValues.nth(0)).toHaveText(Number(landingStats.restaurants).toLocaleString('ru-RU'))
+  await expect(heroStatValues.nth(1)).toHaveText(Number(landingStats.dishes).toLocaleString('ru-RU'))
+
   const search = page.getByPlaceholder('Найти ресторан или блюдо')
   await expect(search).toBeVisible()
   await search.fill('суши')
