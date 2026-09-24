@@ -1133,21 +1133,6 @@ export default function AccountSubscription() {
                     </div>
 
                     <div className="account-subscription-v2__subscriber-notes" aria-label="Информация для подписчика">
-                      <div className="account-subscription-v2__subscriber-note account-subscription-v2__subscriber-note--olive">
-                        <span className="account-subscription-v2__subscriber-icon" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-                            <path d="M20.8 4.6c-1.6-1.5-4.1-1.4-5.6.2L12 8.1 8.8 4.8C7.3 3.2 4.8 3.1 3.2 4.6 1.5 6.2 1.4 8.9 3 10.6L12 20l9-9.4c1.6-1.7 1.5-4.4-.2-6Z" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </span>
-                        <p>
-                          Рады, что ты теперь с нами! Подписывайся на наш{" "}
-                          <a href="https://t.me/restaurantsecret" target="_blank" rel="noreferrer">
-                            телеграм канал
-                          </a>{" "}
-                          для всех новостей, акций и предложений
-                        </p>
-                      </div>
-
                       <div className="account-subscription-v2__subscriber-note account-subscription-v2__subscriber-note--gold">
                         <span className="account-subscription-v2__subscriber-icon" aria-hidden="true">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
