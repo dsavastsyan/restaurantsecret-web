@@ -1,5 +1,5 @@
-// Catalog page showing the full list of restaurants with lightweight filters.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+// Catalog page showing restaurants on a map by default, with a list alternative.
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMeta } from '@/lib/useMeta'
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client.js'
@@ -14,6 +14,9 @@ import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { collapseChainRestaurants } from '@/lib/catalogChains'
+import { filterCatalogRestaurants, normalizeCatalogCuisine } from '@/lib/catalogFilters'
+
+const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 
 // Fetch a large number to emulate "all" items since backend pagination seems flaky
 const FETCH_LIMIT = 1000;
@@ -110,6 +113,7 @@ export default function Catalog() {
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
   const [currentPage, setCurrentPage] = useState(1)
+  const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
 
   const navigate = useNavigate()
   const { access, requireAccess, requestPaywall } = useOutletContext() || {}
@@ -127,8 +131,7 @@ export default function Catalog() {
     }
   }, [accessToken, loadFavorites]);
 
-  const handleToggleFavorite = useCallback(async (e, slug, name) => {
-    e.stopPropagation();
+  const handleToggleFavorite = useCallback(async (slug, name) => {
     if (!accessToken) {
       navigate('/login', { state: { from: window.location.pathname } });
       return;
@@ -153,10 +156,21 @@ export default function Catalog() {
   const changeCity = useCallback((city) => {
     analytics.track('city_changed', { from_city: selectedCity.id, selected_city: city.id })
     saveCatalogCity(city.id, 'manual', accessToken)
-    navigate(`/catalog/${citySlug(city.id)}/${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`)
+    const next = new URLSearchParams(searchParams)
+    if (query.trim()) next.set('q', query.trim()); else next.delete('q')
+    const queryString = next.toString()
+    navigate(`/catalog/${citySlug(city.id)}/${queryString ? `?${queryString}` : ''}`)
+    setSelectedCuisines([])
     setSelectedMetro('')
     setCurrentPage(1)
-  }, [accessToken, navigate, query, selectedCity.id])
+  }, [accessToken, navigate, query, searchParams, selectedCity.id])
+
+  const changeViewMode = useCallback((nextMode) => {
+    const next = new URLSearchParams(searchParams)
+    if (nextMode === 'list') next.set('view', 'list'); else next.delete('view')
+    setSearchParams(next, { replace: true })
+    analytics.track('catalog_view_changed', { view: nextMode, selected_city: selectedCity.id })
+  }, [searchParams, selectedCity.id, setSearchParams])
 
   // Ask the parent layout for access; show the paywall if the user is not
   // subscribed yet.
@@ -200,6 +214,11 @@ export default function Catalog() {
       city: selectedCity.id,
     })
   )
+  const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
+    `restaurants-map:${selectedCity.id}`,
+    () => api.restaurantMap({ city: selectedCity.id }),
+    { enabled: viewMode === 'map' },
+  )
   const { data: crossCityResults } = useSWRLite(
     debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}` : null,
     () => api.search(debouncedQuery, { city: selectedCity.id }),
@@ -213,16 +232,7 @@ export default function Catalog() {
     const list = Array.isArray(rawData?.items) ? rawData.items : (Array.isArray(rawData) ? rawData : [])
     const seen = new Set()
     return list.map(item => {
-      // Normalize cuisine field for display consistency
-      let cuisine = item.cuisine;
-      if (cuisine) {
-        const parts = String(cuisine).split(',').map(s => s.trim()).filter(Boolean);
-        const normalized = Array.from(new Set(parts.map(p => {
-          if (p.toLowerCase() === 'nan') return 'Другое';
-          return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
-        })));
-        cuisine = normalized.join(', ');
-      }
+      const cuisine = normalizeCatalogCuisine(item.cuisine)
 
       const key = item.slug || item.id || item.name
       if (seen.has(key)) return null
@@ -233,44 +243,40 @@ export default function Catalog() {
 
   // Filter items based on SEARCH and CUISINE
   const filteredItems = useMemo(() => {
-    if (!allItems.length) return []
+    return filterCatalogRestaurants(allItems, {
+      query: debouncedQuery,
+      cuisines: selectedCuisines,
+      metro: selectedMetro,
+      sortByRelevance: true,
+      matchesQuery: matchesSearchQuery,
+      getQueryScore: getSearchQueryScore,
+    })
+  }, [debouncedQuery, allItems, selectedCuisines, selectedMetro])
 
-    const cuisines = selectedCuisines.map((c) => c?.toLowerCase())
-    const metro = selectedMetro.trim().toLowerCase()
+  const mapItems = useMemo(() => {
+    const list = Array.isArray(rawMapData?.items) ? rawMapData.items : []
+    const catalogBySlug = new Map(allItems.map((item) => [String(item?.slug || '').toLowerCase(), item]))
+    const enriched = list.map((item) => {
+      const slug = item?.slug || item?.restaurantSlug || item?.restaurant_slug || ''
+      const catalogItem = catalogBySlug.get(String(slug).toLowerCase())
 
-    const matches = allItems.filter((item) => {
-      const cuisine = item?.cuisine?.toLowerCase() || ''
-      const matchesQuery = !debouncedQuery || matchesSearchQuery(item?.name, debouncedQuery)
-
-      // Split cuisines by comma and check if any selected cuisine is in the list
-      let matchesCuisine = !cuisines.length
-      if (cuisines.length && cuisine) {
-        const itemCuisines = cuisine.split(',').map(c => c.trim())
-        matchesCuisine = cuisines.some(selectedCuisine =>
-          itemCuisines.some(itemCuisine => itemCuisine.includes(selectedCuisine))
-        )
+      return {
+        ...catalogItem,
+        ...item,
+        slug,
+        name: item?.name || catalogItem?.name,
+        cuisine: normalizeCatalogCuisine(item?.cuisine || catalogItem?.cuisine),
+        metro: item?.metro || item?.metro_name || item?.metroName || catalogItem?.metro,
       }
-
-      const itemMetroCandidate = [
-        item?.metro,
-        item?.metro_name,
-        item?.metroName,
-        item?.metro_station,
-        item?.metroStation,
-      ].find(Boolean)
-      const itemMetro = String(itemMetroCandidate || '').toLowerCase()
-      const matchesMetro = !metro || itemMetro === metro
-
-      return matchesQuery && matchesCuisine && matchesMetro
     })
 
-    if (!debouncedQuery) return matches
-
-    return matches
-      .map((item, index) => ({ item, index, score: getSearchQueryScore(item?.name, debouncedQuery) }))
-      .sort((left, right) => right.score - left.score || left.index - right.index)
-      .map(({ item }) => item)
-  }, [debouncedQuery, allItems, selectedCuisines, selectedMetro])
+    return filterCatalogRestaurants(enriched, {
+      query: debouncedQuery,
+      cuisines: selectedCuisines,
+      metro: selectedMetro,
+      matchesQuery: matchesSearchQuery,
+    })
+  }, [allItems, debouncedQuery, rawMapData?.items, selectedCuisines, selectedMetro])
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -409,10 +415,40 @@ export default function Catalog() {
   }, [searchParams, setSearchParams])
 
   return (
-    <div className="catalog-page">
+    <div className={`catalog-page catalog-page--${viewMode}`}>
       <header className="catalog-heading">
         <p className="catalog-heading__eyebrow">КБЖУ ресторанов</p>
-        <h1 className="catalog-heading__title">КБЖУ ресторанов {cityGenitiveName}</h1>
+        <div className="catalog-heading__row">
+          <h1 className="catalog-heading__title">КБЖУ ресторанов {cityGenitiveName}</h1>
+          <div className="catalog-view-switch" role="group" aria-label="Вид каталога">
+            <button
+              type="button"
+              className={viewMode === 'map' ? 'is-active' : ''}
+              aria-pressed={viewMode === 'map'}
+              onClick={() => changeViewMode('map')}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="m3 6 5-3 8 3 5-3v15l-5 3-8-3-5 3Z" />
+                <path d="M8 3v15M16 6v15" />
+              </svg>
+              Карта
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'list' ? 'is-active' : ''}
+              aria-pressed={viewMode === 'list'}
+              onClick={() => changeViewMode('list')}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 6h12M9 12h12M9 18h12" />
+                <circle cx="4" cy="6" r="1" />
+                <circle cx="4" cy="12" r="1" />
+                <circle cx="4" cy="18" r="1" />
+              </svg>
+              Список
+            </button>
+          </div>
+        </div>
         <p className="catalog-heading__lead">
           {'КБЖУ блюд в '}
           <strong>{totalRestaurantCount.toLocaleString('ru-RU')}</strong>
@@ -524,6 +560,22 @@ export default function Catalog() {
         </div>
       </section>
 
+      {viewMode === 'map' ? (
+        <Suspense fallback={<div className="catalog-map-fallback">Загружаем карту…</div>}>
+          <CatalogMap
+            restaurants={mapLoading ? [] : mapItems}
+            center={selectedCity?.center ? [selectedCity.center.lat, selectedCity.center.lon] : undefined}
+            zoom={selectedCity?.recommendedZoom}
+            loading={mapLoading}
+            error={mapError}
+            totalResults={filteredItems.length}
+            isFavorite={isFavorite}
+            onToggleFavorite={handleToggleFavorite}
+            onOpenRestaurant={openMenu}
+            onShowList={() => changeViewMode('list')}
+          />
+        </Suspense>
+      ) : (
       <section className="catalog-results">
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
         {error && <p className="err">Ошибка: {String(error.message || error)}</p>}
@@ -637,7 +689,10 @@ export default function Catalog() {
                     <button
                       type="button"
                       className={`catalog-card__icon-btn catalog-card__fav-btn ${isFavorite(r.slug) ? 'is-active' : ''}`}
-                      onClick={(e) => handleToggleFavorite(e, r.slug, r.name)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        handleToggleFavorite(r.slug, r.name)
+                      }}
                       aria-label={isFavorite(r.slug) ? "Удалить из избранного" : "Добавить в избранное"}
                     >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -688,6 +743,7 @@ export default function Catalog() {
           </nav>
         )}
       </section>
+      )}
     </div>
   )
 }

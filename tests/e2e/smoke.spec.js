@@ -55,6 +55,15 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // don't assume identity between the two, just that results exist.
   expect(catalogPayload?.items?.length).toBeGreaterThan(0)
 
+  await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.catalog-map-panel')).toBeVisible()
+  const previewPersonaToggle = page.locator('.preview-persona-panel__toggle')
+  if (await previewPersonaToggle.isVisible() && await previewPersonaToggle.getAttribute('aria-expanded') === 'true') {
+    await previewPersonaToggle.click()
+  }
+  await page.getByRole('button', { name: 'Список', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
+
   const cards = page.locator('.catalog-card')
   const firstCardButton = cards.first().getByRole('button', { name: 'Открыть меню' })
   await expect(firstCardButton).toBeVisible()
