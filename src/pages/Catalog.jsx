@@ -14,7 +14,11 @@ import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { collapseChainRestaurants } from '@/lib/catalogChains'
-import { filterCatalogRestaurants, normalizeCatalogCuisine } from '@/lib/catalogFilters'
+import {
+  CATALOG_VENUE_TYPES,
+  filterCatalogRestaurants,
+  normalizeCatalogCuisine,
+} from '@/lib/catalogFilters'
 
 const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 
@@ -110,6 +114,7 @@ export default function Catalog() {
   const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
   const [selectedCuisines, setSelectedCuisines] = useState([])
   const [selectedMetro, setSelectedMetro] = useState('')
+  const [selectedVenueType, setSelectedVenueType] = useState('')
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
   const [currentPage, setCurrentPage] = useState(1)
@@ -162,6 +167,7 @@ export default function Catalog() {
     navigate(`/catalog/${citySlug(city.id)}/${queryString ? `?${queryString}` : ''}`)
     setSelectedCuisines([])
     setSelectedMetro('')
+    setSelectedVenueType('')
     setCurrentPage(1)
   }, [accessToken, navigate, query, searchParams, selectedCity.id])
 
@@ -247,11 +253,12 @@ export default function Catalog() {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       metro: selectedMetro,
+      venueType: selectedVenueType,
       sortByRelevance: true,
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
     })
-  }, [debouncedQuery, allItems, selectedCuisines, selectedMetro])
+  }, [debouncedQuery, allItems, selectedCuisines, selectedMetro, selectedVenueType])
 
   const mapItems = useMemo(() => {
     const list = Array.isArray(rawMapData?.items) ? rawMapData.items : []
@@ -267,6 +274,10 @@ export default function Catalog() {
         name: item?.name || catalogItem?.name,
         cuisine: normalizeCatalogCuisine(item?.cuisine || catalogItem?.cuisine),
         metro: item?.metro || item?.metro_name || item?.metroName || catalogItem?.metro,
+        primary_venue_type: item?.primary_venue_type
+          ?? item?.primaryVenueType
+          ?? catalogItem?.primary_venue_type
+          ?? catalogItem?.primaryVenueType,
       }
     })
 
@@ -274,14 +285,15 @@ export default function Catalog() {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       metro: selectedMetro,
+      venueType: selectedVenueType,
       matchesQuery: matchesSearchQuery,
     })
-  }, [allItems, debouncedQuery, rawMapData?.items, selectedCuisines, selectedMetro])
+  }, [allItems, debouncedQuery, rawMapData?.items, selectedCuisines, selectedMetro, selectedVenueType])
 
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedQuery, selectedCuisines, selectedMetro])
+  }, [debouncedQuery, selectedCuisines, selectedMetro, selectedVenueType])
 
   // Physical branches remain reachable from their chain hub, but the catalog
   // itself presents one card per chain rather than exposing branch pages.
@@ -320,6 +332,19 @@ export default function Catalog() {
       return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()
     }))).sort((a, b) => a.localeCompare(b, 'ru'))
   }, [filters?.cuisines])
+
+  const venueTypeOptions = useMemo(() => {
+    const raw = filters?.venue_types ?? filters?.venueTypes ?? []
+    const namesById = new Map(
+      raw
+        .filter((option) => option && typeof option.id === 'string')
+        .map((option) => [option.id, String(option.name || '').trim()]),
+    )
+    return CATALOG_VENUE_TYPES.map((option) => ({
+      ...option,
+      name: namesById.get(option.id) || option.name,
+    }))
+  }, [filters?.venueTypes, filters?.venue_types])
 
   const metroOptions = useMemo(() => {
     const values = allItems
@@ -528,6 +553,22 @@ export default function Catalog() {
                 </div>
               </div>
               <div className="catalog-filter">
+                <label className="catalog-filter__label" htmlFor="catalog-venue-type">Тип заведения</label>
+                <div className="catalog-filter__select-wrap">
+                  <select
+                    id="catalog-venue-type"
+                    className="catalog-metro-select"
+                    value={selectedVenueType}
+                    onChange={(event) => setSelectedVenueType(event.target.value)}
+                  >
+                    <option value="">Все типы</option>
+                    {venueTypeOptions.map((venueType) => (
+                      <option key={venueType.id} value={venueType.id}>{venueType.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="catalog-filter">
                 <div className="catalog-filter__label">Кухня</div>
                 <div className="catalog-filter__control">
                   <CuisineFilter
@@ -538,9 +579,10 @@ export default function Catalog() {
                 </div>
               </div>
               <div className="catalog-filter">
-                <div className="catalog-filter__label">Метро</div>
+                <label className="catalog-filter__label" htmlFor="catalog-metro">Метро</label>
                 <div className="catalog-filter__select-wrap">
                   <select
+                    id="catalog-metro"
                     className="catalog-metro-select"
                     value={selectedMetro}
                     onChange={(e) => setSelectedMetro(e.target.value)}
