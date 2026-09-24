@@ -3834,6 +3834,8 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
 }
 
 .catalog-page .catalog-hero {
+  position: relative;
+  z-index: 1;
   border: 1px solid var(--catalog-glass-edge);
   border-radius: 22px;
   background: var(--catalog-glass-soft);
