@@ -1,5 +1,3 @@
-import { getSearchQueryScore, matchesSearchQuery } from './text.ts'
-
 export function normalizeCatalogCuisine(value) {
   if (!value) return ''
 
@@ -35,7 +33,14 @@ export function getCatalogRestaurantMetroNames(restaurant) {
 
 export function filterCatalogRestaurants(
   items,
-  { query = '', cuisines = [], metro = '', sortByRelevance = false } = {},
+  {
+    query = '',
+    cuisines = [],
+    metro = '',
+    sortByRelevance = false,
+    matchesQuery = (candidate, value) => String(candidate || '').toLowerCase().includes(String(value).toLowerCase()),
+    getQueryScore = () => 0,
+  } = {},
 ) {
   const normalizedQuery = String(query).trim()
   const normalizedCuisines = cuisines
@@ -49,20 +54,20 @@ export function filterCatalogRestaurants(
       .split(',')
       .map((cuisine) => cuisine.trim())
       .filter(Boolean)
-    const matchesQuery = !normalizedQuery || matchesSearchQuery(item?.name, normalizedQuery)
+    const queryMatches = !normalizedQuery || matchesQuery(item?.name, normalizedQuery)
     const matchesCuisine = !normalizedCuisines.length || normalizedCuisines.some((selectedCuisine) => (
       itemCuisines.some((itemCuisine) => itemCuisine.includes(selectedCuisine))
     ))
     const matchesMetro = !normalizedMetro
       || getCatalogRestaurantMetroNames(item).includes(normalizedMetro)
 
-    return matchesQuery && matchesCuisine && matchesMetro
+    return queryMatches && matchesCuisine && matchesMetro
   })
 
   if (!normalizedQuery || !sortByRelevance) return matches
 
   return matches
-    .map((item, index) => ({ item, index, score: getSearchQueryScore(item?.name, normalizedQuery) }))
+    .map((item, index) => ({ item, index, score: getQueryScore(item?.name, normalizedQuery) }))
     .sort((left, right) => right.score - left.score || left.index - right.index)
     .map(({ item }) => item)
 }

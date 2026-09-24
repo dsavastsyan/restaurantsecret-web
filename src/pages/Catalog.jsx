@@ -8,7 +8,7 @@ import { useSWRLite } from '../hooks/useSWRLite.js'
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants'
 import { useAuth } from '@/store/auth'
 import { analytics } from '@/services/analytics'
-import { getRussianPluralWord } from '@/lib/text'
+import { getRussianPluralWord, getSearchQueryScore, matchesSearchQuery } from '@/lib/text'
 import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
@@ -248,6 +248,8 @@ export default function Catalog() {
       cuisines: selectedCuisines,
       metro: selectedMetro,
       sortByRelevance: true,
+      matchesQuery: matchesSearchQuery,
+      getQueryScore: getSearchQueryScore,
     })
   }, [debouncedQuery, allItems, selectedCuisines, selectedMetro])
 
@@ -272,6 +274,7 @@ export default function Catalog() {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       metro: selectedMetro,
+      matchesQuery: matchesSearchQuery,
     })
   }, [allItems, debouncedQuery, rawMapData?.items, selectedCuisines, selectedMetro])
 
