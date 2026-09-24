@@ -13,6 +13,19 @@ export function normalizeCatalogCuisine(value) {
   return Array.from(new Set(normalized)).join(', ')
 }
 
+export const CATALOG_VENUE_TYPES = [
+  { id: 'restaurant', name: 'Рестораны' },
+  { id: 'cafe', name: 'Кафе' },
+  { id: 'coffee_tea', name: 'Кофе и чай' },
+  { id: 'fast_food', name: 'Быстрая еда' },
+]
+
+export function getCatalogRestaurantVenueType(restaurant) {
+  const value = restaurant?.primary_venue_type ?? restaurant?.primaryVenueType
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  return CATALOG_VENUE_TYPES.some((option) => option.id === normalized) ? normalized : ''
+}
+
 export function getCatalogRestaurantMetroNames(restaurant) {
   const values = [
     restaurant?.metro,
@@ -37,6 +50,7 @@ export function filterCatalogRestaurants(
     query = '',
     cuisines = [],
     metro = '',
+    venueType = '',
     sortByRelevance = false,
     matchesQuery = (candidate, value) => String(candidate || '').toLowerCase().includes(String(value).toLowerCase()),
     getQueryScore = () => 0,
@@ -47,6 +61,7 @@ export function filterCatalogRestaurants(
     .map((cuisine) => String(cuisine || '').trim().toLowerCase())
     .filter(Boolean)
   const normalizedMetro = String(metro).trim().toLowerCase()
+  const normalizedVenueType = String(venueType).trim().toLowerCase()
 
   const matches = items.filter((item) => {
     const itemCuisines = String(item?.cuisine || '')
@@ -60,8 +75,10 @@ export function filterCatalogRestaurants(
     ))
     const matchesMetro = !normalizedMetro
       || getCatalogRestaurantMetroNames(item).includes(normalizedMetro)
+    const matchesVenueType = !normalizedVenueType
+      || getCatalogRestaurantVenueType(item) === normalizedVenueType
 
-    return queryMatches && matchesCuisine && matchesMetro
+    return queryMatches && matchesCuisine && matchesMetro && matchesVenueType
   })
 
   if (!normalizedQuery || !sortByRelevance) return matches

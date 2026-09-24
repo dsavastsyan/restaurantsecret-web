@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  CATALOG_VENUE_TYPES,
   filterCatalogRestaurants,
+  getCatalogRestaurantVenueType,
   getCatalogRestaurantMetroNames,
   normalizeCatalogCuisine,
 } from '../src/lib/catalogFilters.js'
@@ -23,6 +25,25 @@ test('uses the same query, cuisine and metro filters for map and list results', 
     restaurants.slice(0, 2),
   )
   assert.deepEqual(filterCatalogRestaurants(restaurants, { query: 'танук' }), [restaurants[2]])
+})
+
+test('filters by the primary venue type and ignores unknown API values', () => {
+  const restaurants = [
+    { name: 'Ресторан', primary_venue_type: 'restaurant' },
+    { name: 'Кафе', primaryVenueType: 'cafe' },
+    { name: 'Неизвестный тип', primary_venue_type: 'future_type' },
+    { name: 'Без типа' },
+  ]
+
+  assert.deepEqual(
+    CATALOG_VENUE_TYPES.map((option) => option.name),
+    ['Рестораны', 'Кафе', 'Кофе и чай', 'Быстрая еда'],
+  )
+  assert.equal(getCatalogRestaurantVenueType(restaurants[2]), '')
+  assert.deepEqual(
+    filterCatalogRestaurants(restaurants, { venueType: 'cafe' }),
+    [restaurants[1]],
+  )
 })
 
 test('reads all supported metro fields used by catalog and map responses', () => {

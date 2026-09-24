@@ -3862,7 +3862,7 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     grid-template-areas:
       "search search search search city city"
-      "metro metro metro cuisine cuisine cuisine";
+      "venue venue cuisine cuisine metro metro";
   }
 
   .catalog-page .catalog-search__field {
@@ -3874,10 +3874,14 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
   }
 
   .catalog-page .catalog-filter-row > .catalog-filter:nth-child(2) {
-    grid-area: cuisine;
+    grid-area: venue;
   }
 
   .catalog-page .catalog-filter-row > .catalog-filter:nth-child(3) {
+    grid-area: cuisine;
+  }
+
+  .catalog-page .catalog-filter-row > .catalog-filter:nth-child(4) {
     grid-area: metro;
   }
 }
@@ -4405,7 +4409,8 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
 
   .catalog-filter-row {
     grid-column: 1 / -1;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: flex-start;
     gap: 10px;
     min-width: 0;
@@ -4416,9 +4421,9 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
 
   .catalog-page .catalog-filter {
     display: block;
-    width: 0;
+    width: auto;
     max-width: none;
-    flex: 1 1 0;
+    flex: none;
     min-height: 0;
     padding: 0;
     border: 0;

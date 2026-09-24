@@ -7,6 +7,7 @@ const restaurant = {
   slug: 'coffee-test',
   name: 'Кофемания Тестовая',
   cuisine: 'Европейская',
+  primary_venue_type: 'coffee_tea',
   metro: 'Тверская',
   lat: 55.7645,
   lon: 37.6055,
@@ -37,7 +38,19 @@ test.beforeEach(async ({ page }) => {
         },
       })
     }
-    if (path.endsWith('/filters')) return route.fulfill({ json: { cuisines: ['Европейская'] } })
+    if (path.endsWith('/filters')) {
+      return route.fulfill({
+        json: {
+          cuisines: ['Европейская'],
+          venue_types: [
+            { id: 'restaurant', name: 'Рестораны' },
+            { id: 'cafe', name: 'Кафе' },
+            { id: 'coffee_tea', name: 'Кофе и чай' },
+            { id: 'fast_food', name: 'Быстрая еда' },
+          ],
+        },
+      })
+    }
     if (path.endsWith('/search')) return route.fulfill({ json: { restaurants: [], dishes: [], otherCities: [] } })
 
     return route.fulfill({ json: {} })
@@ -63,4 +76,17 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
   await page.reload()
   await expect(page.getByRole('button', { name: 'Список', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-grid')).toBeVisible()
+})
+
+test('filters both map and list by the primary venue type', async ({ page }) => {
+  await page.goto('/catalog/moskva/')
+
+  await page.getByLabel('Тип заведения').selectOption('coffee_tea')
+  await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
+
+  await page.getByLabel('Тип заведения').selectOption('restaurant')
+  await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Список', exact: true }).click()
+  await expect(page.locator('.catalog-card')).toHaveCount(0)
 })
