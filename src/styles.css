@@ -22557,10 +22557,6 @@ html[data-rs-theme="night"] .account-subscription-v2__annual-summary p {
   height: 31px;
 }
 
-.account-subscription-v2__subscriber-note--olive .account-subscription-v2__subscriber-icon {
-  background: linear-gradient(145deg, #78974b, #567131);
-}
-
 .account-subscription-v2__subscriber-note--gold .account-subscription-v2__subscriber-icon {
   background: linear-gradient(145deg, #d9a646, #a97620);
 }
