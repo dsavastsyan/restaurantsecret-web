@@ -12,6 +12,7 @@ import { hydrateCityPreference } from './lib/cityPreference'
 import { getAuthState } from './store/auth'
 import PreviewPersonaPanel from './components/PreviewPersonaPanel.jsx'
 import { IS_PREVIEW } from './config/api'
+import { configureServiceWorker } from './lib/serviceWorker'
 import './styles.css'
 import './account-mobile-profile.css'
 
@@ -241,30 +242,14 @@ function fetchMaintenanceConfig() {
   })
 }
 
-// Register the service worker (if supported) once the page has fully loaded so
-// network caching can work in production. Errors are intentionally swallowed to
-// avoid surfacing noisy warnings to end users.
-if ('serviceWorker' in navigator) {
-  if (import.meta.env.DEV) {
-    navigator.serviceWorker.getRegistrations()
-      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-      .catch(() => { })
-
-    if ('caches' in window) {
-      caches.keys()
-        .then((keys) => Promise.all(
-          keys
-            .filter((key) => key.startsWith('static-') || key.startsWith('api-'))
-            .map((key) => caches.delete(key)),
-        ))
-        .catch(() => { })
-    }
-  } else {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js').catch(() => { })
-    })
-  }
-}
+// Production keeps offline caching. Preview builds explicitly retire existing
+// workers and caches so a permanent staging URL cannot stay on an old deploy.
+configureServiceWorker({
+  isPreview: import.meta.env.VITE_DEPLOY_ENV === 'preview',
+  serviceWorker: 'serviceWorker' in navigator ? navigator.serviceWorker : null,
+  cacheStorage: 'caches' in window ? window.caches : null,
+  windowObject: window,
+})
 
 /**
  * Root wrapper that handles global maintenance state before mounting the router.

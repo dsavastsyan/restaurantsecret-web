@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+const STAGING_API_HOSTNAME = 'restaurantsecret-api-staging.dsavastyan.workers.dev'
+
 const waitForSuccessfulResponse = (page, predicate) =>
   page.waitForResponse((response) => {
     if (!predicate(response)) return false
@@ -18,6 +20,10 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   const landingStats = await landingStatsResponse.json()
   expect(landingStats?.restaurants).toBeGreaterThan(0)
   expect(landingStats?.dishes).toBeGreaterThan(0)
+
+  const heroStatValues = page.locator('.landing-warm__stat > p')
+  await expect(heroStatValues.nth(0)).toHaveText(Number(landingStats.restaurants).toLocaleString('ru-RU'))
+  await expect(heroStatValues.nth(1)).toHaveText(Number(landingStats.dishes).toLocaleString('ru-RU'))
 
   // Dismiss the cookie consent banner if it's shown — it overlays the page
   // and blocks interaction with everything behind it. ConsentBanner.jsx only
@@ -57,8 +63,13 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // — the site now gates per dish, showing the first few free and hiding the
   // rest behind a subscribe prompt on each card).
   const restaurantResponsePromise = waitForSuccessfulResponse(page, (response) => {
-    const path = new URL(response.url()).pathname
-    return /^\/restaurants\/[^/]+\/menu\/?$/.test(path) && response.request().method() === 'GET'
+    const url = new URL(response.url())
+    const isDirectStagingRequest = url.hostname === STAGING_API_HOSTNAME
+      && /^\/restaurants\/[^/]+\/menu\/?$/.test(url.pathname)
+    const isSameOriginProxyRequest = /^\/api(?:\/catalog)?\/restaurants\/[^/]+\/menu\/?$/.test(url.pathname)
+
+    return (isDirectStagingRequest || isSameOriginProxyRequest)
+      && response.request().method() === 'GET'
   })
 
   await Promise.all([

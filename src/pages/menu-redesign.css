@@ -300,6 +300,35 @@ body[data-rs-menu-v2] main {
   flex-wrap: wrap;
 }
 
+.rsm2-section-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--rsm2-border);
+  border-radius: 999px;
+  background: rgba(229, 220, 203, 0.72);
+  box-shadow: 0 2px 6px rgba(119, 98, 61, 0.12) inset;
+}
+
+.rsm2-section-switch button {
+  min-height: 36px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--rsm2-text-3);
+  cursor: pointer;
+  font: 700 14px/1 Inter, sans-serif;
+}
+
+.rsm2-section-switch button.is-on {
+  background: linear-gradient(180deg, #849366 0%, #6d7c52 100%);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.24) inset,
+    0 4px 10px rgba(90, 104, 66, 0.3);
+}
+
 .rsm2-cat {
   white-space: nowrap;
   padding: 8px 16px;
@@ -1203,6 +1232,10 @@ body[data-rs-menu-v2] main {
     position: static;
     backdrop-filter: none;
     background: var(--rsm2-cream-alt);
+  }
+
+  .rsm2-section-switch {
+    width: 100%;
   }
 
   .rsm2-content {

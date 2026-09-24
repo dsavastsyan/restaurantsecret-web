@@ -265,7 +265,9 @@ function ParserDashboard() {
                 </td>
                 <td>{formatDateTime(parser.run?.finished_at)}</td>
                 <td>{formatDateTime(parser.run?.last_success_at)}</td>
-                <td>{formatDateTime(parser.published_at)}</td>
+                <td>{parser.published_at && parser.public_menu_url
+                  ? <a href={parser.public_menu_url} target="_blank" rel="noreferrer">{formatDateTime(parser.published_at)} <ExternalLink size={13} /></a>
+                  : formatDateTime(parser.published_at)}</td>
                 <td>{parser.run?.item_count ?? '—'}</td>
                 <td>{parser.run?.source_url ? <a href={parser.run.source_url} target="_blank" rel="noreferrer">Открыть <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
               </tr>
