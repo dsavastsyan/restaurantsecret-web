@@ -19,13 +19,13 @@ test('metro stations are deduplicated by name and invalid points are discarded',
   assert.deepEqual(grouped[1], { name: 'Лубянка', lat: 55.76, lon: 37.628 })
 })
 
-test('clean base map uses reliable raster tiles and catalog overlays metro stations', async () => {
+test('clean base map uses no-key raster tiles and catalog overlays metro stations', async () => {
   const baseLayerSource = await readFile(new URL('../src/components/map/CleanMapBaseLayer.jsx', import.meta.url), 'utf8')
   const source = await readFile(new URL('../src/components/CatalogMap.jsx', import.meta.url), 'utf8')
 
-  assert.match(baseLayerSource, /basemaps\.cartocdn\.com\/light_all/)
+  assert.match(baseLayerSource, /tile\.openstreetmap\.org/)
   assert.match(baseLayerSource, /<TileLayer/)
-  assert.doesNotMatch(baseLayerSource, /OpenFreeMap|maplibre/)
+  assert.doesNotMatch(baseLayerSource, /OpenFreeMap|maplibre|cartocdn|CARTO/)
   assert.match(source, /<CleanMapBaseLayer \/>/)
   assert.match(source, /<MetroStationsLayer stations=\{metroStations\} \/>/)
   assert.match(source, /metroStations = EMPTY_POINTS/)

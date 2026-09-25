@@ -35,6 +35,10 @@
   color: #536f35;
 }
 
+.rs-clean-map .leaflet-tile-pane {
+  filter: grayscale(0.35) saturate(0.72) brightness(1.05);
+}
+
 .rs-metro-marker-wrapper {
   border: 0;
   background: transparent;

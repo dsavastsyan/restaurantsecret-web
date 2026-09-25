@@ -70,8 +70,10 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
 
   await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
-  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('CARTO')
-  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img').first()).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenStreetMap')
+  const firstTile = page.locator('.catalog-map-panel .leaflet-tile-pane img').first()
+  await expect(firstTile).toBeVisible()
+  await expect(firstTile).toHaveAttribute('src', /tile\.openstreetmap\.org/)
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(1)
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
