@@ -5,6 +5,7 @@ import {
   enrichCatalogItemsWithMapMetros,
   enrichCatalogMapItems,
   getCatalogMapPointKey,
+  getNearbyMetroStations,
 } from '../src/lib/catalogMapItems.js'
 import { filterCatalogRestaurants } from '../src/lib/catalogFilters.js'
 
@@ -71,5 +72,34 @@ test('list branches only inherit metro stations from their own map points', () =
   assert.deepEqual(
     filterCatalogRestaurants(enriched, { metro: ['Арбатская'] }).map((item) => item.id),
     [101],
+  )
+})
+
+test('search map keeps only metro stations near matching restaurants', () => {
+  const restaurants = [
+    { name: 'Джонджоли', lat: 55.7645, lon: 37.6055, metro: 'Тверская' },
+  ]
+  const stations = [
+    { name_ru: 'Тверская', lat: 55.7653, lon: 37.6038 },
+    { name_ru: 'Пушкинская', lat: 55.7658, lon: 37.6042 },
+    { name_ru: 'Выхино', lat: 55.7163, lon: 37.8186 },
+  ]
+
+  assert.deepEqual(
+    getNearbyMetroStations(stations, restaurants).map((station) => station.name_ru),
+    ['Тверская', 'Пушкинская'],
+  )
+  assert.deepEqual(getNearbyMetroStations(stations, []), [])
+})
+
+test('keeps a restaurant metro by name even when its coordinates are missing', () => {
+  const stations = [
+    { name_ru: 'Тверская', lat: 55.7653, lon: 37.6038 },
+    { name_ru: 'Выхино', lat: 55.7163, lon: 37.8186 },
+  ]
+
+  assert.deepEqual(
+    getNearbyMetroStations(stations, [{ name: 'Филиал без координат', metro: 'Выхино' }]),
+    [stations[1]],
   )
 })

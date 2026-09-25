@@ -71,7 +71,9 @@ export function filterCatalogRestaurants(
       .split(',')
       .map((cuisine) => cuisine.trim())
       .filter(Boolean)
-    const queryMatches = !normalizedQuery || matchesQuery(item?.name, normalizedQuery)
+    const queryMatches = !normalizedQuery
+      || matchesQuery(item?.name, normalizedQuery)
+      || matchesQuery(item?.chainName, normalizedQuery)
     const matchesCuisine = !normalizedCuisines.length || normalizedCuisines.some((selectedCuisine) => (
       itemCuisines.some((itemCuisine) => itemCuisine.includes(selectedCuisine))
     ))
