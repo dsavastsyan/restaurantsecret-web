@@ -9,6 +9,7 @@ const restaurant = {
   cuisine: 'Европейская',
   primary_venue_type: 'coffee_tea',
   metro: 'Тверская',
+  metroNames: ['Тверская', 'Лубянка'],
   lat: 55.7645,
   lon: 37.6055,
   dishesCount: 42,
@@ -131,6 +132,17 @@ test('filters both map and list by the primary venue type', async ({ page }) => 
 
   await page.getByRole('button', { name: 'Список', exact: true }).click()
   await expect(page.locator('.catalog-card')).toHaveCount(0)
+})
+
+test('list includes restaurants whose map point is near the selected metro', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: 'Станции метро' }).click()
+  await page.getByPlaceholder('Поиск станции...').fill('Лубянка')
+  await page.getByRole('button', { name: 'Лубянка', exact: true }).click()
+
+  await expect(page.locator('.catalog-card')).toHaveCount(1)
+  await expect(page.locator('.catalog-card')).toContainText(restaurant.name)
 })
 
 test('highlights only stations selected through a metro line', async ({ page }) => {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  enrichCatalogItemsWithMapMetros,
   enrichCatalogMapItems,
   getCatalogMapPointKey,
 } from '../src/lib/catalogMapItems.js'
@@ -34,4 +35,41 @@ test('map point keys distinguish branches that share a slug', () => {
 
   assert.notEqual(getCatalogMapPointKey(first), getCatalogMapPointKey(second))
   assert.equal(getCatalogMapPointKey(null), '')
+})
+
+test('list restaurants inherit every nearby metro station from their map points', () => {
+  const catalogItems = [
+    { id: 101, slug: 'udon', name: 'Udon', metro: 'Третьяковская' },
+  ]
+  const mapItems = [
+    {
+      restaurantId: 101,
+      slug: 'udon',
+      metro: 'Третьяковская',
+      metroNames: ['Третьяковская', 'Новокузнецкая'],
+    },
+  ]
+
+  const enriched = enrichCatalogItemsWithMapMetros(catalogItems, mapItems)
+
+  assert.deepEqual(enriched[0].metroNames, ['третьяковская', 'новокузнецкая'])
+  assert.deepEqual(filterCatalogRestaurants(enriched, { metro: ['Новокузнецкая'] }), enriched)
+})
+
+test('list branches only inherit metro stations from their own map points', () => {
+  const catalogItems = [
+    { id: 101, slug: 'cofefest', name: 'Cofefest Арбат', metro: 'Арбатская' },
+    { id: 202, slug: 'cofefest', name: 'Cofefest Динамо', metro: 'Динамо' },
+  ]
+  const mapItems = [
+    { restaurantId: 101, slug: 'cofefest', metroNames: ['Арбатская'] },
+    { restaurantId: 202, slug: 'cofefest', metroNames: ['Динамо'] },
+  ]
+
+  const enriched = enrichCatalogItemsWithMapMetros(catalogItems, mapItems)
+
+  assert.deepEqual(
+    filterCatalogRestaurants(enriched, { metro: ['Арбатская'] }).map((item) => item.id),
+    [101],
+  )
 })

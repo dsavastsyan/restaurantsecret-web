@@ -1,4 +1,7 @@
-import { normalizeCatalogCuisine } from './catalogFilters.js'
+import {
+  getCatalogRestaurantMetroNames,
+  normalizeCatalogCuisine,
+} from './catalogFilters.js'
 
 const CATALOG_METRO_FIELDS = new Set([
   'metro',
@@ -14,6 +17,55 @@ function withoutCatalogMetroFields(catalogItem) {
   return Object.fromEntries(
     Object.entries(catalogItem || {}).filter(([key]) => !CATALOG_METRO_FIELDS.has(key)),
   )
+}
+
+function normalizeIdentity(value) {
+  if (value === null || value === undefined || value === '') return ''
+  return String(value).trim().toLowerCase()
+}
+
+function addMetroNames(target, key, restaurant) {
+  if (!key) return
+  const names = getCatalogRestaurantMetroNames(restaurant)
+  if (!names.length) return
+
+  const current = target.get(key) || new Set()
+  names.forEach((name) => current.add(name))
+  target.set(key, current)
+}
+
+export function enrichCatalogItemsWithMapMetros(catalogItems = [], mapItems = []) {
+  const catalogSlugCounts = new Map()
+  for (const item of catalogItems) {
+    const slug = normalizeIdentity(item?.slug)
+    if (slug) catalogSlugCounts.set(slug, (catalogSlugCounts.get(slug) || 0) + 1)
+  }
+
+  const metrosByRestaurantId = new Map()
+  const metrosBySlug = new Map()
+  for (const point of mapItems) {
+    const restaurantId = normalizeIdentity(point?.restaurantId ?? point?.restaurant_id)
+    const slug = normalizeIdentity(point?.slug ?? point?.restaurantSlug ?? point?.restaurant_slug)
+    addMetroNames(metrosByRestaurantId, restaurantId, point)
+    addMetroNames(metrosBySlug, slug, point)
+  }
+
+  return catalogItems.map((item) => {
+    const restaurantId = normalizeIdentity(item?.id ?? item?.restaurantId ?? item?.restaurant_id)
+    const slug = normalizeIdentity(item?.slug)
+    const pointMetroNames = metrosByRestaurantId.get(restaurantId)
+      || (catalogSlugCounts.get(slug) === 1 ? metrosBySlug.get(slug) : null)
+
+    if (!pointMetroNames?.size) return item
+
+    return {
+      ...item,
+      metroNames: Array.from(new Set([
+        ...getCatalogRestaurantMetroNames(item),
+        ...pointMetroNames,
+      ])),
+    }
+  })
 }
 
 export function enrichCatalogMapItems(mapItems = [], catalogItems = []) {

@@ -15,7 +15,7 @@ import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { getMetroSelectionPoints } from '@/lib/metroSelection'
-import { enrichCatalogMapItems } from '@/lib/catalogMapItems'
+import { enrichCatalogItemsWithMapMetros, enrichCatalogMapItems } from '@/lib/catalogMapItems'
 import { collapseChainRestaurants } from '@/lib/catalogChains'
 import {
   CATALOG_VENUE_TYPES,
@@ -229,7 +229,6 @@ export default function Catalog() {
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
     `restaurants-map:${selectedCity.id}`,
     () => api.restaurantMap({ city: selectedCity.id }),
-    { enabled: viewMode === 'map' },
   )
   const { data: crossCityResults } = useSWRLite(
     debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}` : null,
@@ -253,9 +252,20 @@ export default function Catalog() {
     }).filter(Boolean)
   }, [rawData])
 
-  // Filter items based on SEARCH and CUISINE
+  const mapSourceItems = useMemo(
+    () => Array.isArray(rawMapData?.items) ? rawMapData.items : [],
+    [rawMapData?.items],
+  )
+  const filterableItems = useMemo(
+    () => enrichCatalogItemsWithMapMetros(allItems, mapSourceItems),
+    [allItems, mapSourceItems],
+  )
+
+  // The list uses the map's per-point metro coverage as well as the nearest
+  // station stored on each card, so switching views preserves the same set of
+  // matching restaurants.
   const filteredItems = useMemo(() => {
-    return filterCatalogRestaurants(allItems, {
+    return filterCatalogRestaurants(filterableItems, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       metro: selectedMetro,
@@ -264,11 +274,10 @@ export default function Catalog() {
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
     })
-  }, [debouncedQuery, allItems, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [debouncedQuery, filterableItems, selectedCuisines, selectedMetro, selectedVenueType])
 
   const mapItems = useMemo(() => {
-    const list = Array.isArray(rawMapData?.items) ? rawMapData.items : []
-    const enriched = enrichCatalogMapItems(list, allItems)
+    const enriched = enrichCatalogMapItems(mapSourceItems, allItems)
 
     return filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
@@ -277,7 +286,7 @@ export default function Catalog() {
       venueType: selectedVenueType,
       matchesQuery: matchesSearchQuery,
     })
-  }, [allItems, debouncedQuery, rawMapData?.items, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [allItems, debouncedQuery, mapSourceItems, selectedCuisines, selectedMetro, selectedVenueType])
 
   // Reset pagination when filters change
   useEffect(() => {
