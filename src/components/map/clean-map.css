@@ -1,0 +1,40 @@
+.rs-clean-map .leaflet-control-zoom {
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(38, 43, 37, 0.18);
+}
+
+.rs-clean-map .leaflet-control-zoom a {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  color: #343730;
+  background: rgba(255, 255, 255, 0.96);
+  font: 500 24px/38px system-ui, sans-serif;
+}
+
+.rs-clean-map .leaflet-control-zoom a + a {
+  border-top: 1px solid rgba(52, 55, 48, 0.1);
+}
+
+.rs-clean-map .leaflet-control-zoom a:hover,
+.rs-clean-map .leaflet-control-zoom a:focus-visible {
+  color: #6d8f42;
+  background: #fff;
+}
+
+.rs-clean-map .leaflet-control-attribution {
+  padding: 2px 6px;
+  color: #6d7069;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.rs-clean-map .leaflet-control-attribution a {
+  color: #536f35;
+}
+
+.rs-clean-map .maplibregl-canvas {
+  outline: none;
+}

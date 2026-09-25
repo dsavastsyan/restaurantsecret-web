@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { AttributionControl, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { AttributionControl, MapContainer, useMap, useMapEvents } from 'react-leaflet'
 import { useNavigate } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
@@ -13,6 +13,7 @@ import MetroFilter from './MetroFilter'
 import MapCuisineFilter from './MapCuisineFilter'
 import MapCityFilter from './MapCityFilter'
 import { saveCatalogCity } from '@/lib/cityPreference'
+import CleanMapBaseLayer from './map/CleanMapBaseLayer'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -496,8 +497,6 @@ export default function RestaurantMap({
     setIsFullscreen(true)
   }, [openFullscreenSignal])
 
-  const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-
   return (
     <div className={`restaurant-map-container ${showSummaryHeader ? '' : 'is-landing'} ${isNight ? 'is-night' : 'is-day'} ${isFullscreen ? 'is-fullscreen' : ''}`}>
       {showSummaryHeader && (
@@ -598,14 +597,13 @@ export default function RestaurantMap({
         <MapContainer
           center={cityCenter}
           zoom={cityZoom}
+          minZoom={2}
+          maxZoom={20}
           scrollWheelZoom={isFullscreen}
-          className="restaurant-map"
+          className="restaurant-map rs-clean-map"
           attributionControl={false}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url={tileUrl}
-          />
+          <CleanMapBaseLayer />
           <AttributionControl prefix={false} />
           <MapViewportController focusTarget={focusTarget} />
           <ViewportChangeListener onViewportChange={handleViewportChange} />
