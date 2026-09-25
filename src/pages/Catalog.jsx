@@ -606,6 +606,7 @@ export default function Catalog() {
         <Suspense fallback={<div className="catalog-map-fallback">Загружаем карту…</div>}>
           <CatalogMap
             restaurants={mapLoading ? [] : mapItems}
+            city={selectedCity?.id}
             center={selectedCity?.center ? [selectedCity.center.lat, selectedCity.center.lon] : undefined}
             zoom={selectedCity?.recommendedZoom}
             loading={mapLoading}

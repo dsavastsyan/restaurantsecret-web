@@ -5,8 +5,10 @@ import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
+import { API_BASE } from '@/config/api'
 import './catalog-map.css'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
+import MetroStationsLayer from './map/MetroStationsLayer'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
 const DEFAULT_ZOOM = 10
@@ -127,6 +129,7 @@ const LocationIcon = () => (
 
 export default function CatalogMap({
   restaurants,
+  city,
   center,
   zoom,
   loading,
@@ -138,7 +141,29 @@ export default function CatalogMap({
   onShowList,
 }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
+  const [metroStations, setMetroStations] = useState([])
   const selectedKey = getRestaurantKey(selectedRestaurant)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setMetroStations([])
+
+    async function loadMetroStations() {
+      try {
+        const response = await fetch(`${API_BASE}/metro`, { signal: controller.signal })
+        if (!response.ok) return
+        const data = await response.json()
+        setMetroStations(
+          (Array.isArray(data?.stations) ? data.stations : []).filter((station) => station?.city === city),
+        )
+      } catch (error) {
+        if (error?.name !== 'AbortError') console.error('Failed to load metro stations', error)
+      }
+    }
+
+    if (city) loadMetroStations()
+    return () => controller.abort()
+  }, [city])
 
   useEffect(() => {
     if (!selectedKey) return
@@ -171,6 +196,7 @@ export default function CatalogMap({
       >
         <CleanMapBaseLayer />
         <AttributionControl prefix={false} />
+        <MetroStationsLayer stations={metroStations} />
         <CatalogMapViewport restaurants={restaurants} center={safeCenter} zoom={zoom} />
         <CatalogMapMarkers
           restaurants={restaurants}

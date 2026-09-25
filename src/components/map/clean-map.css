@@ -35,6 +35,39 @@
   color: #536f35;
 }
 
-.rs-clean-map .maplibregl-canvas {
-  outline: none;
+.rs-metro-marker-wrapper {
+  border: 0;
+  background: transparent;
+}
+
+.rs-metro-marker {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: #e53935;
+  box-shadow: 0 2px 6px rgba(126, 20, 20, 0.42);
+  font: 800 8px/1 system-ui, sans-serif;
+}
+
+.rs-metro-marker.is-detailed {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+.rs-clean-map .rs-metro-label {
+  border: 0;
+  border-radius: 6px;
+  color: #9f1d1d;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 7px rgba(52, 55, 48, 0.16);
+  font: 700 12px/1.2 system-ui, sans-serif;
+}
+
+.rs-clean-map .rs-metro-label::before {
+  border-top-color: rgba(255, 255, 255, 0.95);
 }

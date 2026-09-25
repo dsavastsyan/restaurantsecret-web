@@ -1,69 +1,32 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { simplifyMapStyle } from '../src/components/map/mapStyle.js'
+import { groupMetroStations } from '../src/components/map/metroStations.js'
 
-test('map style keeps useful roads while hiding decorative lines and localizing labels', () => {
-  const updates = []
-  const addedLayers = []
-  const existingLayers = new Set(['highway_path', 'railway_dashline', 'boundary_3'])
-  const map = {
-    getLayer: (id) => existingLayers.has(id),
-    getStyle: () => ({
-      layers: [
-        { id: 'highway-name-major', type: 'symbol', layout: { 'text-field': ['get', 'name_en'] } },
-        { id: 'highway-shield', type: 'symbol', layout: { 'text-field': ['get', 'ref'] } },
-        { id: 'highway-major', type: 'line', layout: {} },
-      ],
-    }),
-    setLayoutProperty: (id, property, value) => updates.push({ id, property, value }),
-    addLayer: (layer) => addedLayers.push(layer),
-  }
-
-  simplifyMapStyle(map)
-
-  assert.deepEqual(
-    updates.filter(({ property }) => property === 'visibility').map(({ id }) => id),
-    ['highway_path', 'railway_dashline', 'boundary_3'],
-  )
-  assert.deepEqual(updates.find(({ id }) => id === 'highway-name-major'), {
-    id: 'highway-name-major',
-    property: 'text-field',
-    value: ['coalesce', ['get', 'name:ru'], ['get', 'name'], ['get', 'name:nonlatin']],
-  })
-  assert.equal(updates.some(({ id }) => id === 'highway-shield'), false)
-  assert.equal(updates.some(({ id }) => id === 'highway-major'), false)
-
-  assert.deepEqual(addedLayers.map(({ id }) => id), [
-    'rs-metro-station-marker',
-    'rs-metro-station-symbol',
-    'rs-metro-station-label',
+test('metro stations are deduplicated by name and invalid points are discarded', () => {
+  const grouped = groupMetroStations([
+    { name_ru: 'Китай-город', lat: 55.756, lon: 37.631 },
+    { name_ru: 'китай-город', lat: 55.758, lon: 37.633 },
+    { name_ru: 'Лубянка', lat: 55.76, lon: 37.628 },
+    { name_ru: '', lat: 55.7, lon: 37.6 },
+    { name_ru: 'Некорректная', lat: null, lon: null },
   ])
 
-  for (const layer of addedLayers) {
-    assert.equal(layer.source, 'openmaptiles')
-    assert.equal(layer['source-layer'], 'poi')
-    assert.deepEqual(layer.filter, [
-      'all',
-      ['==', ['get', 'class'], 'railway'],
-      ['==', ['get', 'subclass'], 'subway'],
-    ])
-  }
-
-  assert.equal(addedLayers[0].paint['circle-color'], '#e53935')
-  assert.equal(addedLayers[1].layout['text-field'], 'M')
-  assert.deepEqual(addedLayers[2].layout['text-field'], [
-    'coalesce',
-    ['get', 'name:ru'],
-    ['get', 'name'],
-    ['get', 'name:nonlatin'],
-  ])
+  assert.equal(grouped.length, 2)
+  assert.equal(grouped[0].name, 'Китай-город')
+  assert.ok(Math.abs(grouped[0].lat - 55.757) < 1e-9)
+  assert.ok(Math.abs(grouped[0].lon - 37.632) < 1e-9)
+  assert.deepEqual(grouped[1], { name: 'Лубянка', lat: 55.76, lon: 37.628 })
 })
 
-test('catalog map renders the shared clean base layer instead of OSM raster tiles', async () => {
+test('clean base map uses reliable raster tiles and catalog overlays metro stations', async () => {
+  const baseLayerSource = await readFile(new URL('../src/components/map/CleanMapBaseLayer.jsx', import.meta.url), 'utf8')
   const source = await readFile(new URL('../src/components/CatalogMap.jsx', import.meta.url), 'utf8')
 
+  assert.match(baseLayerSource, /basemaps\.cartocdn\.com\/light_all/)
+  assert.match(baseLayerSource, /<TileLayer/)
+  assert.doesNotMatch(baseLayerSource, /OpenFreeMap|maplibre/)
   assert.match(source, /<CleanMapBaseLayer \/>/)
-  assert.doesNotMatch(source, /tile\.openstreetmap\.org/)
-  assert.doesNotMatch(source, /<TileLayer/)
+  assert.match(source, /<MetroStationsLayer stations=\{metroStations\} \/>/)
+  assert.match(source, /API_BASE\}\/metro/)
 })

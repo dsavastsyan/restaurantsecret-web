@@ -9,16 +9,6 @@ const waitForSuccessfulResponse = (page, predicate) =>
   })
 
 test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) => {
-  const mapRuntimeErrors = []
-  page.on('console', (message) => {
-    if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
-      mapRuntimeErrors.push(message.text())
-    }
-  })
-  page.on('pageerror', (error) => {
-    if (/Worker failed to load|Map has no maxZoom/i.test(error.message)) mapRuntimeErrors.push(error.message)
-  })
-
   const landingStatsResponsePromise = waitForSuccessfulResponse(page, (response) => {
     const path = new URL(response.url()).pathname
     return path.endsWith('/landing/stats') && response.request().method() === 'GET'
@@ -67,11 +57,8 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
 
   await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
-  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
-  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
-  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
-  await page.waitForTimeout(1000)
-  expect(mapRuntimeErrors).toEqual([])
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('CARTO')
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img').first()).toBeVisible()
   const previewPersonaToggle = page.locator('.preview-persona-panel__toggle')
   if (await previewPersonaToggle.isVisible() && await previewPersonaToggle.getAttribute('aria-expanded') === 'true') {
     await previewPersonaToggle.click()

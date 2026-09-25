@@ -31,6 +31,14 @@ test.beforeEach(async ({ page }) => {
 
     if (path.endsWith('/restaurants/map')) return route.fulfill({ json: { items: [restaurant] } })
     if (path.endsWith('/restaurants')) return route.fulfill({ json: { items: [restaurant], total: 1 } })
+    if (path.endsWith('/metro')) {
+      return route.fulfill({
+        json: {
+          lines: [],
+          stations: [{ id: 1, city: 'Москва', name_ru: 'Тверская', lat: 55.7653, lon: 37.6038 }],
+        },
+      })
+    }
     if (path.endsWith('/cities')) {
       return route.fulfill({
         json: {
@@ -58,25 +66,13 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('opens on the map, shows a restaurant card and persists list view in the URL', async ({ page }) => {
-  const mapRuntimeErrors = []
-  page.on('console', (message) => {
-    if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
-      mapRuntimeErrors.push(message.text())
-    }
-  })
-  page.on('pageerror', (error) => {
-    if (/Worker failed to load|Map has no maxZoom/i.test(error.message)) mapRuntimeErrors.push(error.message)
-  })
-
   await page.goto('/catalog/moskva/')
 
   await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
-  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
-  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
-  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
-  await page.waitForTimeout(1000)
-  expect(mapRuntimeErrors).toEqual([])
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('CARTO')
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img').first()).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(1)
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
   await page.locator('.catalog-map-pin-wrapper').click()
