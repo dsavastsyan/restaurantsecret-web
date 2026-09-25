@@ -27,6 +27,7 @@ const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 // Fetch a large number to emulate "all" items since backend pagination seems flaky
 const FETCH_LIMIT = 1000;
 const PAGE_SIZE = 8;
+const EMPTY_METRO_DATA = { lines: [], stations: [] };
 
 const CuisineIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -113,7 +114,8 @@ export default function Catalog() {
     || { id: 'Москва', name: 'Москва' }
 
   const { data: filters } = useSWRLite(`filters:${selectedCity.id}`, () => api.filters(selectedCity.id))
-  const { data: metroData = { lines: [], stations: [] } } = useSWRLite('metro', () => api.metro())
+  const { data: metroResponse } = useSWRLite('metro', () => api.metro())
+  const metroData = metroResponse || EMPTY_METRO_DATA
   const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
   const [selectedCuisines, setSelectedCuisines] = useState([])
   const [selectedMetro, setSelectedMetro] = useState([])
