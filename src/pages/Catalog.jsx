@@ -15,6 +15,7 @@ import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { getMetroSelectionPoints } from '@/lib/metroSelection'
+import { enrichCatalogMapItems } from '@/lib/catalogMapItems'
 import { collapseChainRestaurants } from '@/lib/catalogChains'
 import {
   CATALOG_VENUE_TYPES,
@@ -267,24 +268,7 @@ export default function Catalog() {
 
   const mapItems = useMemo(() => {
     const list = Array.isArray(rawMapData?.items) ? rawMapData.items : []
-    const catalogBySlug = new Map(allItems.map((item) => [String(item?.slug || '').toLowerCase(), item]))
-    const enriched = list.map((item) => {
-      const slug = item?.slug || item?.restaurantSlug || item?.restaurant_slug || ''
-      const catalogItem = catalogBySlug.get(String(slug).toLowerCase())
-
-      return {
-        ...catalogItem,
-        ...item,
-        slug,
-        name: item?.name || catalogItem?.name,
-        cuisine: normalizeCatalogCuisine(item?.cuisine || catalogItem?.cuisine),
-        metro: item?.metro || item?.metro_name || item?.metroName || catalogItem?.metro,
-        primary_venue_type: item?.primary_venue_type
-          ?? item?.primaryVenueType
-          ?? catalogItem?.primary_venue_type
-          ?? catalogItem?.primaryVenueType,
-      }
-    })
+    const enriched = enrichCatalogMapItems(list, allItems)
 
     return filterCatalogRestaurants(enriched, {
       query: debouncedQuery,

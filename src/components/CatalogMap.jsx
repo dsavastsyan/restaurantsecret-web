@@ -7,14 +7,11 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
 import './catalog-map.css'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
+import { getCatalogMapPointKey } from '@/lib/catalogMapItems'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
 const DEFAULT_ZOOM = 10
 const EMPTY_POINTS = []
-
-const getRestaurantKey = (restaurant) => String(
-  restaurant?.slug || restaurant?.restaurantSlug || restaurant?.restaurant_slug || restaurant?.name || '',
-).trim().toLowerCase()
 
 const getRestaurantPoint = (restaurant) => {
   const lat = Number(restaurant?.lat)
@@ -55,7 +52,7 @@ function CatalogMapMarkers({ restaurants, selectedKey, onSelectRestaurant }) {
       const point = getRestaurantPoint(restaurant)
       if (!point) return
 
-      const key = getRestaurantKey(restaurant)
+      const key = getCatalogMapPointKey(restaurant)
       const marker = L.marker(point, {
         icon: createPinIcon(Boolean(selectedKey && key === selectedKey)),
         keyboard: true,
@@ -145,11 +142,11 @@ export default function CatalogMap({
   onShowList,
 }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
-  const selectedKey = getRestaurantKey(selectedRestaurant)
+  const selectedKey = getCatalogMapPointKey(selectedRestaurant)
 
   useEffect(() => {
     if (!selectedKey) return
-    const updated = restaurants.find((restaurant) => getRestaurantKey(restaurant) === selectedKey)
+    const updated = restaurants.find((restaurant) => getCatalogMapPointKey(restaurant) === selectedKey)
     if (updated) setSelectedRestaurant(updated)
     else setSelectedRestaurant(null)
   }, [restaurants, selectedKey])
