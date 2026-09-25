@@ -15,6 +15,7 @@ import MapCityFilter from './MapCityFilter'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { getMetroSelectionPoints, normalizeMetroStationName } from '@/lib/metroSelection'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
+import MetroStationsLayer from './map/MetroStationsLayer'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -597,6 +598,10 @@ export default function RestaurantMap({
         >
           <CleanMapBaseLayer />
           <AttributionControl prefix={false} />
+          <MetroStationsLayer
+            stations={cityMetroData.stations}
+            selectedStationNames={selectedMetroStationNames}
+          />
           <MapViewportController focusTarget={focusTarget} />
           <ViewportChangeListener onViewportChange={handleViewportChange} />
           <MapResizeController watch={`${isFullscreen}-${themeMode}`} />

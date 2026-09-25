@@ -7,6 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
 import './catalog-map.css'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
+import MetroStationsLayer from './map/MetroStationsLayer'
 import { getCatalogMapPointKey } from '@/lib/catalogMapItems'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
@@ -130,6 +131,8 @@ const LocationIcon = () => (
 
 export default function CatalogMap({
   restaurants,
+  metroStations = EMPTY_POINTS,
+  selectedMetroStationNames = EMPTY_POINTS,
   focusPoints = EMPTY_POINTS,
   center,
   zoom,
@@ -175,6 +178,7 @@ export default function CatalogMap({
       >
         <CleanMapBaseLayer />
         <AttributionControl prefix={false} />
+        <MetroStationsLayer stations={metroStations} selectedStationNames={selectedMetroStationNames} />
         <CatalogMapViewport restaurants={restaurants} focusPoints={focusPoints} center={safeCenter} zoom={zoom} />
         <CatalogMapMarkers
           restaurants={restaurants}
