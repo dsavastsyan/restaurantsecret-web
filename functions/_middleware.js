@@ -4,7 +4,7 @@ export async function onRequest(context) {
 
   const headers = new Headers(response.headers)
   headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
-  headers.set('Referrer-Policy', 'same-origin')
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
