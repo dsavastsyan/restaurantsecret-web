@@ -81,6 +81,7 @@ export const api = {
   cities: () => get('cities'),
   detectedCity: () => get('location'),
   filters: (city = 'Москва') => get('filters', { city }),
+  metro: () => get('metro'),
   restaurants: (opts) => get('restaurants', opts),
   restaurantMap: (opts) => get('restaurants/map', opts),
   restaurant: (slug, city = 'Москва') => get(`restaurants/${encodeURIComponent(slug)}`, { city }),

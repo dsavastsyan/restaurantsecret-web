@@ -10,6 +10,7 @@ import CleanMapBaseLayer from './map/CleanMapBaseLayer'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
 const DEFAULT_ZOOM = 10
+const EMPTY_POINTS = []
 
 const getRestaurantKey = (restaurant) => String(
   restaurant?.slug || restaurant?.restaurantSlug || restaurant?.restaurant_slug || restaurant?.name || '',
@@ -81,11 +82,16 @@ function CatalogMapMarkers({ restaurants, selectedKey, onSelectRestaurant }) {
   return null
 }
 
-function CatalogMapViewport({ restaurants, center, zoom }) {
+function CatalogMapViewport({ restaurants, focusPoints = [], center, zoom }) {
   const map = useMap()
   const points = useMemo(
-    () => restaurants.map(getRestaurantPoint).filter(Boolean),
-    [restaurants],
+    () => [
+      ...restaurants.map(getRestaurantPoint).filter(Boolean),
+      ...focusPoints
+        .map((point) => [Number(point?.lat), Number(point?.lon)])
+        .filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)),
+    ],
+    [focusPoints, restaurants],
   )
   const pointsKey = points.map(([lat, lon]) => `${lat}:${lon}`).join('|')
   const centerLat = Number(center?.[0])
@@ -127,6 +133,7 @@ const LocationIcon = () => (
 
 export default function CatalogMap({
   restaurants,
+  focusPoints = EMPTY_POINTS,
   center,
   zoom,
   loading,
@@ -171,7 +178,7 @@ export default function CatalogMap({
       >
         <CleanMapBaseLayer />
         <AttributionControl prefix={false} />
-        <CatalogMapViewport restaurants={restaurants} center={safeCenter} zoom={zoom} />
+        <CatalogMapViewport restaurants={restaurants} focusPoints={focusPoints} center={safeCenter} zoom={zoom} />
         <CatalogMapMarkers
           restaurants={restaurants}
           selectedKey={selectedKey}

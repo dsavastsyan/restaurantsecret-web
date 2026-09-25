@@ -24,6 +24,10 @@ test('uses the same query, cuisine and metro filters for map and list results', 
     filterCatalogRestaurants(restaurants, { cuisines: ['Европейская'], metro: 'Тверская' }),
     restaurants.slice(0, 2),
   )
+  assert.deepEqual(
+    filterCatalogRestaurants(restaurants, { metro: ['Тверская', 'Арбатская'] }),
+    restaurants,
+  )
   assert.deepEqual(filterCatalogRestaurants(restaurants, { query: 'танук' }), [restaurants[2]])
 })
 
