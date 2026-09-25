@@ -23,9 +23,14 @@ const getRestaurantPoint = (restaurant) => {
 
 const createPinIcon = (selected = false) => L.divIcon({
   className: 'catalog-map-pin-wrapper',
-  iconSize: selected ? [38, 46] : [32, 40],
-  iconAnchor: selected ? [19, 43] : [16, 37],
-  html: `<span class="catalog-map-pin${selected ? ' is-selected' : ''}" aria-hidden="true"><span></span></span>`,
+  iconSize: selected ? [40, 48] : [34, 42],
+  iconAnchor: selected ? [20, 47] : [17, 41],
+  html: `
+    <svg class="catalog-map-pin${selected ? ' is-selected' : ''}" viewBox="0 0 34 42" aria-hidden="true">
+      <path class="catalog-map-pin__body" d="M17 1.5C8.7 1.5 2 8 2 16c0 10.5 11.4 22.2 14.1 24.8a1.3 1.3 0 0 0 1.8 0C20.6 38.2 32 26.5 32 16 32 8 25.3 1.5 17 1.5Z" />
+      <circle class="catalog-map-pin__center" cx="17" cy="16" r="5.25" />
+    </svg>
+  `,
 })
 
 function CatalogMapMarkers({ restaurants, selectedKey, onSelectRestaurant }) {

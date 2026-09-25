@@ -57,37 +57,43 @@
 }
 
 .catalog-map-pin {
-  position: relative;
-  display: grid;
-  width: 30px;
-  height: 36px;
-  place-items: center;
-  border: 2px solid rgba(255, 255, 255, 0.96);
-  border-radius: 50% 50% 50% 8px;
-  background: linear-gradient(150deg, #819d57, #587633);
-  box-shadow: 0 5px 14px rgba(54, 73, 35, 0.38);
-  transform: rotate(-45deg);
-  transition: transform 0.18s ease, filter 0.18s ease;
+  display: block;
+  width: 34px;
+  height: 42px;
+  overflow: visible;
+  transition: transform 0.16s ease;
 }
 
-.catalog-map-pin > span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #fffdf8;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.22);
+.catalog-map-pin__body {
+  fill: #6f8f43;
+  stroke: #fff;
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.catalog-map-pin__center {
+  fill: #fff;
+  stroke: #597536;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
 }
 
 .catalog-map-pin.is-selected {
-  width: 36px;
-  height: 42px;
-  background: linear-gradient(150deg, #302b26, #171411);
-  filter: drop-shadow(0 8px 9px rgba(39, 32, 26, 0.28));
+  width: 40px;
+  height: 48px;
+}
+
+.catalog-map-pin.is-selected .catalog-map-pin__body {
+  fill: #27231f;
+}
+
+.catalog-map-pin.is-selected .catalog-map-pin__center {
+  stroke: #27231f;
 }
 
 .catalog-map-pin-wrapper:hover .catalog-map-pin {
-  filter: brightness(1.08);
-  transform: rotate(-45deg) translate(1px, -1px);
+  transform: translateY(-2px);
 }
 
 .catalog-map-panel .marker-cluster-small,
