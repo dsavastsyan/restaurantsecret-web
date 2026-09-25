@@ -156,7 +156,11 @@ function RestaurantEditCard({ restaurant, onSaved }) {
 
 export default function AdminRestaurantAttributeReviews() {
   const [status, setStatus] = useState('pending')
+  const [field, setField] = useState('')
+  const [city, setCity] = useState('')
   const [reviews, setReviews] = useState([])
+  const [stats, setStats] = useState([])
+  const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [workingId, setWorkingId] = useState(null)
@@ -166,20 +170,30 @@ export default function AdminRestaurantAttributeReviews() {
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
 
+  const selectStatus = (nextStatus) => {
+    setStatus(nextStatus)
+    setField('')
+    setCity('')
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const data = await adminMenuRevisionsApi.restaurantAttributeReviews(status)
+      const data = await adminMenuRevisionsApi.restaurantAttributeReviews(status, { field, city })
       setReviews(data.reviews || [])
+      setStats(data.stats || [])
+      setCities(data.cities || [])
     } catch (requestError) {
       setError(requestError.message || 'Не удалось загрузить очередь.')
     } finally {
       setLoading(false)
     }
-  }, [status])
+  }, [status, field, city])
 
   useEffect(() => { load() }, [load])
+
+  const totalStatsCount = stats.reduce((sum, item) => sum + item.count, 0)
 
   const decide = async (review, decision, value) => {
     setWorkingId(review.id)
@@ -220,17 +234,49 @@ export default function AdminRestaurantAttributeReviews() {
         <strong>{reviews.length}</strong>
       </header>
 
-      <div className="admin-product-match__filters">
-        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            className={status === value ? 'active' : ''}
-            onClick={() => setStatus(value)}
-          >
-            {label}
+      {stats.length > 0 ? (
+        <div className="admin-restaurant-review__stats">
+          <button type="button" className={field === '' ? 'active' : ''} onClick={() => setField('')}>
+            Все причины <strong>{totalStatsCount}</strong>
           </button>
-        ))}
+          {stats.map((item) => (
+            <button
+              key={item.field}
+              type="button"
+              className={field === item.field ? 'active' : ''}
+              onClick={() => setField(item.field)}
+            >
+              {FIELD_LABELS[item.field] || item.field} <strong>{item.count}</strong>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="admin-restaurant-review__toolbar">
+        <div className="admin-product-match__filters">
+          {Object.entries(STATUS_LABELS).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={status === value ? 'active' : ''}
+              onClick={() => selectStatus(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {cities.length > 0 ? (
+          <label className="admin-restaurant-review__city-filter">
+            Город
+            <select value={city} onChange={(event) => setCity(event.target.value)}>
+              <option value="">Все города</option>
+              {cities.map((cityOption) => (
+                <option key={cityOption} value={cityOption}>{cityOption}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
 
       {error ? <p className="admin-crm__notice admin-crm__notice--error">{error}</p> : null}
