@@ -5,17 +5,14 @@ import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
-import { API_BASE } from '@/config/api'
 import './catalog-map.css'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
 import MetroStationsLayer from './map/MetroStationsLayer'
+import { getCatalogMapPointKey } from '@/lib/catalogMapItems'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
 const DEFAULT_ZOOM = 10
-
-const getRestaurantKey = (restaurant) => String(
-  restaurant?.slug || restaurant?.restaurantSlug || restaurant?.restaurant_slug || restaurant?.name || '',
-).trim().toLowerCase()
+const EMPTY_POINTS = []
 
 const getRestaurantPoint = (restaurant) => {
   const lat = Number(restaurant?.lat)
@@ -56,7 +53,7 @@ function CatalogMapMarkers({ restaurants, selectedKey, onSelectRestaurant }) {
       const point = getRestaurantPoint(restaurant)
       if (!point) return
 
-      const key = getRestaurantKey(restaurant)
+      const key = getCatalogMapPointKey(restaurant)
       const marker = L.marker(point, {
         icon: createPinIcon(Boolean(selectedKey && key === selectedKey)),
         keyboard: true,
@@ -83,11 +80,16 @@ function CatalogMapMarkers({ restaurants, selectedKey, onSelectRestaurant }) {
   return null
 }
 
-function CatalogMapViewport({ restaurants, center, zoom }) {
+function CatalogMapViewport({ restaurants, focusPoints = [], center, zoom }) {
   const map = useMap()
   const points = useMemo(
-    () => restaurants.map(getRestaurantPoint).filter(Boolean),
-    [restaurants],
+    () => [
+      ...restaurants.map(getRestaurantPoint).filter(Boolean),
+      ...focusPoints
+        .map((point) => [Number(point?.lat), Number(point?.lon)])
+        .filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)),
+    ],
+    [focusPoints, restaurants],
   )
   const pointsKey = points.map(([lat, lon]) => `${lat}:${lon}`).join('|')
   const centerLat = Number(center?.[0])
@@ -129,7 +131,8 @@ const LocationIcon = () => (
 
 export default function CatalogMap({
   restaurants,
-  city,
+  metroStations = EMPTY_POINTS,
+  focusPoints = EMPTY_POINTS,
   center,
   zoom,
   loading,
@@ -141,33 +144,11 @@ export default function CatalogMap({
   onShowList,
 }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
-  const [metroStations, setMetroStations] = useState([])
-  const selectedKey = getRestaurantKey(selectedRestaurant)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    setMetroStations([])
-
-    async function loadMetroStations() {
-      try {
-        const response = await fetch(`${API_BASE}/metro`, { signal: controller.signal })
-        if (!response.ok) return
-        const data = await response.json()
-        setMetroStations(
-          (Array.isArray(data?.stations) ? data.stations : []).filter((station) => station?.city === city),
-        )
-      } catch (error) {
-        if (error?.name !== 'AbortError') console.error('Failed to load metro stations', error)
-      }
-    }
-
-    if (city) loadMetroStations()
-    return () => controller.abort()
-  }, [city])
+  const selectedKey = getCatalogMapPointKey(selectedRestaurant)
 
   useEffect(() => {
     if (!selectedKey) return
-    const updated = restaurants.find((restaurant) => getRestaurantKey(restaurant) === selectedKey)
+    const updated = restaurants.find((restaurant) => getCatalogMapPointKey(restaurant) === selectedKey)
     if (updated) setSelectedRestaurant(updated)
     else setSelectedRestaurant(null)
   }, [restaurants, selectedKey])
@@ -197,7 +178,7 @@ export default function CatalogMap({
         <CleanMapBaseLayer />
         <AttributionControl prefix={false} />
         <MetroStationsLayer stations={metroStations} />
-        <CatalogMapViewport restaurants={restaurants} center={safeCenter} zoom={zoom} />
+        <CatalogMapViewport restaurants={restaurants} focusPoints={focusPoints} center={safeCenter} zoom={zoom} />
         <CatalogMapMarkers
           restaurants={restaurants}
           selectedKey={selectedKey}

@@ -28,5 +28,5 @@ test('clean base map uses reliable raster tiles and catalog overlays metro stati
   assert.doesNotMatch(baseLayerSource, /OpenFreeMap|maplibre/)
   assert.match(source, /<CleanMapBaseLayer \/>/)
   assert.match(source, /<MetroStationsLayer stations=\{metroStations\} \/>/)
-  assert.match(source, /API_BASE\}\/metro/)
+  assert.match(source, /metroStations = EMPTY_POINTS/)
 })

@@ -4,6 +4,7 @@ import { useMeta } from '@/lib/useMeta'
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client.js'
 import CuisineFilter from '../components/CuisineFilter.jsx'
+import MetroFilter from '../components/MetroFilter.jsx'
 import { useSWRLite } from '../hooks/useSWRLite.js'
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants'
 import { useAuth } from '@/store/auth'
@@ -13,6 +14,8 @@ import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
+import { getMetroSelectionPoints } from '@/lib/metroSelection'
+import { enrichCatalogMapItems } from '@/lib/catalogMapItems'
 import { collapseChainRestaurants } from '@/lib/catalogChains'
 import {
   CATALOG_VENUE_TYPES,
@@ -25,6 +28,7 @@ const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 // Fetch a large number to emulate "all" items since backend pagination seems flaky
 const FETCH_LIMIT = 1000;
 const PAGE_SIZE = 8;
+const EMPTY_METRO_DATA = { lines: [], stations: [] };
 
 const CuisineIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -111,9 +115,11 @@ export default function Catalog() {
     || { id: 'Москва', name: 'Москва' }
 
   const { data: filters } = useSWRLite(`filters:${selectedCity.id}`, () => api.filters(selectedCity.id))
+  const { data: metroResponse } = useSWRLite('metro', () => api.metro())
+  const metroData = metroResponse || EMPTY_METRO_DATA
   const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
   const [selectedCuisines, setSelectedCuisines] = useState([])
-  const [selectedMetro, setSelectedMetro] = useState('')
+  const [selectedMetro, setSelectedMetro] = useState([])
   const [selectedVenueType, setSelectedVenueType] = useState('')
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
@@ -166,7 +172,7 @@ export default function Catalog() {
     const queryString = next.toString()
     navigate(`/catalog/${citySlug(city.id)}/${queryString ? `?${queryString}` : ''}`)
     setSelectedCuisines([])
-    setSelectedMetro('')
+    setSelectedMetro([])
     setSelectedVenueType('')
     setCurrentPage(1)
   }, [accessToken, navigate, query, searchParams, selectedCity.id])
@@ -262,24 +268,7 @@ export default function Catalog() {
 
   const mapItems = useMemo(() => {
     const list = Array.isArray(rawMapData?.items) ? rawMapData.items : []
-    const catalogBySlug = new Map(allItems.map((item) => [String(item?.slug || '').toLowerCase(), item]))
-    const enriched = list.map((item) => {
-      const slug = item?.slug || item?.restaurantSlug || item?.restaurant_slug || ''
-      const catalogItem = catalogBySlug.get(String(slug).toLowerCase())
-
-      return {
-        ...catalogItem,
-        ...item,
-        slug,
-        name: item?.name || catalogItem?.name,
-        cuisine: normalizeCatalogCuisine(item?.cuisine || catalogItem?.cuisine),
-        metro: item?.metro || item?.metro_name || item?.metroName || catalogItem?.metro,
-        primary_venue_type: item?.primary_venue_type
-          ?? item?.primaryVenueType
-          ?? catalogItem?.primary_venue_type
-          ?? catalogItem?.primaryVenueType,
-      }
-    })
+    const enriched = enrichCatalogMapItems(list, allItems)
 
     return filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
@@ -346,14 +335,19 @@ export default function Catalog() {
     }))
   }, [filters?.venueTypes, filters?.venue_types])
 
-  const metroOptions = useMemo(() => {
-    const values = allItems
-      .map((item) => item?.metro || item?.metro_name || item?.metroName || item?.metro_station || item?.metroStation)
-      .filter(Boolean)
-      .map((name) => String(name).trim())
-      .filter(Boolean)
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'ru'))
-  }, [allItems])
+  const cityMetroData = useMemo(() => {
+    const stations = (metroData.stations || []).filter((station) => station.city === selectedCity.id)
+    const availableLineIds = new Set(stations.map((station) => String(station.line_id)))
+    return {
+      lines: (metroData.lines || []).filter((line) => availableLineIds.has(String(line.id))),
+      stations,
+    }
+  }, [metroData.lines, metroData.stations, selectedCity.id])
+
+  const selectedMetroPoints = useMemo(
+    () => getMetroSelectionPoints(cityMetroData.stations, selectedMetro),
+    [cityMetroData.stations, selectedMetro],
+  )
 
   const extractDishes = useCallback((restaurant) => {
     const candidates = [
@@ -578,23 +572,14 @@ export default function Catalog() {
                   />
                 </div>
               </div>
-              <div className="catalog-filter">
-                <label className="catalog-filter__label" htmlFor="catalog-metro">Метро</label>
-                <div className="catalog-filter__select-wrap">
-                  <select
-                    id="catalog-metro"
-                    className="catalog-metro-select"
-                    value={selectedMetro}
-                    onChange={(e) => setSelectedMetro(e.target.value)}
-                    disabled={!metroOptions.length}
-                  >
-                    <option value="">Любое</option>
-                    {metroOptions.map((metroName) => (
-                      <option key={metroName} value={metroName.toLowerCase()}>
-                        {metroName}
-                      </option>
-                    ))}
-                  </select>
+              <div className="catalog-filter catalog-filter--metro">
+                <div className="catalog-filter__label">Метро</div>
+                <div className="catalog-filter__control">
+                  <MetroFilter
+                    metroData={cityMetroData}
+                    selectedStationNames={selectedMetro}
+                    onChange={setSelectedMetro}
+                  />
                 </div>
               </div>
             </div>
@@ -606,7 +591,8 @@ export default function Catalog() {
         <Suspense fallback={<div className="catalog-map-fallback">Загружаем карту…</div>}>
           <CatalogMap
             restaurants={mapLoading ? [] : mapItems}
-            city={selectedCity?.id}
+            metroStations={cityMetroData.stations}
+            focusPoints={selectedMetroPoints}
             center={selectedCity?.center ? [selectedCity.center.lat, selectedCity.center.lon] : undefined}
             zoom={selectedCity?.recommendedZoom}
             loading={mapLoading}
