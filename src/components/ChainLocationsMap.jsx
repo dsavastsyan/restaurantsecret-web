@@ -86,6 +86,8 @@ export default function ChainLocationsMap({ locations }) {
       <MapContainer
         center={[points[0].lat, points[0].lon]}
         zoom={12}
+        minZoom={2}
+        maxZoom={20}
         scrollWheelZoom={false}
         attributionControl={false}
         className="rs-clean-map"

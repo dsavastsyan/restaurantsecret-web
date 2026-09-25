@@ -597,6 +597,8 @@ export default function RestaurantMap({
         <MapContainer
           center={cityCenter}
           zoom={cityZoom}
+          minZoom={2}
+          maxZoom={20}
           scrollWheelZoom={isFullscreen}
           className="restaurant-map rs-clean-map"
           attributionControl={false}

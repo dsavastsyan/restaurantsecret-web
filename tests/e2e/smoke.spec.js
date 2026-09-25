@@ -57,6 +57,9 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
 
   await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
   const previewPersonaToggle = page.locator('.preview-persona-panel__toggle')
   if (await previewPersonaToggle.isVisible() && await previewPersonaToggle.getAttribute('aria-expanded') === 'true') {
     await previewPersonaToggle.click()

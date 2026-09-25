@@ -62,6 +62,9 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
 
   await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
   await page.locator('.catalog-map-pin-wrapper').click()

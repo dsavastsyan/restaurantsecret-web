@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import { simplifyMapStyle } from '../src/components/map/mapStyle.js'
 
 test('map style keeps useful roads while hiding decorative lines and localizing labels', () => {
@@ -30,4 +31,12 @@ test('map style keeps useful roads while hiding decorative lines and localizing 
   })
   assert.equal(updates.some(({ id }) => id === 'highway-shield'), false)
   assert.equal(updates.some(({ id }) => id === 'highway-major'), false)
+})
+
+test('catalog map renders the shared clean base layer instead of OSM raster tiles', async () => {
+  const source = await readFile(new URL('../src/components/CatalogMap.jsx', import.meta.url), 'utf8')
+
+  assert.match(source, /<CleanMapBaseLayer \/>/)
+  assert.doesNotMatch(source, /tile\.openstreetmap\.org/)
+  assert.doesNotMatch(source, /<TileLayer/)
 })
