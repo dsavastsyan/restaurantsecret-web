@@ -132,6 +132,7 @@ const LocationIcon = () => (
 export default function CatalogMap({
   restaurants,
   metroStations = EMPTY_POINTS,
+  selectedMetroStationNames = EMPTY_POINTS,
   focusPoints = EMPTY_POINTS,
   center,
   zoom,
@@ -177,7 +178,7 @@ export default function CatalogMap({
       >
         <CleanMapBaseLayer />
         <AttributionControl prefix={false} />
-        <MetroStationsLayer stations={metroStations} />
+        <MetroStationsLayer stations={metroStations} selectedStationNames={selectedMetroStationNames} />
         <CatalogMapViewport restaurants={restaurants} focusPoints={focusPoints} center={safeCenter} zoom={zoom} />
         <CatalogMapMarkers
           restaurants={restaurants}

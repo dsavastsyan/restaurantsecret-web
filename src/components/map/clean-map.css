@@ -35,8 +35,8 @@
   color: #536f35;
 }
 
-.rs-clean-map .leaflet-tile-pane {
-  filter: grayscale(0.35) saturate(0.72) brightness(1.05);
+.rs-clean-map .maplibregl-canvas {
+  outline: none;
 }
 
 .rs-metro-marker-wrapper {
@@ -61,6 +61,20 @@
   width: 20px;
   height: 20px;
   font-size: 10px;
+}
+
+.rs-metro-marker.is-selected {
+  background: #e53935;
+  box-shadow: 0 0 0 2px rgba(229, 57, 53, 0.24), 0 3px 8px rgba(126, 20, 20, 0.48);
+  transform: scale(1.12);
+}
+
+.rs-metro-marker.is-muted {
+  border-color: rgba(255, 255, 255, 0.86);
+  color: rgba(255, 255, 255, 0.88);
+  background: #9aa19b;
+  box-shadow: none;
+  opacity: 0.28;
 }
 
 .rs-clean-map .rs-metro-label {

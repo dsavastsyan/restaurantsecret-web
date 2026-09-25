@@ -592,6 +592,7 @@ export default function Catalog() {
           <CatalogMap
             restaurants={mapLoading ? [] : mapItems}
             metroStations={cityMetroData.stations}
+            selectedMetroStationNames={selectedMetro}
             focusPoints={selectedMetroPoints}
             center={selectedCity?.center ? [selectedCity.center.lat, selectedCity.center.lon] : undefined}
             zoom={selectedCity?.recommendedZoom}

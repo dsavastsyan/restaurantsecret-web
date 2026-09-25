@@ -2,24 +2,29 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { groupMetroStations } from './metroStations'
+import { normalizeMetroStationName } from '@/lib/metroSelection'
 
 const MIN_METRO_ZOOM = 10
 const METRO_LABEL_ZOOM = 14
 const METRO_PANE = 'rs-metro-stations'
 
-function createMetroIcon(detailed) {
+function createMetroIcon(detailed, selectionState) {
   return L.divIcon({
     className: 'rs-metro-marker-wrapper',
     iconSize: detailed ? [20, 20] : [16, 16],
     iconAnchor: detailed ? [10, 10] : [8, 8],
-    html: `<span class="rs-metro-marker${detailed ? ' is-detailed' : ''}" aria-hidden="true">M</span>`,
+    html: `<span class="rs-metro-marker${detailed ? ' is-detailed' : ''}${selectionState ? ` is-${selectionState}` : ''}" aria-hidden="true">M</span>`,
   })
 }
 
-export default function MetroStationsLayer({ stations = [] }) {
+export default function MetroStationsLayer({ stations = [], selectedStationNames = [] }) {
   const map = useMap()
   const [zoom, setZoom] = useState(() => map.getZoom())
   const groupedStations = useMemo(() => groupMetroStations(stations), [stations])
+  const selectedKeys = useMemo(
+    () => new Set(selectedStationNames.map(normalizeMetroStationName).filter(Boolean)),
+    [selectedStationNames],
+  )
 
   useEffect(() => {
     const handleZoom = () => setZoom(map.getZoom())
@@ -37,11 +42,18 @@ export default function MetroStationsLayer({ stations = [] }) {
     if (zoom < MIN_METRO_ZOOM) return () => map.removeLayer(layer)
 
     const detailed = zoom >= METRO_LABEL_ZOOM
-    const icon = createMetroIcon(detailed)
+    const hasSelection = selectedKeys.size > 0
+    const icons = {
+      default: createMetroIcon(detailed, ''),
+      selected: createMetroIcon(detailed, 'selected'),
+      muted: createMetroIcon(detailed, 'muted'),
+    }
 
     for (const station of groupedStations) {
+      const isSelected = selectedKeys.has(normalizeMetroStationName(station.name))
+      const selectionState = hasSelection ? (isSelected ? 'selected' : 'muted') : 'default'
       const marker = L.marker([station.lat, station.lon], {
-        icon,
+        icon: icons[selectionState],
         pane: METRO_PANE,
         title: `Метро ${station.name}`,
         riseOnHover: true,
@@ -51,13 +63,13 @@ export default function MetroStationsLayer({ stations = [] }) {
         direction: 'top',
         offset: [0, detailed ? -10 : -8],
         opacity: 0.96,
-        permanent: detailed,
+        permanent: detailed && (!hasSelection || isSelected),
       })
       layer.addLayer(marker)
     }
 
     return () => map.removeLayer(layer)
-  }, [groupedStations, map, zoom])
+  }, [groupedStations, map, selectedKeys, zoom])
 
   return null
 }

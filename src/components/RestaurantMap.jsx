@@ -598,7 +598,10 @@ export default function RestaurantMap({
         >
           <CleanMapBaseLayer />
           <AttributionControl prefix={false} />
-          <MetroStationsLayer stations={cityMetroData.stations} />
+          <MetroStationsLayer
+            stations={cityMetroData.stations}
+            selectedStationNames={selectedMetroStationNames}
+          />
           <MapViewportController focusTarget={focusTarget} />
           <ViewportChangeListener onViewportChange={handleViewportChange} />
           <MapResizeController watch={`${isFullscreen}-${themeMode}`} />

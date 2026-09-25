@@ -22,9 +22,21 @@ const isCatalogApi = (url) => (
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem('catalog_city', 'Москва')
+    window.localStorage.setItem('rs_consent_v1', JSON.stringify({
+      analytics: 'denied',
+      updatedAt: new Date().toISOString(),
+      policyVersion: 'cookies_v1_2026-01-16',
+    }))
   })
 
   await page.route('**/maintenance.json?*', (route) => route.fulfill({ json: { enabled: false } }))
+  await page.route('https://tiles.openfreemap.org/styles/positron*', (route) => route.fulfill({
+    json: {
+      version: 8,
+      sources: {},
+      layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#f4f4f1' } }],
+    },
+  }))
 
   await page.route((url) => isCatalogApi(url), (route) => {
     const path = new URL(route.request().url()).pathname
@@ -34,8 +46,14 @@ test.beforeEach(async ({ page }) => {
     if (path.endsWith('/metro')) {
       return route.fulfill({
         json: {
-          lines: [],
-          stations: [{ id: 1, city: 'Москва', name_ru: 'Тверская', lat: 55.7653, lon: 37.6038 }],
+          lines: [
+            { id: 1, name_ru: 'Тестовая линия', color_hex: 'E53935' },
+            { id: 2, name_ru: 'Другая линия', color_hex: '2563EB' },
+          ],
+          stations: [
+            { id: 1, city: 'Москва', name_ru: 'Тверская', line_id: 1, lat: 55.7653, lon: 37.6038 },
+            { id: 2, city: 'Москва', name_ru: 'Лубянка', line_id: 2, lat: 55.7597, lon: 37.6272 },
+          ],
         },
       })
     }
@@ -66,15 +84,26 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('opens on the map, shows a restaurant card and persists list view in the URL', async ({ page }) => {
+  const mapRuntimeErrors = []
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
+      mapRuntimeErrors.push(message.text())
+    }
+  })
+  page.on('pageerror', (error) => {
+    if (/Worker failed to load|Map has no maxZoom/i.test(error.message)) mapRuntimeErrors.push(error.message)
+  })
+
   await page.goto('/catalog/moskva/')
 
   await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
-  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenStreetMap')
-  const firstTile = page.locator('.catalog-map-panel .leaflet-tile-pane img').first()
-  await expect(firstTile).toBeVisible()
-  await expect(firstTile).toHaveAttribute('src', /tile\.openstreetmap\.org/)
-  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(1)
+  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
+  await page.waitForTimeout(1000)
+  expect(mapRuntimeErrors).toEqual([])
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(2, { timeout: 15_000 })
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
   await page.locator('.catalog-map-pin-wrapper').click()
@@ -102,4 +131,15 @@ test('filters both map and list by the primary venue type', async ({ page }) => 
 
   await page.getByRole('button', { name: 'Список', exact: true }).click()
   await expect(page.locator('.catalog-card')).toHaveCount(0)
+})
+
+test('highlights only stations selected through a metro line', async ({ page }) => {
+  await page.goto('/catalog/moskva/')
+
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(2, { timeout: 15_000 })
+  await page.getByRole('button', { name: 'Станции метро' }).click()
+  await page.getByRole('button', { name: 'Тестовая линия', exact: true }).click()
+
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker.is-selected')).toHaveCount(1)
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker.is-muted')).toHaveCount(1)
 })
