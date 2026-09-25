@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast'
 import { useAuth } from '@/store/auth'
 import { useDishCardStore } from '@/store/dishCard'
 import { api } from '@/api/client'
-import { getRussianPluralWord } from '@/lib/text'
+import { getRussianPluralWord, getSearchQueryScore } from '@/lib/text'
 import { saveCatalogCity } from '@/lib/cityPreference'
 
 const DEFAULT_TYPE = 'dish'
@@ -72,8 +72,12 @@ export default function Search() {
       .then((data) => {
         if (cancelled) return
         setResults({
-          restaurants: data?.restaurants ?? [],
-          dishes: data?.dishes ?? [],
+          restaurants: [...(data?.restaurants ?? [])].sort((left, right) =>
+            getSearchQueryScore(right.name, query) - getSearchQueryScore(left.name, query)
+          ),
+          dishes: [...(data?.dishes ?? [])].sort((left, right) =>
+            getSearchQueryScore(right.dishName, query) - getSearchQueryScore(left.dishName, query)
+          ),
           otherCities: data?.otherCities ?? [],
         })
       })

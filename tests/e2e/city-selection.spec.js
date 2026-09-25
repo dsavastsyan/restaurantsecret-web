@@ -18,7 +18,9 @@ test.beforeEach(async ({ page }) => {
       ],
     }),
   }))
-  await page.route('**/api/city-preference', (route) => route.fulfill({
+  // The trailing `**` matters: it also covers the GET call's `?visitor_id=...`
+  // query string, which a bare `**/api/city-preference` pattern would not match.
+  await page.route('**/api/city-preference**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ ok: true }),
@@ -100,6 +102,29 @@ test('places the confirmation below the city picker on mobile', async ({ page })
   const pickerBox = await picker.boundingBox()
   const suggestionBox = await suggestion.boundingBox()
   expect(suggestionBox.y).toBeGreaterThan(pickerBox.y)
+})
+
+test('restores a previously saved city before showing the detection prompt', async ({ page }) => {
+  await page.route('**/api/city-preference**', (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ detected_city: 'Москва', selected_city: 'Казань', selection_source: 'confirmed' }),
+      })
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
+  })
+  await page.route('**/location', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ city: 'Санкт-Петербург' }),
+  }))
+
+  await page.goto('/')
+
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem('catalog_city'))).toBe('Казань')
+  await expect(page.locator('.landing-warm__city-suggestion--desktop')).toHaveCount(0)
 })
 
 test('does not replace a manual choice with a late location response', async ({ page }) => {

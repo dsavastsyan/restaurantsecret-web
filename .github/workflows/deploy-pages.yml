@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+  schedule:
+    # Rebuilds sitemap.xml from the live restaurants API even when no code
+    # changed, so newly added restaurants show up without a manual trigger.
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read
@@ -31,6 +35,11 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          SITEMAP_API_URL: https://restaurantsecret.ru/_build/catalog
+          SITEMAP_API_KEY: ${{ secrets.SITEMAP_API_KEY }}
+          SITEMAP_STRICT_API_FETCH: 'true'
+          SITEMAP_MIN_RESTAURANTS: '300'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
@@ -47,3 +56,24 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Ping Google Search Console with updated sitemap
+        # Google doesn't watch sitemap.xml for changes on its own — without this,
+        # new/changed URLs can sit unindexed for months (see marketing-hub/data/seo/indexing-sitemap.md).
+        continue-on-error: true
+        env:
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+        run: |
+          set -e
+          ACCESS_TOKEN=$(curl -sf -X POST https://oauth2.googleapis.com/token \
+            -d "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            -d "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            -d "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            -d "grant_type=refresh_token" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+          curl -sf -X PUT \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://www.googleapis.com/webmasters/v3/sites/sc-domain%3Arestaurantsecret.ru/sitemaps/https%3A%2F%2Frestaurantsecret.ru%2Fsitemap.xml"
+          echo "Pinged Search Console: sc-domain:restaurantsecret.ru / sitemap.xml"

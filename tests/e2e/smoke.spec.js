@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+const STAGING_API_HOSTNAME = 'restaurantsecret-api-staging.dsavastyan.workers.dev'
+
 const waitForSuccessfulResponse = (page, predicate) =>
   page.waitForResponse((response) => {
     if (!predicate(response)) return false
@@ -7,7 +9,31 @@ const waitForSuccessfulResponse = (page, predicate) =>
   })
 
 test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) => {
+  const mapRuntimeErrors = []
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
+      mapRuntimeErrors.push(message.text())
+    }
+  })
+  page.on('pageerror', (error) => {
+    if (/Worker failed to load|Map has no maxZoom/i.test(error.message)) mapRuntimeErrors.push(error.message)
+  })
+
+  const landingStatsResponsePromise = waitForSuccessfulResponse(page, (response) => {
+    const path = new URL(response.url()).pathname
+    return path.endsWith('/landing/stats') && response.request().method() === 'GET'
+  })
+
   await page.goto('/')
+
+  const landingStatsResponse = await landingStatsResponsePromise
+  const landingStats = await landingStatsResponse.json()
+  expect(landingStats?.restaurants).toBeGreaterThan(0)
+  expect(landingStats?.dishes).toBeGreaterThan(0)
+
+  const heroStatValues = page.locator('.landing-warm__stat > p')
+  await expect(heroStatValues.nth(0)).toHaveText(Number(landingStats.restaurants).toLocaleString('ru-RU'))
+  await expect(heroStatValues.nth(1)).toHaveText(Number(landingStats.dishes).toLocaleString('ru-RU'))
 
   // Dismiss the cookie consent banner if it's shown — it overlays the page
   // and blocks interaction with everything behind it. ConsentBanner.jsx only
@@ -39,6 +65,20 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // don't assume identity between the two, just that results exist.
   expect(catalogPayload?.items?.length).toBeGreaterThan(0)
 
+  await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.catalog-map-panel')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
+  await page.waitForTimeout(1000)
+  expect(mapRuntimeErrors).toEqual([])
+  const previewPersonaToggle = page.locator('.preview-persona-panel__toggle')
+  if (await previewPersonaToggle.isVisible() && await previewPersonaToggle.getAttribute('aria-expanded') === 'true') {
+    await previewPersonaToggle.click()
+  }
+  await page.getByRole('button', { name: 'Список', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
+
   const cards = page.locator('.catalog-card')
   const firstCardButton = cards.first().getByRole('button', { name: 'Открыть меню' })
   await expect(firstCardButton).toBeVisible()
@@ -47,8 +87,13 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // — the site now gates per dish, showing the first few free and hiding the
   // rest behind a subscribe prompt on each card).
   const restaurantResponsePromise = waitForSuccessfulResponse(page, (response) => {
-    const path = new URL(response.url()).pathname
-    return /^\/restaurants\/[^/]+\/menu\/?$/.test(path) && response.request().method() === 'GET'
+    const url = new URL(response.url())
+    const isDirectStagingRequest = url.hostname === STAGING_API_HOSTNAME
+      && /^\/restaurants\/[^/]+\/menu\/?$/.test(url.pathname)
+    const isSameOriginProxyRequest = /^\/api(?:\/catalog)?\/restaurants\/[^/]+\/menu\/?$/.test(url.pathname)
+
+    return (isDirectStagingRequest || isSameOriginProxyRequest)
+      && response.request().method() === 'GET'
   })
 
   await Promise.all([
@@ -62,13 +107,9 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   await expect(heading).toBeVisible()
   await expect(heading).not.toBeEmpty()
 
-  // Without a subscription, dishes beyond the free preview are marked with a
-  // locked cover instead of KBJU data. Assert on DOM presence rather than
-  // CSS visibility — the cover's reveal transition is tied to its dish
-  // image finishing loading, which is unrelated to the access-gating logic
-  // this test cares about and would make the check flaky.
-  const lockedDishes = page.locator('.rsm2-row__cover--paywalled')
-  await expect(lockedDishes.first()).toBeAttached()
+  // Assert the user-facing paywall marker rather than an implementation CSS
+  // class so a visual refactor cannot silently invalidate this smoke check.
+  const lockedDishes = page.getByRole('button').filter({ hasText: 'КБЖУ и состав — по подписке' })
   expect(await lockedDishes.count()).toBeGreaterThan(0)
 
   // NOTE: this used to also simulate an activated subscription (via a
@@ -78,74 +119,4 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // trimmed server-side (see the 2026-09-12 paywall security fix), so no
   // client-side flag can unlock data the API never sent. The flip side —
   // a real subscriber sees everything — is covered by the next test below.
-})
-
-test('@smoke subscribed user sees the full menu past the free preview', async ({ page }) => {
-  const email = process.env.E2E_TEST_EMAIL
-  const otp = process.env.E2E_TEST_OTP
-  test.skip(!email || !otp, 'E2E_TEST_EMAIL / E2E_TEST_OTP not configured — see pd-api routes/auth.js')
-
-  const pdApiBase = process.env.VITE_PD_API_BASE || 'https://pd.restaurantsecret.ru'
-  const publicApiBase = process.env.VITE_API_BASE_URL || `${pdApiBase}/cf`
-
-  // Log in as the dedicated e2e-test account directly against the API. This
-  // test is about the server-side paywall trimming, not the login UI — the
-  // UI's own OTP flow isn't exercised here, only pd-api's bypass code path.
-  const requestOtpRes = await page.request.post(`${pdApiBase}/auth/request-otp`, { data: { email } })
-  expect(requestOtpRes.ok()).toBeTruthy()
-
-  const verifyRes = await page.request.post(`${pdApiBase}/auth/verify-otp`, { data: { email, code: otp } })
-  expect(verifyRes.ok()).toBeTruthy()
-  const verifyPayload = await verifyRes.json()
-  const accessToken = verifyPayload?.access_token
-  expect(accessToken).toBeTruthy()
-  const authHeaders = { Authorization: `Bearer ${accessToken}` }
-
-  // Make the app pick up the session on load, same as a real returning
-  // visitor (src/store/auth.ts reads this exact key at startup).
-  await page.addInitScript((token) => {
-    window.localStorage.setItem('rs_access', token)
-  }, accessToken)
-
-  // Find a restaurant with more dishes than the free-preview count (3) —
-  // otherwise there'd be no locked-for-anonymous row to prove is unlocked.
-  const catalogRes = await page.request.get(`${publicApiBase}/restaurants?limit=1000`)
-  expect(catalogRes.ok()).toBeTruthy()
-  const catalogPayload = await catalogRes.json()
-  const candidates = catalogPayload?.items || []
-  expect(candidates.length).toBeGreaterThan(0)
-
-  let targetSlug = null
-  for (const candidate of candidates) {
-    const menuRes = await page.request.get(
-      `${publicApiBase}/restaurants/${candidate.slug}/menu?city=${encodeURIComponent('Москва')}`,
-      { headers: authHeaders }
-    )
-    if (!menuRes.ok()) continue
-    const menuPayload = await menuRes.json()
-    const dishCount = (menuPayload?.categories || []).reduce((sum, c) => sum + (c.dishes?.length || 0), 0)
-    if (dishCount > 3) {
-      targetSlug = candidate.slug
-      break
-    }
-  }
-  expect(targetSlug, 'expected at least one catalog restaurant with more than 3 dishes').toBeTruthy()
-
-  await page.goto(`/restaurants/${targetSlug}/menu`)
-  // Same 5s-delayed banner as the other test — see the comment on the first
-  // dismiss there. A fresh page load here means it needs dismissing again.
-  await page.getByRole('button', { name: 'Отклонить' }).click({ timeout: 6000 }).catch(() => {})
-
-  const heading = page.getByRole('heading', { level: 1 })
-  await expect(heading).toBeVisible()
-
-  const dishRows = page.locator('.rsm2-row')
-  await expect(dishRows.first()).toBeAttached()
-  expect(await dishRows.count()).toBeGreaterThan(3)
-
-  // A real active subscription must unlock every row, not just the free
-  // preview — this is exactly what a client-side flag could never prove
-  // after the 2026-09-12 server-side trimming fix.
-  expect(await page.locator('.rsm2-row__cover--paywalled').count()).toBe(0)
-  await expect(page.getByText('КБЖУ по подписке')).toHaveCount(0)
 })

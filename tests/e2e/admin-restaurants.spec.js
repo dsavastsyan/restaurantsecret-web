@@ -189,6 +189,14 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
           source_url: configured ? 'https://instagram.com/loulou/' : null,
           last_checked_at: confirmed ? '2026-09-11T12:00:00Z' : '2026-09-01T12:00:00Z',
           status: configured ? 'current' : 'source_missing',
+        }, {
+          slug: 'sage', name: 'Sage', cities: ['Москва'],
+          source_type: 'website', source_url: 'https://sage.example/menu',
+          last_checked_at: '2026-09-10T12:00:00Z', status: 'current',
+        }, {
+          slug: 'without-date', name: 'Без даты', cities: ['Москва'],
+          source_type: 'website', source_url: 'https://without-date.example/menu',
+          last_checked_at: null, status: 'needs_check',
         }],
       } })
     }
@@ -205,13 +213,24 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
 
   await page.goto('/admin/restaurants')
   await expect(page.getByRole('tab', { name: 'Ручные меню' })).toHaveAttribute('aria-selected', 'true')
+  const table = page.getByRole('table')
+  const rowNames = () => table.getByRole('row').locator('td:first-child strong').allTextContents()
+  await page.getByRole('button', { name: 'Последняя проверка' }).click()
+  await expect.poll(rowNames).toEqual(['Sage', 'Loulou', 'Без даты'])
+  await expect(table.locator('th').filter({ hasText: 'Последняя проверка' })).toHaveAttribute('aria-sort', 'descending')
+  await page.getByRole('button', { name: 'Последняя проверка' }).click()
+  await expect.poll(rowNames).toEqual(['Loulou', 'Sage', 'Без даты'])
+  await expect(table.locator('th').filter({ hasText: 'Последняя проверка' })).toHaveAttribute('aria-sort', 'ascending')
   const row = page.getByRole('row').filter({ hasText: 'Loulou' })
   await expect(row.getByText('Источник не указан')).toBeVisible()
   await row.getByLabel('Источник меню Loulou').selectOption('instagram_highlight')
   await row.getByLabel('Ссылка на меню Loulou').fill('https://instagram.com/loulou/')
   await row.getByRole('button', { name: 'Сохранить' }).click()
   await expect(row.getByText('Актуально')).toBeVisible()
+  expect(requests.filter(({ path, method }) => path === '/api/admin/manual-menu-freshness' && method === 'GET')).toHaveLength(1)
   await row.getByRole('button', { name: 'Подтвердить актуальность' }).click()
+  await expect(row.getByText('11 сент.')).toBeVisible()
+  expect(requests.filter(({ path, method }) => path === '/api/admin/manual-menu-freshness' && method === 'GET')).toHaveLength(1)
 
   await expect.poll(() => requests.some(({ path, method }) => path.endsWith('/loulou/confirm') && method === 'POST')).toBeTruthy()
   expect(requests.some(({ path, method, body }) => (
@@ -230,6 +249,7 @@ test('administrator sees parser status, source and error without leaving the res
       ok: true,
       parsers: [{
         parser_id: 'sage', enabled: true, restaurant_name: 'Sage', cities: ['Москва'],
+        public_menu_url: '/restaurants/sage/menu',
         published_at: '2026-09-09T06:00:00Z',
         run: {
           status: 'error', finished_at: '2026-09-10T06:00:05Z', last_success_at: '2026-09-08T06:00:05Z',
@@ -250,6 +270,7 @@ test('administrator sees parser status, source and error without leaving the res
   const row = page.getByRole('row').filter({ hasText: 'Sage' })
   await expect(row.getByText('Ошибка', { exact: true })).toBeVisible()
   await expect(row.getByRole('link', { name: 'Открыть' })).toHaveAttribute('href', 'https://sage.example/menu')
+  await expect(row.getByRole('link', { name: /09\.09\.2026/ })).toHaveAttribute('href', '/restaurants/sage/menu')
   await row.getByText('Что случилось').click()
   await expect(row.getByText('Не найден список блюд')).toBeVisible()
   await expect(row.getByText('ValueError: menu is empty')).toBeVisible()

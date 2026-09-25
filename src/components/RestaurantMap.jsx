@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { AttributionControl, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { AttributionControl, MapContainer, useMap, useMapEvents } from 'react-leaflet'
 import { useNavigate } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
@@ -13,6 +13,9 @@ import MetroFilter from './MetroFilter'
 import MapCuisineFilter from './MapCuisineFilter'
 import MapCityFilter from './MapCityFilter'
 import { saveCatalogCity } from '@/lib/cityPreference'
+import { getMetroSelectionPoints, normalizeMetroStationName } from '@/lib/metroSelection'
+import CleanMapBaseLayer from './map/CleanMapBaseLayer'
+import MetroStationsLayer from './map/MetroStationsLayer'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -55,10 +58,6 @@ function normalizeRestaurantLinkUrl(rawUrl) {
   }
 }
 
-function normalizeStationName(value) {
-  return String(value || '').trim().toLowerCase()
-}
-
 function getMetroNames(restaurant) {
   const rawNames = Array.isArray(restaurant?.metroNames)
     ? restaurant.metroNames
@@ -67,31 +66,13 @@ function getMetroNames(restaurant) {
       : []
 
   const names = rawNames
-    .map((name) => normalizeStationName(name))
+    .map((name) => normalizeMetroStationName(name))
     .filter(Boolean)
 
-  const nearestName = normalizeStationName(restaurant?.metro)
+  const nearestName = normalizeMetroStationName(restaurant?.metro)
   if (nearestName) names.push(nearestName)
 
   return Array.from(new Set(names))
-}
-
-function getStationPoints(station) {
-  const points = Array.isArray(station?.points) ? station.points : []
-  const normalizedPoints = points
-    .map((point) => ({
-      lat: Number(point?.lat),
-      lon: Number(point?.lon),
-    }))
-    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon))
-
-  if (normalizedPoints.length > 0) return normalizedPoints
-
-  const lat = Number(station?.lat)
-  const lon = Number(station?.lon)
-  if (Number.isFinite(lat) && Number.isFinite(lon)) return [{ lat, lon }]
-
-  return []
 }
 
 function toRadians(degrees) {
@@ -194,6 +175,13 @@ function MapViewportController({ focusTarget }) {
 
   useEffect(() => {
     if (!focusTarget) return
+    if (Array.isArray(focusTarget.bounds) && focusTarget.bounds.length > 0) {
+      map.fitBounds(
+        focusTarget.bounds.map((point) => [point.lat, point.lon]),
+        { padding: [48, 48], maxZoom: 14, animate: true, duration: 0.8 },
+      )
+      return
+    }
     const nextZoom = Number.isFinite(focusTarget.zoom) ? focusTarget.zoom : 13
     map.flyTo([focusTarget.lat, focusTarget.lon], nextZoom, { duration: 0.8 })
   }, [map, focusTarget])
@@ -313,7 +301,7 @@ export default function RestaurantMap({
   const [filters, setFilters] = useState({ cuisines: [], excludeFastFood: false })
   const [selectedCity, setSelectedCity] = useState(() => controlledCity || localStorage.getItem('catalog_city') || 'Москва')
   const [cityOptions, setCityOptions] = useState([])
-  const [selectedMetroStation, setSelectedMetroStation] = useState(null)
+  const [selectedMetroStationNames, setSelectedMetroStationNames] = useState([])
   const [focusTarget, setFocusTarget] = useState(null)
   const [isDefaultView, setIsDefaultView] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -336,35 +324,49 @@ export default function RestaurantMap({
     ? [selectedCityMeta.center.lat, selectedCityMeta.center.lon]
     : defaultCenter
   const cityMetroData = useMemo(
-    () => ({ stations: metroData.stations.filter((s) => s.city === selectedCity) }),
-    [metroData.stations, selectedCity],
+    () => {
+      const stations = metroData.stations.filter((station) => station.city === selectedCity)
+      const availableLineIds = new Set(stations.map((station) => String(station.line_id)))
+      return {
+        lines: metroData.lines.filter((line) => availableLineIds.has(String(line.id))),
+        stations,
+      }
+    },
+    [metroData.lines, metroData.stations, selectedCity],
   )
   const handleSelectCity = useCallback((city) => {
     setSelectedCity(city)
     saveCatalogCity(city, 'manual', accessToken)
-    setSelectedMetroStation(null)
+    setSelectedMetroStationNames([])
     const meta = cityOptions.find((item) => item.id === city)
     if (meta?.center) setFocusTarget({ lat: meta.center.lat, lon: meta.center.lon, zoom: meta.recommendedZoom || defaultZoom, key: `city-${city}` })
   }, [accessToken, cityOptions])
-  const selectedMetroStationName = useMemo(
-    () => normalizeStationName(selectedMetroStation?.name_ru),
-    [selectedMetroStation],
+  const selectedMetroStationKeys = useMemo(
+    () => new Set(selectedMetroStationNames.map(normalizeMetroStationName).filter(Boolean)),
+    [selectedMetroStationNames],
   )
   const selectedMetroStationPoints = useMemo(
-    () => getStationPoints(selectedMetroStation),
-    [selectedMetroStation],
+    () => getMetroSelectionPoints(cityMetroData.stations, selectedMetroStationNames),
+    [cityMetroData.stations, selectedMetroStationNames],
   )
+  const handleMetroSelectionChange = useCallback((stationNames) => {
+    setSelectedMetroStationNames(stationNames)
+    const points = getMetroSelectionPoints(cityMetroData.stations, stationNames)
+    if (points.length > 0) {
+      setFocusTarget({ bounds: points, key: `metro-${Date.now()}` })
+    }
+  }, [cityMetroData.stations])
   const visibleRestaurants = useMemo(() => {
     return restaurants.filter((restaurant) => {
       if (filters.excludeFastFood && isFastFoodCuisine(restaurant?.cuisine)) return false
-      if (!selectedMetroStationName) return true
+      if (selectedMetroStationKeys.size === 0) return true
 
       const metroNames = getMetroNames(restaurant)
-      if (metroNames.includes(selectedMetroStationName)) return true
+      if (metroNames.some((name) => selectedMetroStationKeys.has(name))) return true
 
       return isRestaurantNearStation(restaurant, selectedMetroStationPoints)
     })
-  }, [restaurants, filters.excludeFastFood, selectedMetroStationName, selectedMetroStationPoints])
+  }, [restaurants, filters.excludeFastFood, selectedMetroStationKeys, selectedMetroStationPoints])
   const { restaurants: uniqueRestaurantCount, weeklyAdded } = calculateRestaurantStats(visibleRestaurants)
   const isNight = themeMode === 'night'
   const hasOverlayMapButton = !showSummaryHeader
@@ -381,7 +383,7 @@ export default function RestaurantMap({
   useEffect(() => {
     if (!controlledCity || controlledCity === selectedCity) return
     setSelectedCity(controlledCity)
-    setSelectedMetroStation(null)
+    setSelectedMetroStationNames([])
     setFilters({ cuisines: [], excludeFastFood: false })
   }, [controlledCity, selectedCity])
 
@@ -496,8 +498,6 @@ export default function RestaurantMap({
     setIsFullscreen(true)
   }, [openFullscreenSignal])
 
-  const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-
   return (
     <div className={`restaurant-map-container ${showSummaryHeader ? '' : 'is-landing'} ${isNight ? 'is-night' : 'is-day'} ${isFullscreen ? 'is-fullscreen' : ''}`}>
       {showSummaryHeader && (
@@ -528,16 +528,8 @@ export default function RestaurantMap({
             />
             <MetroFilter
               metroData={cityMetroData}
-              selectedStationName={selectedMetroStation?.name_ru || ''}
-              onSelectStation={(station) => setSelectedMetroStation(station)}
-              onClearStation={() => setSelectedMetroStation(null)}
-              onJumpToStation={(station) =>
-                setFocusTarget({
-                  lat: station.lat,
-                  lon: station.lon,
-                  key: `${station.name_ru}-${Date.now()}`,
-                })
-              }
+              selectedStationNames={selectedMetroStationNames}
+              onChange={handleMetroSelectionChange}
             />
             <MapCuisineFilter
               cuisines={cuisines}
@@ -598,15 +590,18 @@ export default function RestaurantMap({
         <MapContainer
           center={cityCenter}
           zoom={cityZoom}
+          minZoom={2}
+          maxZoom={20}
           scrollWheelZoom={isFullscreen}
-          className="restaurant-map"
+          className="restaurant-map rs-clean-map"
           attributionControl={false}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url={tileUrl}
-          />
+          <CleanMapBaseLayer />
           <AttributionControl prefix={false} />
+          <MetroStationsLayer
+            stations={cityMetroData.stations}
+            selectedStationNames={selectedMetroStationNames}
+          />
           <MapViewportController focusTarget={focusTarget} />
           <ViewportChangeListener onViewportChange={handleViewportChange} />
           <MapResizeController watch={`${isFullscreen}-${themeMode}`} />

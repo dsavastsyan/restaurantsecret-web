@@ -13,10 +13,13 @@ const isCloudflarePagesPreview = Boolean(
 // PR previews must never inherit production endpoints from the Pages project.
 if (isCloudflarePagesPreview) {
   const stagingApi = 'https://restaurantsecret-api-staging.dsavastyan.workers.dev'
+  const stagingPdApi = 'https://staging-pd.restaurantsecret.ru'
   process.env.VITE_API_BASE_URL = stagingApi
   process.env.VITE_API_BASE = stagingApi
   process.env.VITE_API_URL = stagingApi
+  process.env.VITE_PD_API_BASE = stagingPdApi
   process.env.VITE_DEPLOY_ENV = 'preview'
+  process.env.VITE_ANALYTICS_ENABLED = 'false'
 }
 
 export default defineConfig({

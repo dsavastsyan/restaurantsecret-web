@@ -33,6 +33,7 @@ function buildDishAccessKey(dish) {
 
 export default function MenuRedesignView({
   seoRestaurantName,
+  heroDishCount,
   dishes,
   filtered,
   groupedDishes,
@@ -45,6 +46,9 @@ export default function MenuRedesignView({
 
   query,
   setQuery,
+  selectedSection,
+  setSelectedSection,
+  sectionOptions,
   selectedCategory,
   setSelectedCategory,
   categoryOptions,
@@ -134,7 +138,7 @@ export default function MenuRedesignView({
       id: dish.id,
       dishName: dish.name,
       restaurantSlug: slug,
-      restaurantName: menu?.name || slug,
+      restaurantName: menu?.name || seoRestaurantName,
       isFreeAccess,
     };
     if (readOnly) {
@@ -165,21 +169,26 @@ export default function MenuRedesignView({
               {seoRestaurantName}
               {menu?.autoUpdated && <AutoUpdatedBadge className="rsm2-hero__auto-updated" />}
             </h1>
-            <div className="rsm2-hero__stats">
-              <div className="rsm2-hero__stat">
-                <span className="rsm2-hero__stat-value">{dishes.length}</span>
-                <span className="rsm2-hero__stat-label">блюд с КБЖУ</span>
+            {/* heroDishCount falls back to the prerender's real embedded count
+                while still loading, so this never flashes a wrong "0 блюд" —
+                only hidden outright if we truly have no number at all. */}
+            {Number.isFinite(heroDishCount) && (
+              <div className="rsm2-hero__stats">
+                <div className="rsm2-hero__stat">
+                  <span className="rsm2-hero__stat-value">{heroDishCount}</span>
+                  <span className="rsm2-hero__stat-label">блюд с КБЖУ</span>
+                </div>
+                {!!capturedAt && (
+                  <>
+                    <div className="rsm2-hero__rule" />
+                    <div className="rsm2-hero__stat">
+                      <span className="rsm2-hero__stat-value">{capturedAt}</span>
+                      <span className="rsm2-hero__stat-label">меню обновлено</span>
+                    </div>
+                  </>
+                )}
               </div>
-              {!!capturedAt && (
-                <>
-                  <div className="rsm2-hero__rule" />
-                  <div className="rsm2-hero__stat">
-                    <span className="rsm2-hero__stat-value">{capturedAt}</span>
-                    <span className="rsm2-hero__stat-label">меню обновлено</span>
-                  </div>
-                </>
-              )}
-            </div>
+            )}
           </div>
           <div className="rsm2-hero__actions">
             {!readOnly && (
@@ -213,6 +222,29 @@ export default function MenuRedesignView({
             aria-label="Поиск блюда"
           />
         </div>
+
+        {sectionOptions.length > 1 && (
+          <div className="rsm2-section-switch" role="tablist" aria-label="Раздел меню">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedSection === 'food'}
+              className={selectedSection === 'food' ? 'is-on' : ''}
+              onClick={() => setSelectedSection('food')}
+            >
+              Еда
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedSection === 'drinks'}
+              className={selectedSection === 'drinks' ? 'is-on' : ''}
+              onClick={() => setSelectedSection('drinks')}
+            >
+              Напитки
+            </button>
+          </div>
+        )}
 
         <div className="rsm2-cats rsm2-desktop-only" style={{ display: 'flex' }}>
           {renderCatPills()}
@@ -300,7 +332,7 @@ export default function MenuRedesignView({
                         key={`${section.name}-${dish.name}`}
                         dish={dish}
                         restaurantSlug={slug}
-                        restaurantName={menu?.name || slug}
+                        restaurantName={menu?.name || seoRestaurantName}
                         isFreeAccess={isFreeAccess}
                         interactive
                         readOnly={readOnly}
@@ -318,7 +350,7 @@ export default function MenuRedesignView({
                         key={`${section.name}-${dish.name}`}
                         dish={dish}
                         restaurantSlug={slug}
-                        restaurantName={menu?.name || slug}
+                        restaurantName={menu?.name || seoRestaurantName}
                         isFreeAccess={isFreeAccess}
                         interactive
                         readOnly={readOnly}
@@ -346,7 +378,7 @@ export default function MenuRedesignView({
 
       {!readOnly && (
         <MenuOutdatedModal
-          restaurantName={menu?.name || slug}
+          restaurantName={menu?.name || seoRestaurantName}
           isOpen={isOutdatedOpen}
           onClose={() => setIsOutdatedOpen(false)}
         />

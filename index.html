@@ -323,6 +323,7 @@
     </style>
 
     <script type="text/javascript">
+      if (!window.location.hostname.endsWith('.pages.dev')) {
       window.ym = window.ym || function(){(window.ym.a=window.ym.a||[]).push(arguments)};
       window.ym.l = 1 * new Date();
       window.__loadYandexMetrika = window.__loadYandexMetrika || function(){
@@ -342,6 +343,7 @@
           window.addEventListener(type, load, { once: true, passive: true });
         });
       })();
+      }
     </script>
   </head>
   <body>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { fetchUserGoals, updateUserGoals, apiPut, UserGoalData } from '@/lib/api';
+import { fetchUserGoals, updateUserGoals, UserGoalData } from '@/lib/api';
 import { calculateTargets, UserStats, Gender, ActivityLevel, GoalType } from '@/lib/calculator';
 
 type GoalsState = {
@@ -79,7 +79,7 @@ export const useGoalsStore = create<GoalsState>((set, get) => ({
         // Optimistic update
         set({ data: next });
         try {
-            const res = await apiPut('/api/goals', next, token);
+            const res = await updateUserGoals(next, token);
             console.log('[Goals] Saved:', res);
         } catch (err) {
             console.error('[Goals] Save Failed:', err);
@@ -94,7 +94,7 @@ export const useGoalsStore = create<GoalsState>((set, get) => ({
         const next = { ...current, ...targets };
         set({ data: next });
         try {
-            const res = await apiPut('/api/goals', next, token);
+            const res = await updateUserGoals(next, token);
             console.log('[Goals] Targets Saved:', res);
         } catch (err) {
             console.error('[Goals] Targets Save Failed:', err);
@@ -128,7 +128,7 @@ export const useGoalsStore = create<GoalsState>((set, get) => ({
 
             set({ data: next });
             try {
-                await apiPut('/api/goals', next, token);
+                await updateUserGoals(next, token);
             } catch (err) {
                 console.error(err);
                 get().fetch(token);

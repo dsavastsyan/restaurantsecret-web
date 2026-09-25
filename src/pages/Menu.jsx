@@ -33,6 +33,35 @@ const createDefaultRange = () => ({
 // mode; 'include' flips the filter into "только с этим ингредиентом".
 const createDefaultIngredientFilter = () => ({ mode: 'exclude', selected: [] })
 
+// Russian numeral agreement: 1 блюдо / 2-4 блюда / 5+ блюд (11-14 always
+// take the "many" form regardless of the last digit, hence the % 100 check).
+const pluralizeRu = (n, [one, few, many]) => {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
+  return many
+}
+
+// Reads the {name, dishCount} the prerender embedded in the static page
+// (see generate-sitemap.js's `seoHint`) so the very first paint — before our
+// own fetch below resolves — already shows the real name/count instead of a
+// blank loading state. Only present on a real page load of this exact
+// restaurant's static file, never on SPA client-side navigation, so there is
+// no risk of it going stale or matching the wrong restaurant.
+const readSeoHint = () => {
+  if (typeof document === 'undefined') return null
+  try {
+    const el = document.getElementById('rs-seo-hint')
+    if (!el) return null
+    const parsed = JSON.parse(el.textContent)
+    if (!parsed || typeof parsed.name !== 'string') return null
+    return parsed
+  } catch (_) {
+    return null
+  }
+}
+
 const normalizeRestaurantLinkUrl = (rawUrl) => {
   if (!rawUrl) return null
   const text = String(rawUrl).trim()
@@ -75,12 +104,14 @@ export default function Menu({
   }))
 
   const [menu, setMenu] = useState(() => previewMode ? normalizeMenu(previewMenu) : null)
+  const [seoHint] = useState(() => (previewMode ? null : readSeoHint()))
   const [loading, setLoading] = useState(!previewMode)
   const [error, setError] = useState('')
   const [isOutdatedOpen, setIsOutdatedOpen] = useState(false)
   const [restaurantPoint, setRestaurantPoint] = useState(null)
 
   const [query, setQuery] = useState('')
+  const [selectedSection, setSelectedSection] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
   const [presets, setPresets] = useState(createDefaultPresets)
@@ -92,6 +123,7 @@ export default function Menu({
   // Reset filters whenever the restaurant slug changes.
   useEffect(() => {
     setQuery('')
+    setSelectedSection('all')
     setSelectedCategory('all')
     setIsAdvancedFiltersOpen(false)
     setPresets(createDefaultPresets())
@@ -130,6 +162,13 @@ export default function Menu({
           }
         } catch (err) {
           if (!aborted) {
+            if (err?.status === 404 && err?.body?.isChainBase && err.body.hubPath) {
+              // # This restaurant slug used to be a real address; it's now
+              // # the bare URL for the whole chain instead — send the
+              // # visitor to the hub rather than showing a load error.
+              navigate(err.body.hubPath, { replace: true })
+              return
+            }
             console.error('Failed to load menu', err)
             setError('Не удалось загрузить меню. Попробуйте обновить страницу позже.')
           }
@@ -176,6 +215,26 @@ export default function Menu({
   }, [city, slug])
 
   const dishes = useMemo(() => flattenMenuDishes(menu), [menu])
+  const sectionOptions = useMemo(() => {
+    const categories = Array.isArray(menu?.categories) ? menu.categories : []
+    if (!categories.length || categories.some((category) => !['food', 'drinks'].includes(category?.menuSection))) {
+      return []
+    }
+    return ['food', 'drinks'].filter((section) => categories.some((category) => category.menuSection === section))
+  }, [menu?.categories])
+
+  useEffect(() => {
+    const nextSection = sectionOptions.includes('food') ? 'food' : sectionOptions[0] || 'all'
+    setSelectedSection(nextSection)
+    setSelectedCategory('all')
+    setAllCategoriesExpanded(false)
+  }, [sectionOptions])
+
+  const handleSectionChange = (section) => {
+    setSelectedSection(section)
+    setSelectedCategory('all')
+    setAllCategoriesExpanded(false)
+  }
   const freeDishKeys = useMemo(() => {
     const isQrAccess = !previewMode && hasQrMenuAccess(slug)
     const visibleDishes = (previewMode || isQrAccess) ? dishes : dishes.slice(0, 3)
@@ -187,6 +246,7 @@ export default function Menu({
   const filtered = useMemo(() => {
     const q = query.trim()
     return dishes.filter((dish) => {
+      if (selectedSection !== 'all' && dish.menuSection !== selectedSection) return false
       const categoryName = formatDescription(dish.category, '') || 'Без категории'
       if (selectedCategory !== 'all' && categoryName !== selectedCategory) return false
       const searchableComposition = formatDescription(dish.ingredients ?? dish.description, '')
@@ -201,7 +261,7 @@ export default function Menu({
       if (!dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)) return false
       return true
     })
-  }, [dishes, query, selectedCategory, presets, range, ingredientFilter])
+  }, [dishes, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
 
   // The ingredient control only makes sense when the restaurant actually filled
   // compositions in — many menus have none, and an empty picker is worse than
@@ -229,10 +289,11 @@ export default function Menu({
   const categoryOptions = useMemo(() => {
     const source = Array.isArray(menu?.categories) ? menu.categories : []
     const names = source
+      .filter((category) => selectedSection === 'all' || category?.menuSection === selectedSection)
       .map((category) => formatDescription(category?.name, '') || 'Без категории')
       .filter(Boolean)
     return Array.from(new Set(names))
-  }, [menu?.categories])
+  }, [menu?.categories, selectedSection])
 
   const groupedDishes = useMemo(() => {
     if (!menu?.categories?.length) {
@@ -279,26 +340,46 @@ export default function Menu({
     [groupedDishes]
   )
   const restaurantLinkUrl = useMemo(() => normalizeRestaurantLinkUrl(menu?.instagramUrl), [menu?.instagramUrl])
-  const seoRestaurantName = menu?.name || slug || 'ресторана'
+  // A slug ("horoshaya-devochka-nan") must never stand in for a real name —
+  // fall back to a generic word instead of leaking the URL to the reader.
+  const isSlugLike = (value) => /^[a-z0-9]+(-[a-z0-9]+)+$/.test(value)
+  // Before the live fetch resolves, fall back to the count/name the
+  // prerender already embedded (readSeoHint above) instead of showing 0/
+  // generic placeholders — both come from the same source once `menu` loads.
+  const rawSeoName = menu?.name?.trim() || seoHint?.name
+  const seoRestaurantName =
+    rawSeoName && !isSlugLike(rawSeoName)
+      ? rawSeoName.charAt(0).toUpperCase() + rawSeoName.slice(1)
+      : 'ресторана'
+  const seoDishCount = menu ? dishes.length : (seoHint?.dishCount ?? dishes.length)
+  const seoDishWord = pluralizeRu(seoDishCount, ['блюдо', 'блюда', 'блюд'])
   const seoDescription = useMemo(
-    () => `Меню ${seoRestaurantName} с КБЖУ: калории, белки, жиры и углеводы блюд ресторана. Сравнивайте блюда ${seoRestaurantName} по калорийности и макронутриентам перед посещением ресторана.`,
-    [seoRestaurantName]
+    () => `${seoDishCount} ${seoDishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${seoRestaurantName} перед посещением ресторана.`,
+    [seoDishCount, seoDishWord, seoRestaurantName]
   )
   const mapOpenUrl = useMemo(() => {
     if (restaurantPoint) {
       const { lat, lon } = restaurantPoint
       return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`
     }
-    return `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${menu?.name || slug} ресторан`)}`
-  }, [menu?.name, restaurantPoint, slug])
+    return `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${seoRestaurantName} ресторан`)}`
+  }, [restaurantPoint, seoRestaurantName])
   const mobileMapOpenUrl = restaurantLinkUrl || mapOpenUrl
+
+  // A branch of a chain with a resolvable hub (menu.chainHubPath, set by the
+  // API — see restaurants.js) canonicalizes to that hub instead of itself:
+  // branch menus overlap heavily with their siblings, so this tells Google to
+  // consolidate ranking signal on the hub rather than treat every branch as a
+  // distinct, competing near-duplicate. The page still renders normally.
+  const canonicalPath = menu?.chainHubPath || `/restaurants/${slug}/menu/`
 
   useMeta({
     title: previewMode
       ? `Превью меню ${seoRestaurantName} — не опубликовано`
-      : `Меню ${seoRestaurantName} с КБЖУ — калории, белки, жиры, углеводы`,
+      : `Меню ${seoRestaurantName} с полным КБЖУ — калории, белки, жиры, углеводы`,
     description: seoDescription,
-    canonical: previewMode ? undefined : `https://restaurantsecret.ru/restaurants/${slug}/menu/`,
+    canonical: previewMode ? undefined : `https://restaurantsecret.ru${canonicalPath}`,
+    robots: !previewMode && menu?.chainHubPath ? 'noindex, follow' : undefined,
   })
 
   // Toggle a preset chip and re-run memoized filtering.
@@ -378,6 +459,7 @@ export default function Menu({
   return (
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
+      heroDishCount={seoDishCount}
       dishes={dishes}
       filtered={filtered}
       groupedDishes={groupedDishesSorted}
@@ -389,6 +471,9 @@ export default function Menu({
       menu={menu}
       query={query}
       setQuery={setQuery}
+      selectedSection={selectedSection}
+      setSelectedSection={handleSectionChange}
+      sectionOptions={sectionOptions}
       selectedCategory={selectedCategory}
       setSelectedCategory={setSelectedCategory}
       categoryOptions={categoryOptions}

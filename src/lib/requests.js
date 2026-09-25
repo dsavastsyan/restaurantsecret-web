@@ -16,7 +16,13 @@ export async function apiGet(path, opts = {}) {
   const res = await fetch(url, { ...opts });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText} — ${text.slice(0,200)}`);
+    const error = new Error(`HTTP ${res.status} ${res.statusText} — ${text.slice(0,200)}`);
+    error.status = res.status;
+    // Callers that need to react to the error shape (not just log it) can
+    // read `error.body` — e.g. the chain-base redirect hint on a retired
+    // restaurant URL (`{ isChainBase, hubPath }`).
+    try { error.body = JSON.parse(text); } catch (_) { error.body = null; }
+    throw error;
   }
   // пытаемся json
   return res.json();

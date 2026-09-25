@@ -8,6 +8,11 @@ import MaintenanceScreen from './components/MaintenanceScreen.jsx'
 import { ConsentBanner } from './components/ConsentBanner.jsx'
 import { analytics } from './services/analytics'
 import { loadTelegramWebApp } from './lib/telegram'
+import { hydrateCityPreference } from './lib/cityPreference'
+import { getAuthState } from './store/auth'
+import PreviewPersonaPanel from './components/PreviewPersonaPanel.jsx'
+import { IS_PREVIEW } from './config/api'
+import { configureServiceWorker } from './lib/serviceWorker'
 import './styles.css'
 import './account-mobile-profile.css'
 
@@ -237,30 +242,14 @@ function fetchMaintenanceConfig() {
   })
 }
 
-// Register the service worker (if supported) once the page has fully loaded so
-// network caching can work in production. Errors are intentionally swallowed to
-// avoid surfacing noisy warnings to end users.
-if ('serviceWorker' in navigator) {
-  if (import.meta.env.DEV) {
-    navigator.serviceWorker.getRegistrations()
-      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-      .catch(() => { })
-
-    if ('caches' in window) {
-      caches.keys()
-        .then((keys) => Promise.all(
-          keys
-            .filter((key) => key.startsWith('static-') || key.startsWith('api-'))
-            .map((key) => caches.delete(key)),
-        ))
-        .catch(() => { })
-    }
-  } else {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js').catch(() => { })
-    })
-  }
-}
+// Production keeps offline caching. Preview builds explicitly retire existing
+// workers and caches so a permanent staging URL cannot stay on an old deploy.
+configureServiceWorker({
+  isPreview: import.meta.env.VITE_DEPLOY_ENV === 'preview',
+  serviceWorker: 'serviceWorker' in navigator ? navigator.serviceWorker : null,
+  cacheStorage: 'caches' in window ? window.caches : null,
+  windowObject: window,
+})
 
 /**
  * Root wrapper that handles global maintenance state before mounting the router.
@@ -295,7 +284,7 @@ function Root() {
 
     // Fetch the maintenance kill-switch from public folder. Use a cache-busting
     // timestamp to ensure we get the latest version from GitHub Pages.
-    fetchMaintenanceConfig()
+    const maintenanceReady = fetchMaintenanceConfig()
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (!data) return setMaintenance(null)
@@ -319,7 +308,13 @@ function Root() {
         setMaintenance(data)
       })
       .catch(() => setMaintenance(null))
-      .finally(() => setReady(true))
+
+    // Pull in a previously saved city preference (by account, or by this
+    // browser's visitor id) before any page reads `catalog_city` from
+    // localStorage, so it isn't shadowed by a fresh IP-based guess.
+    const cityReady = hydrateCityPreference(getAuthState().accessToken).catch(() => { })
+
+    Promise.all([maintenanceReady, cityReady]).finally(() => setReady(true))
 
     return () => {
       clearSplashFailsafe()
@@ -341,6 +336,7 @@ function Root() {
 
   return (
     <Router onRouteStart={showInitialSplash} onReady={handleReady}>
+      {IS_PREVIEW && <PreviewPersonaPanel />}
       {!isStandaloneIOSLegalPage && <ToastViewport />}
       {!isStandaloneIOSLegalPage && <ConsentBanner />}
     </Router>

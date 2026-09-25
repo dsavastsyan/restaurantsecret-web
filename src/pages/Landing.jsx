@@ -11,7 +11,7 @@ import { getLandingStats, getRestaurants, postSuggest } from '@/lib/api'
 import { toast } from '@/lib/toast'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
-import { useDiaryStore } from '@/store/diary'
+import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal'
 import { useFavoritesStore } from '@/store/favorites'
 import { analytics } from '@/services/analytics'
 import { useMeta } from '@/lib/useMeta'
@@ -133,7 +133,6 @@ export default function Landing() {
   const showTrialAction = !accessToken || (isSubscriptionStatusLoaded && !showAccountAction)
   const subscriptionCheckoutLink = getSubscriptionCheckoutLink(accessToken, location.pathname + location.search)
   const accessTokenOrUndefined = accessToken || undefined
-  const addDiaryEntry = useDiaryStore((state) => state.addEntry)
   const isFavoriteDish = useFavoritesStore((state) => state.isFavorite)
   const toggleFavoriteDish = useFavoritesStore((state) => state.toggle)
 
@@ -376,30 +375,9 @@ export default function Landing() {
     await toggleFavoriteDish(accessToken, dishCard.id, dishCard.restaurantSlug)
   }
 
-  async function addDishToDiary(event, dishCard) {
+  function addDishToDiary(event) {
     event.stopPropagation()
-    if (!accessToken) {
-      navigate('/login', { state: { from: location.pathname + location.search } })
-      return
-    }
-
-    await addDiaryEntry(accessToken, {
-      dish_id: dishCard.id,
-      restaurant_slug: dishCard.restaurantSlug,
-      restaurant_name: dishCard.restaurant,
-      name: dishCard.name,
-      calories: dishCard.kcal,
-      protein: dishCard.p,
-      fat: dishCard.f,
-      carbs: dishCard.c,
-    })
-
-    analytics.track('diary_add', {
-      dish_id: dishCard.id,
-      name: dishCard.name,
-      restaurant: dishCard.restaurantSlug,
-      source: 'landing_sample_card',
-    })
+    openAnyEatLaunchModal()
   }
 
   async function handleSuggestSubmit(event) {

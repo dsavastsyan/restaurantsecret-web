@@ -6,6 +6,7 @@ const STATUS_LABELS = {
   new: 'Новый', deferred: 'Отложено', awaiting_parser: 'Ожидает парсинга', awaiting_manual: 'Ожидает добавления',
   awaiting_reply: 'Ожидает ответа', follow_up: 'Follow-up', menu_development: 'Меню в разработке',
   ready: 'Готово', no_menu: 'Меню нет', in_person_only: 'Только лично', discarded: 'Не подходит',
+  blocked_antibot: 'Антибот-защита',
 }
 
 const outreachCache = new Map()
@@ -22,7 +23,14 @@ function CandidateActions({ candidate, busy, update }) {
     update(candidate.id, { status: nextStatus, workflow_kind: workflowKind, menu_url: url })
 
   if (status === 'discarded') return <ActionButton disabled={busy} onClick={() => save('new', null)}>Вернуть в новые</ActionButton>
-  if (status === 'ready' || status === 'no_menu' || status === 'in_person_only' || status === 'awaiting_parser') return <span className="admin-crm__muted">—</span>
+  if (status === 'blocked_antibot') return (
+    <details className="admin-crm__actions"><summary>Действия</summary><div>
+      <ActionButton disabled={busy} onClick={() => save('awaiting_parser', 'parser', candidate.menu_url)}>Повторить парсинг</ActionButton>
+      <ActionButton disabled={busy} onClick={() => save('discarded', null)}>Не подходит</ActionButton>
+    </div></details>
+  )
+  if (status === 'ready' || status === 'no_menu' || status === 'in_person_only') return <span className="admin-crm__muted">—</span>
+  if (status === 'awaiting_parser') return <ActionButton disabled={busy} onClick={() => save('blocked_antibot', 'parser')}>Антибот-защита</ActionButton>
 
   if (showParser) {
     return (

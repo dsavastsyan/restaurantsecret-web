@@ -317,7 +317,14 @@ function isNearEditMatch(queryToken: string, targetToken: string): boolean {
 
 function tokenVariantMatches(queryToken: string, targetToken: string): boolean {
   if (!queryToken || !targetToken) return false;
-  if (targetToken.includes(queryToken) || queryToken.includes(targetToken)) return true;
+  // The user's (possibly long) query containing a candidate's word is a
+  // normal, wanted case — e.g. a short typed prefix like "си" should still
+  // find "Синнабон". But the reverse only means something if the candidate
+  // word being found isn't trivially short: otherwise a 2-letter word like
+  // "el" (from "El gaucho") coincidentally shows up inside an unrelated
+  // longer query ("ribambelle" contains "el") and counts as a match.
+  if (targetToken.includes(queryToken)) return true;
+  if (targetToken.length >= 3 && queryToken.includes(targetToken)) return true;
   if (almostEqualByPrefix(queryToken, targetToken)) return true;
   if (isNearSubsequence(queryToken, targetToken)) return true;
   if (isNearEditMatch(queryToken, targetToken)) return true;
@@ -357,4 +364,81 @@ export function matchesSearchQuery(candidate: unknown, query: unknown): boolean 
   if (!cTokens.length) return false;
 
   return qTokens.every((qToken) => cTokens.some((cToken) => tokenMatches(qToken, cToken)));
+}
+
+function tokenMatchScore(queryToken: string, targetToken: string): number {
+  if (!queryToken || !targetToken) return 0;
+  if (queryToken === targetToken) return 100;
+  if (targetToken.startsWith(queryToken)) return 80;
+  if (targetToken.includes(queryToken)) return 60;
+  // Same guard as tokenVariantMatches: don't let a trivially short (<3 char)
+  // candidate token count as a "containment" match just because it
+  // coincidentally occurs inside a longer, unrelated query.
+  if (targetToken.length >= 3 && queryToken.includes(targetToken)) return 45;
+  if (almostEqualByPrefix(queryToken, targetToken)) return 35;
+  if (isNearEditMatch(queryToken, targetToken)) return 25;
+  if (isNearSubsequence(queryToken, targetToken)) return 15;
+
+  return 0;
+}
+
+function bestTokenScore(queryToken: string, targetToken: string): number {
+  const queryVariants = buildTokenVariants(queryToken);
+  const targetVariants = buildTokenVariants(targetToken);
+  let best = 0;
+
+  for (const queryVariant of queryVariants) {
+    for (const targetVariant of targetVariants) {
+      best = Math.max(best, tokenMatchScore(queryVariant, targetVariant));
+    }
+  }
+
+  return best;
+}
+
+export function getSearchQueryScore(candidate: unknown, query: unknown): number {
+  const candidateText = typeof candidate === "string" ? candidate : "";
+  const queryText = typeof query === "string" ? query : "";
+  const normalizedCandidate = normalizeSearchText(candidateText);
+  const normalizedQuery = normalizeSearchText(queryText);
+
+  if (!normalizedQuery) return 0;
+  if (!normalizedCandidate) return Number.NEGATIVE_INFINITY;
+
+  const compactCandidate = normalizedCandidate.replace(/\s+/g, "");
+  const compactQuery = normalizedQuery.replace(/\s+/g, "");
+
+  if (normalizedCandidate === normalizedQuery || compactCandidate === compactQuery) {
+    return 10000;
+  }
+
+  let phraseScore = 0;
+  if (normalizedCandidate.startsWith(normalizedQuery)) {
+    phraseScore = 9000;
+  } else if (normalizedCandidate.includes(` ${normalizedQuery}`)) {
+    phraseScore = 8200;
+  } else if (normalizedCandidate.includes(normalizedQuery)) {
+    phraseScore = 7600;
+  } else if (compactCandidate.includes(compactQuery)) {
+    phraseScore = 7000;
+  }
+
+  const qTokens = tokenizeSearchText(queryText);
+  const cTokens = tokenizeSearchText(candidateText);
+  if (!qTokens.length || !cTokens.length) return phraseScore;
+
+  let tokenScore = 0;
+  for (const qToken of qTokens) {
+    let best = 0;
+    for (const cToken of cTokens) {
+      best = Math.max(best, bestTokenScore(qToken, cToken));
+    }
+    if (best <= 0) return phraseScore || Number.NEGATIVE_INFINITY;
+    tokenScore += best;
+  }
+
+  const averageTokenScore = tokenScore / qTokens.length;
+  const coverageBonus = qTokens.length > 1 ? qTokens.length * 10 : 0;
+
+  return Math.max(phraseScore, 1000 + averageTokenScore + coverageBonus);
 }

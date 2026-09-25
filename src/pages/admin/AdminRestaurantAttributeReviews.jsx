@@ -14,6 +14,35 @@ const FIELD_LABELS = {
   instagram_url: 'Instagram',
   manual_coordinates: 'Координаты',
   cuisine: 'Кухня',
+  primary_venue_type: 'Тип заведения',
+}
+
+const VENUE_TYPE_OPTIONS = [
+  ['restaurant', 'Ресторан'],
+  ['cafe', 'Кафе'],
+  ['coffee_tea', 'Кофе и чай'],
+  ['fast_food', 'Быстрая еда'],
+]
+
+function ReviewValueInput({ review, value, onChange }) {
+  if (review.field === 'primary_venue_type') {
+    return (
+      <select value={value} onChange={onChange}>
+        <option value="">Выберите тип</option>
+        {VENUE_TYPE_OPTIONS.map(([optionValue, label]) => (
+          <option key={optionValue} value={optionValue}>{label}</option>
+        ))}
+      </select>
+    )
+  }
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={onChange}
+      placeholder="агент ничего не нашёл — впишите вручную или отклоните"
+    />
+  )
 }
 
 function formatConfidence(value) {
@@ -23,6 +52,7 @@ function formatConfidence(value) {
 
 function ReviewCard({ review, onDecide, working }) {
   const [value, setValue] = useState(review.suggested_value || '')
+  const isVenueTypeReview = review.field === 'primary_venue_type'
 
   return (
     <article className="admin-restaurant-review__card">
@@ -42,12 +72,13 @@ function ReviewCard({ review, onDecide, working }) {
       {review.status === 'pending' ? (
         <>
           <label className="admin-restaurant-review__value">
-            Значение (можно поправить перед применением)
-            <input
-              type="text"
+            {isVenueTypeReview
+              ? 'Значение уже применено — проверьте или измените его'
+              : 'Значение (можно поправить перед применением)'}
+            <ReviewValueInput
+              review={review}
               value={value}
               onChange={(event) => setValue(event.target.value)}
-              placeholder="агент ничего не нашёл — впишите вручную или отклоните"
             />
           </label>
           <footer className="admin-restaurant-review__actions">
@@ -57,7 +88,7 @@ function ReviewCard({ review, onDecide, working }) {
               disabled={working}
               onClick={() => onDecide(review, 'reject')}
             >
-              Отклонить
+              {isVenueTypeReview ? 'Оставить как есть' : 'Отклонить'}
             </button>
             <button
               type="button"
@@ -65,7 +96,7 @@ function ReviewCard({ review, onDecide, working }) {
               disabled={working || !value.trim()}
               onClick={() => onDecide(review, 'approve', value.trim())}
             >
-              Применить
+              {isVenueTypeReview ? 'Сохранить выбор' : 'Применить'}
             </button>
           </footer>
         </>
@@ -156,7 +187,11 @@ function RestaurantEditCard({ restaurant, onSaved }) {
 
 export default function AdminRestaurantAttributeReviews() {
   const [status, setStatus] = useState('pending')
+  const [field, setField] = useState('')
+  const [city, setCity] = useState('')
   const [reviews, setReviews] = useState([])
+  const [stats, setStats] = useState([])
+  const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [workingId, setWorkingId] = useState(null)
@@ -166,20 +201,30 @@ export default function AdminRestaurantAttributeReviews() {
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
 
+  const selectStatus = (nextStatus) => {
+    setStatus(nextStatus)
+    setField('')
+    setCity('')
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const data = await adminMenuRevisionsApi.restaurantAttributeReviews(status)
+      const data = await adminMenuRevisionsApi.restaurantAttributeReviews(status, { field, city })
       setReviews(data.reviews || [])
+      setStats(data.stats || [])
+      setCities(data.cities || [])
     } catch (requestError) {
       setError(requestError.message || 'Не удалось загрузить очередь.')
     } finally {
       setLoading(false)
     }
-  }, [status])
+  }, [status, field, city])
 
   useEffect(() => { load() }, [load])
+
+  const totalStatsCount = stats.reduce((sum, item) => sum + item.count, 0)
 
   const decide = async (review, decision, value) => {
     setWorkingId(review.id)
@@ -215,22 +260,54 @@ export default function AdminRestaurantAttributeReviews() {
         <div>
           <span>Рестораны</span>
           <h1>Ревью и правки</h1>
-          <p>Находки агента-обогащения по координатам и кухне, а также точечное редактирование любого ресторана.</p>
+          <p>Находки агента по типу заведения, координатам и кухне, а также точечное редактирование любого ресторана.</p>
         </div>
         <strong>{reviews.length}</strong>
       </header>
 
-      <div className="admin-product-match__filters">
-        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            className={status === value ? 'active' : ''}
-            onClick={() => setStatus(value)}
-          >
-            {label}
+      {stats.length > 0 ? (
+        <div className="admin-restaurant-review__stats">
+          <button type="button" className={field === '' ? 'active' : ''} onClick={() => setField('')}>
+            Все причины <strong>{totalStatsCount}</strong>
           </button>
-        ))}
+          {stats.map((item) => (
+            <button
+              key={item.field}
+              type="button"
+              className={field === item.field ? 'active' : ''}
+              onClick={() => setField(item.field)}
+            >
+              {FIELD_LABELS[item.field] || item.field} <strong>{item.count}</strong>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="admin-restaurant-review__toolbar">
+        <div className="admin-product-match__filters">
+          {Object.entries(STATUS_LABELS).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={status === value ? 'active' : ''}
+              onClick={() => selectStatus(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {cities.length > 0 ? (
+          <label className="admin-restaurant-review__city-filter">
+            Город
+            <select value={city} onChange={(event) => setCity(event.target.value)}>
+              <option value="">Все города</option>
+              {cities.map((cityOption) => (
+                <option key={cityOption} value={cityOption}>{cityOption}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
 
       {error ? <p className="admin-crm__notice admin-crm__notice--error">{error}</p> : null}

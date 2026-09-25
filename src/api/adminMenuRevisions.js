@@ -1,5 +1,5 @@
 const env = typeof import.meta !== 'undefined' ? (import.meta.env ?? {}) : {}
-const API_BASE = (env.VITE_RESTAURANT_API_BASE || 'https://tg.restaurantsecret.ru').replace(/\/+$/, '')
+const API_BASE = (env.VITE_RESTAURANT_API_BASE || (env.DEV ? 'https://tg.restaurantsecret.ru' : '')).replace(/\/+$/, '')
 const CSRF_HEADER = 'X-CSRF-Token'
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -137,8 +137,10 @@ export const adminMenuRevisionsApi = {
     request(`/api/admin/kbju-flags/${encodeURIComponent(kind)}/${encodeURIComponent(itemId)}/approve`, {
       method: 'POST',
     }),
-  restaurantAttributeReviews: (status = 'pending') => {
+  restaurantAttributeReviews: (status = 'pending', { field = '', city = '' } = {}) => {
     const params = new URLSearchParams({ status })
+    if (field) params.set('field', field)
+    if (city) params.set('city', city)
     return request(`/api/admin/restaurant-attribute-reviews?${params}`)
   },
   decideRestaurantAttributeReview: (reviewId, decision, value) =>
