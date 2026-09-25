@@ -14,7 +14,8 @@
 .admin-restaurant-review__card > header p { margin: 4px 0 0; color: #85847b; font-size: 12px; }
 .admin-restaurant-review__note { margin: 12px 0 0; padding: 10px 12px; color: #735616; border-radius: 10px; background: #fff3d5; font-size: 13px; }
 .admin-restaurant-review__value { display: grid; gap: 6px; margin-top: 14px; color: #66675f; font-size: 13px; font-weight: 700; }
-.admin-restaurant-review__value input { padding: 10px 12px; border: 1px solid #d8d4ca; border-radius: 10px; font: inherit; font-weight: 500; }
+.admin-restaurant-review__value input,
+.admin-restaurant-review__value select { padding: 10px 12px; border: 1px solid #d8d4ca; border-radius: 10px; background: #fff; font: inherit; font-weight: 500; }
 .admin-restaurant-review__value--readonly { padding: 10px 12px; border-radius: 10px; background: #f2f2ec; font-weight: 500; }
 .admin-restaurant-review__actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 .admin-restaurant-review__actions .is-reject,

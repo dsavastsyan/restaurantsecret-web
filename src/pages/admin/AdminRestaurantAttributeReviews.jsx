@@ -14,6 +14,35 @@ const FIELD_LABELS = {
   instagram_url: 'Instagram',
   manual_coordinates: 'Координаты',
   cuisine: 'Кухня',
+  primary_venue_type: 'Тип заведения',
+}
+
+const VENUE_TYPE_OPTIONS = [
+  ['restaurant', 'Ресторан'],
+  ['cafe', 'Кафе'],
+  ['coffee_tea', 'Кофе и чай'],
+  ['fast_food', 'Быстрая еда'],
+]
+
+function ReviewValueInput({ review, value, onChange }) {
+  if (review.field === 'primary_venue_type') {
+    return (
+      <select value={value} onChange={onChange}>
+        <option value="">Выберите тип</option>
+        {VENUE_TYPE_OPTIONS.map(([optionValue, label]) => (
+          <option key={optionValue} value={optionValue}>{label}</option>
+        ))}
+      </select>
+    )
+  }
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={onChange}
+      placeholder="агент ничего не нашёл — впишите вручную или отклоните"
+    />
+  )
 }
 
 function formatConfidence(value) {
@@ -23,6 +52,7 @@ function formatConfidence(value) {
 
 function ReviewCard({ review, onDecide, working }) {
   const [value, setValue] = useState(review.suggested_value || '')
+  const isVenueTypeReview = review.field === 'primary_venue_type'
 
   return (
     <article className="admin-restaurant-review__card">
@@ -42,12 +72,13 @@ function ReviewCard({ review, onDecide, working }) {
       {review.status === 'pending' ? (
         <>
           <label className="admin-restaurant-review__value">
-            Значение (можно поправить перед применением)
-            <input
-              type="text"
+            {isVenueTypeReview
+              ? 'Значение уже применено — проверьте или измените его'
+              : 'Значение (можно поправить перед применением)'}
+            <ReviewValueInput
+              review={review}
               value={value}
               onChange={(event) => setValue(event.target.value)}
-              placeholder="агент ничего не нашёл — впишите вручную или отклоните"
             />
           </label>
           <footer className="admin-restaurant-review__actions">
@@ -57,7 +88,7 @@ function ReviewCard({ review, onDecide, working }) {
               disabled={working}
               onClick={() => onDecide(review, 'reject')}
             >
-              Отклонить
+              {isVenueTypeReview ? 'Оставить как есть' : 'Отклонить'}
             </button>
             <button
               type="button"
@@ -65,7 +96,7 @@ function ReviewCard({ review, onDecide, working }) {
               disabled={working || !value.trim()}
               onClick={() => onDecide(review, 'approve', value.trim())}
             >
-              Применить
+              {isVenueTypeReview ? 'Сохранить выбор' : 'Применить'}
             </button>
           </footer>
         </>
@@ -215,7 +246,7 @@ export default function AdminRestaurantAttributeReviews() {
         <div>
           <span>Рестораны</span>
           <h1>Ревью и правки</h1>
-          <p>Находки агента-обогащения по координатам и кухне, а также точечное редактирование любого ресторана.</p>
+          <p>Находки агента по типу заведения, координатам и кухне, а также точечное редактирование любого ресторана.</p>
         </div>
         <strong>{reviews.length}</strong>
       </header>
