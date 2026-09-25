@@ -32,10 +32,20 @@
 .admin-restaurant-review__search input { flex: 1; padding: 12px 14px; border: 1px solid #d8d4ca; border-radius: 10px; font: inherit; }
 .admin-restaurant-review__search button { padding: 12px 18px; color: #fff; border: 1px solid #65734d; border-radius: 10px; background: #65734d; font-weight: 700; }
 .admin-restaurant-review__search button:disabled { opacity: .6; }
+.admin-restaurant-review__stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 0; }
+.admin-restaurant-review__stats button { display: flex; align-items: center; gap: 7px; padding: 10px 13px; color: #66675f; border: 1px solid #d8d4ca; border-radius: 10px; background: #fff; font-weight: 700; }
+.admin-restaurant-review__stats button strong { padding: 1px 7px; border-radius: 999px; color: #5b633f; background: #edf0df; font-size: 12px; }
+.admin-restaurant-review__stats button.active { color: #fff; border-color: #65734d; background: #65734d; }
+.admin-restaurant-review__stats button.active strong { color: #fff; background: rgba(255, 255, 255, .22); }
+.admin-restaurant-review__toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0; }
+.admin-restaurant-review__toolbar .admin-product-match__filters { margin: 0; }
+.admin-restaurant-review__city-filter { display: flex; align-items: center; gap: 8px; color: #66675f; font-size: 13px; font-weight: 700; }
+.admin-restaurant-review__city-filter select { padding: 10px 12px; border: 1px solid #d8d4ca; border-radius: 10px; font: inherit; font-weight: 500; background: #fff; }
 
 @media (max-width: 600px) {
   .admin-restaurant-review__grid { grid-template-columns: 1fr; }
   .admin-restaurant-review__search { flex-direction: column; }
+  .admin-restaurant-review__toolbar { flex-direction: column; align-items: stretch; }
 }
 
 .admin-manual-menu__table-wrap { overflow-x: auto; }

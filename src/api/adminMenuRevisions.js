@@ -137,8 +137,10 @@ export const adminMenuRevisionsApi = {
     request(`/api/admin/kbju-flags/${encodeURIComponent(kind)}/${encodeURIComponent(itemId)}/approve`, {
       method: 'POST',
     }),
-  restaurantAttributeReviews: (status = 'pending') => {
+  restaurantAttributeReviews: (status = 'pending', { field = '', city = '' } = {}) => {
     const params = new URLSearchParams({ status })
+    if (field) params.set('field', field)
+    if (city) params.set('city', city)
     return request(`/api/admin/restaurant-attribute-reviews?${params}`)
   },
   decideRestaurantAttributeReview: (reviewId, decision, value) =>
