@@ -58,6 +58,16 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('opens on the map, shows a restaurant card and persists list view in the URL', async ({ page }) => {
+  const mapRuntimeErrors = []
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
+      mapRuntimeErrors.push(message.text())
+    }
+  })
+  page.on('pageerror', (error) => {
+    if (/Worker failed to load|Map has no maxZoom/i.test(error.message)) mapRuntimeErrors.push(error.message)
+  })
+
   await page.goto('/catalog/moskva/')
 
   await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -65,6 +75,8 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
   await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
   await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
+  await page.waitForTimeout(1000)
+  expect(mapRuntimeErrors).toEqual([])
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
   await page.locator('.catalog-map-pin-wrapper').click()
