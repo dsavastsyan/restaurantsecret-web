@@ -17,6 +17,7 @@ const MAP_ATTRIBUTION = [
 
 const FALLBACK_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 const FALLBACK_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+const VECTOR_MAP_LOAD_TIMEOUT_MS = 7000
 
 // Vite rewrites the main MapLibre module URL, so its default sibling-worker
 // lookup points at a non-existent dependency cache path unless set explicitly.
@@ -26,31 +27,84 @@ export default function CleanMapBaseLayer() {
   const map = useMap()
 
   useEffect(() => {
-    let layer
+    let vectorLayer
     let maplibreMap
     let onStyleLoad
+    let onMapLoad
+    let onMapError
+    let onContextLost
+    let fallbackLayer
+    let fallbackTimer
+    let fallbackTask
+    let disposed = false
+
+    const clearVectorListeners = () => {
+      if (!maplibreMap) return
+      if (onStyleLoad) maplibreMap.off('style.load', onStyleLoad)
+      if (onMapLoad) maplibreMap.off('load', onMapLoad)
+      if (onMapError) maplibreMap.off('error', onMapError)
+      if (onContextLost) maplibreMap.off('webglcontextlost', onContextLost)
+    }
+
+    const clearFallbackTimer = () => {
+      if (!fallbackTimer) return
+      window.clearTimeout(fallbackTimer)
+      fallbackTimer = undefined
+    }
+
+    const useRasterFallback = (error) => {
+      if (disposed || fallbackLayer) return
+
+      clearFallbackTimer()
+      clearVectorListeners()
+      if (vectorLayer && map.hasLayer(vectorLayer)) map.removeLayer(vectorLayer)
+
+      fallbackLayer = L.tileLayer(FALLBACK_TILE_URL, {
+        attribution: FALLBACK_ATTRIBUTION,
+        subdomains: 'abc',
+        maxNativeZoom: 19,
+      }).addTo(map)
+      console.warn('Vector map is unavailable; using the raster fallback.', error)
+    }
+
+    const queueRasterFallback = (error) => {
+      if (disposed || fallbackLayer || fallbackTask) return
+      fallbackTask = window.setTimeout(() => {
+        fallbackTask = undefined
+        useRasterFallback(error)
+      }, 0)
+    }
 
     try {
-      layer = maplibreGL({
+      vectorLayer = maplibreGL({
         style: MAP_STYLE_URL,
         attributionControl: { customAttribution: MAP_ATTRIBUTION },
       }).addTo(map)
 
-      maplibreMap = layer.getMaplibreMap()
+      maplibreMap = vectorLayer.getMaplibreMap()
       onStyleLoad = () => simplifyMapStyle(maplibreMap)
+      onMapLoad = () => clearFallbackTimer()
+      onMapError = (event) => queueRasterFallback(event?.error || event)
+      onContextLost = () => queueRasterFallback(new Error('WebGL context was lost.'))
       maplibreMap.on('style.load', onStyleLoad)
+      maplibreMap.on('load', onMapLoad)
+      maplibreMap.on('error', onMapError)
+      maplibreMap.on('webglcontextlost', onContextLost)
+      fallbackTimer = window.setTimeout(
+        () => useRasterFallback(new Error('Vector map did not load in time.')),
+        VECTOR_MAP_LOAD_TIMEOUT_MS,
+      )
     } catch (error) {
-      console.warn('Vector map is unavailable; using the raster fallback.', error)
-      layer = L.tileLayer(FALLBACK_TILE_URL, { attribution: FALLBACK_ATTRIBUTION }).addTo(map)
+      useRasterFallback(error)
     }
 
     return () => {
-      if (maplibreMap && onStyleLoad) {
-        maplibreMap.off('style.load', onStyleLoad)
-      }
-      if (layer && map.hasLayer(layer)) {
-        map.removeLayer(layer)
-      }
+      disposed = true
+      clearFallbackTimer()
+      if (fallbackTask) window.clearTimeout(fallbackTask)
+      clearVectorListeners()
+      if (fallbackLayer && map.hasLayer(fallbackLayer)) map.removeLayer(fallbackLayer)
+      if (vectorLayer && map.hasLayer(vectorLayer)) map.removeLayer(vectorLayer)
     }
   }, [map])
 
