@@ -738,6 +738,12 @@ export default function Catalog() {
       ) : (
       <section className="catalog-results">
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
+        {!isInitialLoading && !error && (
+          <div className="catalog-results__summary" role="status" aria-live="polite">
+            Найдено: <strong>{filteredItems.length.toLocaleString('ru-RU')}</strong>{' '}
+            {getRussianPluralWord(filteredItems.length, 'ресторан', 'ресторана', 'ресторанов')}
+          </div>
+        )}
         {error && <p className="err">Ошибка: {String(error.message || error)}</p>}
         {!loading && !visibleItems.length && !error && (
           crossCitySuggestions.length > 0 ? (

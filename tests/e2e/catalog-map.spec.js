@@ -137,6 +137,16 @@ test('filters both map and list by the primary venue type', async ({ page }) => 
   await expect(page.locator('.catalog-card')).toHaveCount(0)
 })
 
+test('shows the filtered restaurant count above the list', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+
+  const summary = page.locator('.catalog-results__summary')
+  await expect(summary).toHaveText('Найдено: 1 ресторан')
+
+  await page.getByLabel('Тип заведения').selectOption('restaurant')
+  await expect(summary).toHaveText('Найдено: 0 ресторанов')
+})
+
 test('list includes restaurants whose map point is near the selected metro', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
 
