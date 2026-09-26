@@ -6,6 +6,7 @@ import {
   enrichCatalogMapItems,
   getCatalogMapPointKey,
   getNearbyMetroStations,
+  normalizeCatalogMetroStations,
 } from '../src/lib/catalogMapItems.js'
 import { filterCatalogRestaurants } from '../src/lib/catalogFilters.js'
 
@@ -48,13 +49,35 @@ test('list restaurants inherit every nearby metro station from their map points'
       slug: 'udon',
       metro: 'Третьяковская',
       metroNames: ['Третьяковская', 'Новокузнецкая'],
+      metroStations: [
+        { name: 'Третьяковская', lineColorHex: '43A047', distanceMeters: 510 },
+        { name: 'Новокузнецкая', lineColorHex: '43A047', distanceMeters: 750 },
+      ],
     },
   ]
 
   const enriched = enrichCatalogItemsWithMapMetros(catalogItems, mapItems)
 
   assert.deepEqual(enriched[0].metroNames, ['третьяковская', 'новокузнецкая'])
+  assert.deepEqual(enriched[0].metroStations, [
+    { name: 'Третьяковская', lineColorHex: '#43A047', distanceMeters: 510 },
+    { name: 'Новокузнецкая', lineColorHex: '#43A047', distanceMeters: 750 },
+  ])
   assert.deepEqual(filterCatalogRestaurants(enriched, { metro: ['Новокузнецкая'] }), enriched)
+})
+
+test('normalizes card metro metadata and keeps stations ordered by distance', () => {
+  assert.deepEqual(normalizeCatalogMetroStations({
+    metro_stations: [
+      { name: ' Новокузнецкая ', line_color_hex: '#43a047', distance_meters: 750 },
+      { name: 'Третьяковская', lineColorHex: 'not-a-color', distanceMeters: 510.4 },
+      { name: '', lineColorHex: 'E53935', distanceMeters: 100 },
+      { name: 'Павелецкая', lineColorHex: 'E53935', distanceMeters: -1 },
+    ],
+  }), [
+    { name: 'Третьяковская', lineColorHex: null, distanceMeters: 510 },
+    { name: 'Новокузнецкая', lineColorHex: '#43A047', distanceMeters: 750 },
+  ])
 })
 
 test('list branches only inherit metro stations from their own map points', () => {

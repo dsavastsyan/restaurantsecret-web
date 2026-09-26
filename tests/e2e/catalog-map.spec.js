@@ -12,6 +12,10 @@ const restaurant = {
   primary_venue_type: 'coffee_tea',
   metro: 'Тверская',
   metroNames: ['Тверская', 'Лубянка'],
+  metroStations: [
+    { name: 'Тверская', lineColorHex: '7E57C2', distanceMeters: 500 },
+    { name: 'Лубянка', lineColorHex: 'E53935', distanceMeters: 750 },
+  ],
   lat: 55.7645,
   lon: 37.6055,
   dishesCount: 42,
@@ -123,11 +127,13 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
   await page.locator('.catalog-map-pin-wrapper').click()
   const mapCard = page.locator('.catalog-map-card')
   await expect(mapCard.getByRole('heading', { name: restaurant.name })).toBeVisible()
+  await expect(mapCard.locator('.catalog-map-card__metro')).toHaveText('м Тверская (500м), м Лубянка (750м)')
   await expect(mapCard.getByRole('button', { name: 'Открыть меню' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Список', exact: true }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
   await expect(page.locator('.catalog-card')).toHaveCount(1)
+  await expect(page.locator('.catalog-card__metro')).toHaveCount(0)
 
   await page.reload()
   await expect(page.getByRole('button', { name: 'Список', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -173,6 +179,8 @@ test('keeps the auto-update badge next to the restaurant name', async ({ page })
   const badge = title.locator('.catalog-card__auto-updated')
 
   await expect(badge).toBeVisible()
+  await expect(page.locator('.catalog-card__metro')).toHaveText('м Тверская (500м), м Лубянка (750м)')
+  await expect(page.locator('.catalog-card__metro .metro-stations__symbol').first()).toHaveCSS('color', 'rgb(126, 87, 194)')
   await expect(title).toHaveCSS('display', 'flex')
 
   const [nameBox, badgeBox] = await Promise.all([

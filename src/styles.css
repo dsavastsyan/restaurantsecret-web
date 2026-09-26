@@ -4307,6 +4307,20 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
   stroke-width: 1.7;
 }
 
+.catalog-card__metro {
+  color: var(--catalog-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.metro-stations__station {
+  white-space: nowrap;
+}
+
+.metro-stations__symbol {
+  font-weight: 800;
+}
+
 .catalog-page .catalog-card__top-actions {
   gap: 9px;
 }
