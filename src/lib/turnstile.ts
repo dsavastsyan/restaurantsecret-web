@@ -84,7 +84,6 @@ export async function requestTurnstileToken(sitekey: string): Promise<string> {
       sitekey,
       action: "public_search",
       theme: "auto",
-      language: "ru",
       callback: (token: string) => finish(() => resolve(token)),
       "error-callback": () => finish(() => reject(new Error("Проверка безопасности не выполнена"))),
       "expired-callback": () => finish(() => reject(new Error("Время проверки истекло. Попробуйте ещё раз."))),
