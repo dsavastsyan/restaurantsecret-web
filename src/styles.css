@@ -3378,7 +3378,7 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
 .catalog-card__title-text {
   position: relative;
   display: block;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4267,11 +4267,11 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
   font-weight: 600;
   line-height: 1.08;
   letter-spacing: 0;
-  white-space: normal;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .catalog-card__meta {
