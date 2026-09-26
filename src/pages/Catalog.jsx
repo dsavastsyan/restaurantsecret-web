@@ -12,11 +12,16 @@ import { analytics } from '@/services/analytics'
 import { getRussianPluralWord, getSearchQueryScore, matchesSearchQuery } from '@/lib/text'
 import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
+import MetroStationsText from '@/components/MetroStationsText.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { getMetroSelectionPoints } from '@/lib/metroSelection'
-import { enrichCatalogMapItems } from '@/lib/catalogMapItems'
-import { collapseChainRestaurants } from '@/lib/catalogChains'
+import {
+  enrichCatalogItemsWithMapMetros,
+  enrichCatalogMapItems,
+  getNearbyMetroStations,
+} from '@/lib/catalogMapItems'
+import { collapseChainRestaurants, getChainSearchSuggestions } from '@/lib/catalogChains'
 import {
   CATALOG_VENUE_TYPES,
   filterCatalogRestaurants,
@@ -123,6 +128,8 @@ export default function Catalog() {
   const [selectedVenueType, setSelectedVenueType] = useState('')
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [activeSearchSuggestionIndex, setActiveSearchSuggestionIndex] = useState(-1)
   const [currentPage, setCurrentPage] = useState(1)
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
 
@@ -229,7 +236,6 @@ export default function Catalog() {
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
     `restaurants-map:${selectedCity.id}`,
     () => api.restaurantMap({ city: selectedCity.id }),
-    { enabled: viewMode === 'map' },
   )
   const { data: crossCityResults } = useSWRLite(
     debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}` : null,
@@ -253,9 +259,35 @@ export default function Catalog() {
     }).filter(Boolean)
   }, [rawData])
 
+  const mapSourceItems = useMemo(
+    () => Array.isArray(rawMapData?.items) ? rawMapData.items : [],
+    [rawMapData?.items],
+  )
+  const filterableItems = useMemo(
+    () => enrichCatalogItemsWithMapMetros(allItems, mapSourceItems),
+    [allItems, mapSourceItems],
+  )
+
+  // The list uses the map's per-point metro coverage as well as the nearest
+  // station stored on each card, so switching views preserves the same set of
+  // matching restaurants.
+
+  const searchSuggestions = useMemo(() => getChainSearchSuggestions(allItems, query, {
+    matchesQuery: matchesSearchQuery,
+    getQueryScore: getSearchQueryScore,
+  }), [allItems, query])
+
+  const showSearchSuggestions = isSearchFocused && Boolean(query.trim()) && searchSuggestions.length > 0
+
+  useEffect(() => {
+    if (activeSearchSuggestionIndex >= searchSuggestions.length) {
+      setActiveSearchSuggestionIndex(searchSuggestions.length ? 0 : -1)
+    }
+  }, [activeSearchSuggestionIndex, searchSuggestions.length])
+
   // Filter items based on SEARCH and CUISINE
   const filteredItems = useMemo(() => {
-    return filterCatalogRestaurants(allItems, {
+    return filterCatalogRestaurants(filterableItems, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       metro: selectedMetro,
@@ -264,11 +296,10 @@ export default function Catalog() {
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
     })
-  }, [debouncedQuery, allItems, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [debouncedQuery, filterableItems, selectedCuisines, selectedMetro, selectedVenueType])
 
   const mapItems = useMemo(() => {
-    const list = Array.isArray(rawMapData?.items) ? rawMapData.items : []
-    const enriched = enrichCatalogMapItems(list, allItems)
+    const enriched = enrichCatalogMapItems(mapSourceItems, allItems)
 
     return filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
@@ -277,7 +308,7 @@ export default function Catalog() {
       venueType: selectedVenueType,
       matchesQuery: matchesSearchQuery,
     })
-  }, [allItems, debouncedQuery, rawMapData?.items, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [allItems, debouncedQuery, mapSourceItems, selectedCuisines, selectedMetro, selectedVenueType])
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -349,6 +380,13 @@ export default function Catalog() {
     [cityMetroData.stations, selectedMetro],
   )
 
+  const visibleMetroStations = useMemo(
+    () => debouncedQuery
+      ? getNearbyMetroStations(cityMetroData.stations, mapItems)
+      : cityMetroData.stations,
+    [cityMetroData.stations, debouncedQuery, mapItems],
+  )
+
   const extractDishes = useCallback((restaurant) => {
     const candidates = [
       restaurant?.dishes,
@@ -414,24 +452,67 @@ export default function Catalog() {
     }).filter(Boolean)
   ), [cities, crossCityResults?.otherCities])
 
-  const handleSubmit = useCallback((event) => {
-    event.preventDefault()
-    const trimmedQuery = query.trim()
+  const applySearchQuery = useCallback((value) => {
+    const trimmedQuery = String(value || '').trim()
+    setQuery(trimmedQuery)
     setDebouncedQuery(trimmedQuery)
     setCurrentPage(1)
     const next = new URLSearchParams(searchParams)
     if (trimmedQuery) next.set('q', trimmedQuery); else next.delete('q')
     setSearchParams(next, { replace: true })
-  }, [query, searchParams, setSearchParams])
+  }, [searchParams, setSearchParams])
+
+  const handleSubmit = useCallback((event) => {
+    event.preventDefault()
+    if (showSearchSuggestions && activeSearchSuggestionIndex >= 0) {
+      const suggestion = searchSuggestions[activeSearchSuggestionIndex]
+      if (suggestion) {
+        applySearchQuery(suggestion.name)
+        setIsSearchFocused(false)
+        analytics.track('catalog_search_suggestion_select', {
+          chain_slug: suggestion.slug,
+          selected_city: selectedCity.id,
+        })
+        return
+      }
+    }
+
+    applySearchQuery(query)
+    setIsSearchFocused(false)
+  }, [activeSearchSuggestionIndex, applySearchQuery, query, searchSuggestions, selectedCity.id, showSearchSuggestions])
+
+  const selectSearchSuggestion = useCallback((suggestion) => {
+    applySearchQuery(suggestion.name)
+    setIsSearchFocused(false)
+    analytics.track('catalog_search_suggestion_select', {
+      chain_slug: suggestion.slug,
+      selected_city: selectedCity.id,
+    })
+  }, [applySearchQuery, selectedCity.id])
+
+  const handleSearchKeyDown = useCallback((event) => {
+    if (!showSearchSuggestions) return
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveSearchSuggestionIndex((current) => (
+        current >= searchSuggestions.length - 1 ? 0 : current + 1
+      ))
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveSearchSuggestionIndex((current) => (
+        current <= 0 ? searchSuggestions.length - 1 : current - 1
+      ))
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      setIsSearchFocused(false)
+    }
+  }, [searchSuggestions.length, showSearchSuggestions])
 
   const handleClearSearch = useCallback(() => {
-    setQuery('')
-    setDebouncedQuery('')
-    setCurrentPage(1)
-    const next = new URLSearchParams(searchParams)
-    next.delete('q')
-    setSearchParams(next, { replace: true })
-  }, [searchParams, setSearchParams])
+    applySearchQuery('')
+    setActiveSearchSuggestionIndex(-1)
+  }, [applySearchQuery])
 
   return (
     <div className={`catalog-page catalog-page--${viewMode}`}>
@@ -489,7 +570,12 @@ export default function Catalog() {
         <div className="catalog-hero__inner">
           <form className="catalog-search" onSubmit={handleSubmit}>
             <label className="sr-only" htmlFor="restaurant-search">Поиск по ресторанам</label>
-            <div className="catalog-search__field">
+            <div
+              className="catalog-search__field"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setIsSearchFocused(false)
+              }}
+            >
               <svg className="catalog-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <circle cx="11" cy="11" r="7" />
                 <path d="m16.2 16.2 4.1 4.1" />
@@ -499,9 +585,21 @@ export default function Catalog() {
                 className="catalog-search__input"
                 type="search"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setActiveSearchSuggestionIndex(-1)
+                }}
+                onFocus={() => setIsSearchFocused(true)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder="Найти ресторан"
                 autoComplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={showSearchSuggestions}
+                aria-controls="catalog-search-suggestions"
+                aria-activedescendant={activeSearchSuggestionIndex >= 0
+                  ? `catalog-search-suggestion-${activeSearchSuggestionIndex}`
+                  : undefined}
               />
               {query && (
                 <button
@@ -512,6 +610,39 @@ export default function Catalog() {
                 >
                   ×
                 </button>
+              )}
+              {showSearchSuggestions && (
+                <ul
+                  id="catalog-search-suggestions"
+                  className="catalog-search__suggestions"
+                  role="listbox"
+                  aria-label="Подсказки по сетям"
+                >
+                  {searchSuggestions.map((suggestion, index) => (
+                    <li key={suggestion.slug} role="none">
+                      <button
+                        id={`catalog-search-suggestion-${index}`}
+                        type="button"
+                        role="option"
+                        aria-selected={index === activeSearchSuggestionIndex}
+                        className={`catalog-search__suggestion${index === activeSearchSuggestionIndex ? ' is-active' : ''}`}
+                        onMouseEnter={() => setActiveSearchSuggestionIndex(index)}
+                        onClick={() => selectSearchSuggestion(suggestion)}
+                      >
+                        <span className="catalog-search__suggestion-mark" aria-hidden="true">
+                          {suggestion.name.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="catalog-search__suggestion-copy">
+                          <strong>{suggestion.name}</strong>
+                          <span>
+                            Сеть · {suggestion.locationsCount}{' '}
+                            {getRussianPluralWord(suggestion.locationsCount, 'ресторан', 'ресторана', 'ресторанов')}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
             <button
@@ -591,7 +722,7 @@ export default function Catalog() {
         <Suspense fallback={<div className="catalog-map-fallback">Загружаем карту…</div>}>
           <CatalogMap
             restaurants={mapLoading ? [] : mapItems}
-            metroStations={cityMetroData.stations}
+            metroStations={visibleMetroStations}
             selectedMetroStationNames={selectedMetro}
             focusPoints={selectedMetroPoints}
             center={selectedCity?.center ? [selectedCity.center.lat, selectedCity.center.lon] : undefined}
@@ -608,6 +739,12 @@ export default function Catalog() {
       ) : (
       <section className="catalog-results">
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
+        {!isInitialLoading && !error && (
+          <div className="catalog-results__summary" role="status" aria-live="polite">
+            Найдено: <strong>{filteredItems.length.toLocaleString('ru-RU')}</strong>{' '}
+            {getRussianPluralWord(filteredItems.length, 'ресторан', 'ресторана', 'ресторанов')}
+          </div>
+        )}
         {error && <p className="err">Ошибка: {String(error.message || error)}</p>}
         {!loading && !visibleItems.length && !error && (
           crossCitySuggestions.length > 0 ? (
@@ -700,6 +837,7 @@ export default function Catalog() {
                           </span>
                         )}
                       </div>
+                      <MetroStationsText restaurant={r} className="catalog-card__metro" />
                     </div>
                   </div>
                   <div className="catalog-card__top-actions">

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { collapseChainRestaurants } from '../src/lib/catalogChains.js'
+import { collapseChainRestaurants, getChainSearchSuggestions } from '../src/lib/catalogChains.js'
 
 
 test('catalog replaces physical chain branches with one hub card', () => {
@@ -24,4 +24,23 @@ test('a filtered chain branch still links to the hub instead of surfacing the br
 
   assert.equal(result[0].isChainCard, true)
   assert.equal(result[0].slug, 'syrovarnya')
+})
+
+test('search suggestions contain each matching chain once with its location count', () => {
+  const items = [
+    { chainSlug: 'jonjoli', chainName: 'Джонджоли' },
+    { chainSlug: 'jonjoli', chainName: 'Джонджоли' },
+    { chainSlug: 'jondory', chainName: 'Джондори' },
+    { slug: 'solo', name: 'Джон Донн', chainSlug: null },
+  ]
+
+  const suggestions = getChainSearchSuggestions(items, 'джон', {
+    matchesQuery: (candidate, query) => candidate.toLowerCase().includes(query.toLowerCase()),
+    getQueryScore: (candidate) => candidate === 'Джонджоли' ? 10 : 1,
+  })
+
+  assert.deepEqual(suggestions, [
+    { slug: 'jonjoli', name: 'Джонджоли', locationsCount: 2 },
+    { slug: 'jondory', name: 'Джондори', locationsCount: 1 },
+  ])
 })
