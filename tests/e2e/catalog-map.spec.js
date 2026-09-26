@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test.use({ serviceWorkers: 'block' })
+test.describe.configure({ mode: 'serial' })
 
 const restaurant = {
   id: 'coffee-1',
@@ -35,6 +36,11 @@ const sheRestaurant = {
 const isCatalogApi = (url) => (
   url.hostname === 'restaurantsecret-api-staging.dsavastyan.workers.dev'
   || /^\/api(?:\/catalog)?\//.test(url.pathname)
+)
+
+const transparentPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+Xw4AAAAASUVORK5CYII=',
+  'base64',
 )
 
 test.beforeEach(async ({ page }) => {
@@ -142,6 +148,69 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
   await page.reload()
   await expect(page.getByRole('button', { name: 'Список', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-grid')).toBeVisible()
+})
+
+test('falls back to raster tiles when the vector base map cannot load', async ({ page }) => {
+  await page.route('https://tiles.openfreemap.org/styles/positron*', (route) => route.fulfill({
+    json: {
+      version: 8,
+      sources: {
+        openmaptiles: {
+          type: 'vector',
+          tiles: ['https://tiles.openfreemap.org/broken/{z}/{x}/{y}.pbf'],
+        },
+      },
+      layers: [
+        { id: 'background', type: 'background', paint: { 'background-color': '#f4f4f1' } },
+        { id: 'roads', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation' },
+      ],
+    },
+  }))
+  await page.route('https://tiles.openfreemap.org/broken/**', (route) => route.abort('failed'))
+  await page.route('https://*.tile.openstreetmap.org/**', (route) => route.fulfill({
+    body: transparentPng,
+    contentType: 'image/png',
+  }))
+
+  await page.goto('/catalog/moskva/')
+
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).not.toHaveCount(0, { timeout: 15_000 })
+  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toHaveCount(0)
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenStreetMap')
+})
+
+test('falls back to raster tiles when the vector style request stalls', async ({ page }) => {
+  await page.route('https://tiles.openfreemap.org/styles/positron*', () => new Promise(() => {}))
+  await page.route('https://*.tile.openstreetmap.org/**', (route) => route.fulfill({
+    body: transparentPng,
+    contentType: 'image/png',
+  }))
+
+  await page.goto('/catalog/moskva/')
+
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).not.toHaveCount(0, { timeout: 15_000 })
+  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toHaveCount(0)
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenStreetMap')
+})
+
+test('falls back to raster tiles when WebGL context is lost', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('https://*.tile.openstreetmap.org/**', (route) => route.fulfill({
+    body: transparentPng,
+    contentType: 'image/png',
+  }))
+
+  await page.goto('/catalog/moskva/')
+
+  const canvas = page.locator('.catalog-map-panel .maplibregl-canvas')
+  await expect(canvas).toBeVisible({ timeout: 15_000 })
+  await canvas.evaluate((element) => {
+    element.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+  })
+
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).not.toHaveCount(0, { timeout: 15_000 })
+  await expect(canvas).toHaveCount(0)
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenStreetMap')
 })
 
 test('filters both map and list by the primary venue type', async ({ page }) => {
