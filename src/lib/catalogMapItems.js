@@ -13,6 +13,8 @@ const CATALOG_METRO_FIELDS = new Set([
   'metro_station',
   'metroStation',
   'metroNames',
+  'metroStations',
+  'metro_stations',
   'metros',
 ])
 
@@ -37,6 +39,53 @@ function addMetroNames(target, key, restaurant) {
   target.set(key, current)
 }
 
+function normalizeLineColorHex(value) {
+  const normalized = String(value || '').trim().replace(/^#/, '')
+  return /^[0-9a-f]{6}$/i.test(normalized) ? `#${normalized.toUpperCase()}` : null
+}
+
+export function normalizeCatalogMetroStations(restaurant) {
+  const rawStations = Array.isArray(restaurant?.metroStations)
+    ? restaurant.metroStations
+    : (Array.isArray(restaurant?.metro_stations) ? restaurant.metro_stations : [])
+  const stationsByIdentity = new Map()
+
+  for (const station of rawStations) {
+    const name = String(station?.name || '').trim()
+    const rawDistance = station?.distanceMeters ?? station?.distance_meters
+    const distanceMeters = Number(rawDistance)
+    if (!name || !Number.isFinite(distanceMeters) || distanceMeters < 0) continue
+
+    const lineColorHex = normalizeLineColorHex(
+      station?.lineColorHex ?? station?.line_color_hex,
+    )
+    const identity = `${name.toLocaleLowerCase('ru')}|${lineColorHex || ''}`
+    const normalized = {
+      name,
+      lineColorHex,
+      distanceMeters: Math.round(distanceMeters),
+    }
+    const current = stationsByIdentity.get(identity)
+    if (!current || normalized.distanceMeters < current.distanceMeters) {
+      stationsByIdentity.set(identity, normalized)
+    }
+  }
+
+  return Array.from(stationsByIdentity.values())
+    .sort((left, right) => left.distanceMeters - right.distanceMeters)
+}
+
+function addMetroStations(target, key, restaurant) {
+  if (!key) return
+  const stations = normalizeCatalogMetroStations(restaurant)
+  if (!stations.length) return
+
+  const current = target.get(key) || []
+  target.set(key, normalizeCatalogMetroStations({
+    metroStations: [...current, ...stations],
+  }))
+}
+
 export function enrichCatalogItemsWithMapMetros(catalogItems = [], mapItems = []) {
   const catalogSlugCounts = new Map()
   for (const item of catalogItems) {
@@ -46,11 +95,15 @@ export function enrichCatalogItemsWithMapMetros(catalogItems = [], mapItems = []
 
   const metrosByRestaurantId = new Map()
   const metrosBySlug = new Map()
+  const metroStationsByRestaurantId = new Map()
+  const metroStationsBySlug = new Map()
   for (const point of mapItems) {
     const restaurantId = normalizeIdentity(point?.restaurantId ?? point?.restaurant_id)
     const slug = normalizeIdentity(point?.slug ?? point?.restaurantSlug ?? point?.restaurant_slug)
     addMetroNames(metrosByRestaurantId, restaurantId, point)
     addMetroNames(metrosBySlug, slug, point)
+    addMetroStations(metroStationsByRestaurantId, restaurantId, point)
+    addMetroStations(metroStationsBySlug, slug, point)
   }
 
   return catalogItems.map((item) => {
@@ -58,15 +111,20 @@ export function enrichCatalogItemsWithMapMetros(catalogItems = [], mapItems = []
     const slug = normalizeIdentity(item?.slug)
     const pointMetroNames = metrosByRestaurantId.get(restaurantId)
       || (catalogSlugCounts.get(slug) === 1 ? metrosBySlug.get(slug) : null)
+    const pointMetroStations = metroStationsByRestaurantId.get(restaurantId)
+      || (catalogSlugCounts.get(slug) === 1 ? metroStationsBySlug.get(slug) : null)
 
-    if (!pointMetroNames?.size) return item
+    if (!pointMetroNames?.size && !pointMetroStations?.length) return item
 
     return {
       ...item,
-      metroNames: Array.from(new Set([
-        ...getCatalogRestaurantMetroNames(item),
-        ...pointMetroNames,
-      ])),
+      ...(pointMetroNames?.size ? {
+        metroNames: Array.from(new Set([
+          ...getCatalogRestaurantMetroNames(item),
+          ...pointMetroNames,
+        ])),
+      } : {}),
+      ...(pointMetroStations?.length ? { metroStations: pointMetroStations } : {}),
     }
   })
 }

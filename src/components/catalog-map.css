@@ -249,6 +249,19 @@
   white-space: nowrap;
 }
 
+.catalog-map-card__metro {
+  margin-top: 5px;
+  color: #746e65;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.catalog-map-card__metro .metro-stations__list {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .catalog-map-card__location {
   display: flex;
   align-items: center;

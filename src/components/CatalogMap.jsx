@@ -8,7 +8,8 @@ import 'leaflet.markercluster'
 import './catalog-map.css'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
 import MetroStationsLayer from './map/MetroStationsLayer'
-import { getCatalogMapPointKey } from '@/lib/catalogMapItems'
+import MetroStationsText from './MetroStationsText'
+import { getCatalogMapPointKey, normalizeCatalogMetroStations } from '@/lib/catalogMapItems'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
 const DEFAULT_ZOOM = 10
@@ -220,12 +221,14 @@ export default function CatalogMap({
             <div>
               <h2>{selectedRestaurant.name}</h2>
               {selectedRestaurant.cuisine && <p>{selectedRestaurant.cuisine}</p>}
+              <MetroStationsText restaurant={selectedRestaurant} className="catalog-map-card__metro" />
             </div>
           </div>
-          {(selectedRestaurant.metro || selectedRestaurant.address) && (
+          {(selectedRestaurant.address
+            || (!normalizeCatalogMetroStations(selectedRestaurant).length && selectedRestaurant.metro)) && (
             <div className="catalog-map-card__location">
               <LocationIcon />
-              <span>{selectedRestaurant.metro || selectedRestaurant.address}</span>
+              <span>{selectedRestaurant.address || selectedRestaurant.metro}</span>
             </div>
           )}
           <div className="catalog-map-card__actions">

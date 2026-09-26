@@ -12,6 +12,7 @@ import { analytics } from '@/services/analytics'
 import { getRussianPluralWord, getSearchQueryScore, matchesSearchQuery } from '@/lib/text'
 import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
+import MetroStationsText from '@/components/MetroStationsText.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { getMetroSelectionPoints } from '@/lib/metroSelection'
@@ -836,6 +837,7 @@ export default function Catalog() {
                           </span>
                         )}
                       </div>
+                      <MetroStationsText restaurant={r} className="catalog-card__metro" />
                     </div>
                   </div>
                   <div className="catalog-card__top-actions">
