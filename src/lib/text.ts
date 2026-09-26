@@ -148,6 +148,13 @@ function transliterateCyrillicToLatin(input: string): string {
     .join("");
 }
 
+// Brand names do not always use academic transliteration. Keep short,
+// product-confirmed spellings explicit so a two-letter query does not make
+// the general fuzzy matcher overly permissive.
+const SEARCH_TRANSLITERATION_ALIASES: Record<string, string[]> = {
+  ши: ["she"],
+};
+
 function transliterateLatinToCyrillic(input: string): string {
   const map: [string, string][] = [
     ["shch", "щ"],
@@ -216,6 +223,7 @@ function buildTokenVariants(token: string): string[] {
   add(token);
   add(transliterateCyrillicToLatin(token));
   add(transliterateLatinToCyrillic(token));
+  SEARCH_TRANSLITERATION_ALIASES[token]?.forEach(add);
 
   return Array.from(variants);
 }
