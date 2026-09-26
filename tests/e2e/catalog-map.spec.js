@@ -17,6 +17,15 @@ const restaurant = {
   dishesCount: 42,
 }
 
+const sheRestaurant = {
+  ...restaurant,
+  id: 'she-1',
+  slug: 'she-test',
+  name: 'She Тестовая',
+  chainSlug: 'she',
+  chainName: 'She',
+}
+
 const isCatalogApi = (url) => (
   url.hostname === 'restaurantsecret-api-staging.dsavastyan.workers.dev'
   || /^\/api(?:\/catalog)?\//.test(url.pathname)
@@ -173,6 +182,18 @@ test('suggests a matching chain and leaves only nearby metro markers after selec
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('Кофемания')
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(2)
+})
+
+test('finds the She chain by the Cyrillic query ши', async ({ page }) => {
+  await page.route((url) => {
+    const path = new URL(url).pathname
+    return isCatalogApi(url) && path.endsWith('/restaurants') && !path.endsWith('/restaurants/map')
+  }, (route) => route.fulfill({ json: { items: [sheRestaurant], total: 1 } }))
+
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('combobox', { name: 'Поиск по ресторанам' }).fill('ши')
+
+  await expect(page.getByRole('option', { name: /She/ })).toBeVisible()
 })
 
 test('highlights only stations selected through a metro line', async ({ page }) => {
