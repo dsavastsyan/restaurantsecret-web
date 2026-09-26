@@ -179,6 +179,20 @@ test('falls back to raster tiles when the vector base map cannot load', async ({
   await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenStreetMap')
 })
 
+test('falls back to raster tiles when the vector style request stalls', async ({ page }) => {
+  await page.route('https://tiles.openfreemap.org/styles/positron*', () => new Promise(() => {}))
+  await page.route('https://*.tile.openstreetmap.org/**', (route) => route.fulfill({
+    body: transparentPng,
+    contentType: 'image/png',
+  }))
+
+  await page.goto('/catalog/moskva/')
+
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).not.toHaveCount(0, { timeout: 15_000 })
+  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toHaveCount(0)
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenStreetMap')
+})
+
 test('falls back to raster tiles when WebGL context is lost', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.route('https://*.tile.openstreetmap.org/**', (route) => route.fulfill({
