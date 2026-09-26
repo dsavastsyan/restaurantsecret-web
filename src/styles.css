@@ -4128,6 +4128,21 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
   gap: 28px;
 }
 
+.catalog-page .catalog-results__summary {
+  padding: 0 2px;
+  color: #81786c;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.catalog-page .catalog-results__summary strong {
+  margin-left: 3px;
+  color: var(--catalog-ink);
+  font-size: 22px;
+  font-weight: 800;
+}
+
 .catalog-page .catalog-grid {
   gap: 32px 36px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -17314,6 +17329,14 @@ html[data-rs-theme="night"] .catalog-state__badge {
 html[data-rs-theme="night"] .catalog-state__text,
 html[data-rs-theme="night"] .catalog-loader span {
   color: #9fb0c5;
+}
+
+html[data-rs-theme="night"] .catalog-results__summary {
+  color: #9fb0c5;
+}
+
+html[data-rs-theme="night"] .catalog-results__summary strong {
+  color: #e5edf8;
 }
 
 html[data-rs-theme="night"] .catalog-empty__icon {
