@@ -15,6 +15,7 @@ const restaurant = {
   lat: 55.7645,
   lon: 37.6055,
   dishesCount: 42,
+  autoUpdated: true,
 }
 
 const sheRestaurant = {
@@ -154,6 +155,37 @@ test('shows the filtered restaurant count above the list', async ({ page }) => {
 
   await page.getByLabel('Тип заведения').selectOption('restaurant')
   await expect(summary).toHaveText('Найдено: 0 ресторанов')
+})
+
+test('keeps the auto-update badge next to the restaurant name', async ({ page }) => {
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
+  ), (route) => route.fulfill({
+    json: {
+      items: [{ ...restaurant, chainSlug: null, chainName: null }],
+      total: 1,
+    },
+  }))
+  await page.goto('/catalog/moskva/?view=list')
+
+  const title = page.locator('.catalog-card__title')
+  const name = title.locator('.catalog-card__title-text')
+  const badge = title.locator('.catalog-card__auto-updated')
+
+  await expect(badge).toBeVisible()
+  await expect(title).toHaveCSS('display', 'flex')
+
+  const [nameBox, badgeBox] = await Promise.all([
+    name.boundingBox(),
+    badge.boundingBox(),
+  ])
+
+  expect(nameBox).not.toBeNull()
+  expect(badgeBox).not.toBeNull()
+  expect(Math.abs(
+    (nameBox.y + nameBox.height / 2) - (badgeBox.y + badgeBox.height / 2),
+  )).toBeLessThanOrEqual(1)
+  expect(badgeBox.x - (nameBox.x + nameBox.width)).toBeLessThanOrEqual(14)
 })
 
 test('list includes restaurants whose map point is near the selected metro', async ({ page }) => {
