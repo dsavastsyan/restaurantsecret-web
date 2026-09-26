@@ -3,6 +3,9 @@ import {
   normalizeCatalogCuisine,
 } from './catalogFilters.js'
 
+const EARTH_RADIUS_METERS = 6_371_000
+export const NEARBY_METRO_RADIUS_METERS = 1_500
+
 const CATALOG_METRO_FIELDS = new Set([
   'metro',
   'metro_name',
@@ -110,4 +113,46 @@ export function getCatalogMapPointKey(restaurant) {
     .join(':')
     .trim()
     .toLowerCase()
+}
+
+function getCoordinates(item) {
+  const lat = Number(item?.lat)
+  const lon = Number(item?.lon ?? item?.lng)
+  return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null
+}
+
+function distanceInMeters(left, right) {
+  const toRadians = (value) => value * (Math.PI / 180)
+  const latitudeDelta = toRadians(right.lat - left.lat)
+  const longitudeDelta = toRadians(right.lon - left.lon)
+  const leftLatitude = toRadians(left.lat)
+  const rightLatitude = toRadians(right.lat)
+  const haversine = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(leftLatitude) * Math.cos(rightLatitude) * Math.sin(longitudeDelta / 2) ** 2
+
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(haversine))
+}
+
+export function getNearbyMetroStations(
+  stations = [],
+  restaurants = [],
+  maxDistanceMeters = NEARBY_METRO_RADIUS_METERS,
+) {
+  if (!restaurants.length) return []
+
+  const restaurantPoints = restaurants.map(getCoordinates).filter(Boolean)
+  const restaurantMetroNames = new Set(
+    restaurants.flatMap(getCatalogRestaurantMetroNames),
+  )
+
+  return stations.filter((station) => {
+    const stationName = String(station?.name_ru || station?.name || '').trim().toLowerCase()
+    if (stationName && restaurantMetroNames.has(stationName)) return true
+
+    const stationPoint = getCoordinates(station)
+    if (!stationPoint) return false
+    return restaurantPoints.some((restaurantPoint) => (
+      distanceInMeters(restaurantPoint, stationPoint) <= maxDistanceMeters
+    ))
+  })
 }

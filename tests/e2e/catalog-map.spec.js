@@ -7,12 +7,24 @@ const restaurant = {
   slug: 'coffee-test',
   name: 'Кофемания Тестовая',
   cuisine: 'Европейская',
+  chainSlug: 'coffeemania',
+  chainName: 'Кофемания',
   primary_venue_type: 'coffee_tea',
   metro: 'Тверская',
   metroNames: ['Тверская', 'Лубянка'],
   lat: 55.7645,
   lon: 37.6055,
   dishesCount: 42,
+  autoUpdated: true,
+}
+
+const sheRestaurant = {
+  ...restaurant,
+  id: 'she-1',
+  slug: 'she-test',
+  name: 'She Тестовая',
+  chainSlug: 'she',
+  chainName: 'She',
 }
 
 const isCatalogApi = (url) => (
@@ -54,6 +66,7 @@ test.beforeEach(async ({ page }) => {
           stations: [
             { id: 1, city: 'Москва', name_ru: 'Тверская', line_id: 1, lat: 55.7653, lon: 37.6038 },
             { id: 2, city: 'Москва', name_ru: 'Лубянка', line_id: 2, lat: 55.7597, lon: 37.6272 },
+            { id: 3, city: 'Москва', name_ru: 'Выхино', line_id: 2, lat: 55.7163, lon: 37.8186 },
           ],
         },
       })
@@ -104,7 +117,7 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
   await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
   await page.waitForTimeout(1000)
   expect(mapRuntimeErrors).toEqual([])
-  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(2, { timeout: 15_000 })
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(3, { timeout: 15_000 })
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
   await page.locator('.catalog-map-pin-wrapper').click()
@@ -134,6 +147,47 @@ test('filters both map and list by the primary venue type', async ({ page }) => 
   await expect(page.locator('.catalog-card')).toHaveCount(0)
 })
 
+test('shows the filtered restaurant count above the list', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+
+  const summary = page.locator('.catalog-results__summary')
+  await expect(summary).toHaveText('Найдено: 1 ресторан')
+
+  await page.getByLabel('Тип заведения').selectOption('restaurant')
+  await expect(summary).toHaveText('Найдено: 0 ресторанов')
+})
+
+test('keeps the auto-update badge next to the restaurant name', async ({ page }) => {
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
+  ), (route) => route.fulfill({
+    json: {
+      items: [{ ...restaurant, chainSlug: null, chainName: null }],
+      total: 1,
+    },
+  }))
+  await page.goto('/catalog/moskva/?view=list')
+
+  const title = page.locator('.catalog-card__title')
+  const name = title.locator('.catalog-card__title-text')
+  const badge = title.locator('.catalog-card__auto-updated')
+
+  await expect(badge).toBeVisible()
+  await expect(title).toHaveCSS('display', 'flex')
+
+  const [nameBox, badgeBox] = await Promise.all([
+    name.boundingBox(),
+    badge.boundingBox(),
+  ])
+
+  expect(nameBox).not.toBeNull()
+  expect(badgeBox).not.toBeNull()
+  expect(Math.abs(
+    (nameBox.y + nameBox.height / 2) - (badgeBox.y + badgeBox.height / 2),
+  )).toBeLessThanOrEqual(1)
+  expect(badgeBox.x - (nameBox.x + nameBox.width)).toBeLessThanOrEqual(14)
+})
+
 test('list includes restaurants whose map point is near the selected metro', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
 
@@ -142,16 +196,45 @@ test('list includes restaurants whose map point is near the selected metro', asy
   await page.getByRole('button', { name: 'Лубянка', exact: true }).click()
 
   await expect(page.locator('.catalog-card')).toHaveCount(1)
-  await expect(page.locator('.catalog-card')).toContainText(restaurant.name)
+  await expect(page.locator('.catalog-card')).toContainText(restaurant.chainName)
+})
+
+test('suggests a matching chain and leaves only nearby metro markers after selection', async ({ page }) => {
+  await page.goto('/catalog/moskva/')
+
+  const search = page.getByRole('combobox', { name: 'Поиск по ресторанам' })
+  await search.fill('Кофе')
+
+  const suggestion = page.getByRole('option', { name: /Кофемания/ })
+  await expect(suggestion).toBeVisible()
+  await expect(suggestion).toContainText('Сеть · 1 ресторан')
+  await suggestion.click()
+
+  await expect(search).toHaveValue('Кофемания')
+  await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('Кофемания')
+  await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(2)
+})
+
+test('finds the She chain by the Cyrillic query ши', async ({ page }) => {
+  await page.route((url) => {
+    const path = new URL(url).pathname
+    return isCatalogApi(url) && path.endsWith('/restaurants') && !path.endsWith('/restaurants/map')
+  }, (route) => route.fulfill({ json: { items: [sheRestaurant], total: 1 } }))
+
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('combobox', { name: 'Поиск по ресторанам' }).fill('ши')
+
+  await expect(page.getByRole('option', { name: /She/ })).toBeVisible()
 })
 
 test('highlights only stations selected through a metro line', async ({ page }) => {
   await page.goto('/catalog/moskva/')
 
-  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(2, { timeout: 15_000 })
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(3, { timeout: 15_000 })
   await page.getByRole('button', { name: 'Станции метро' }).click()
   await page.getByRole('button', { name: 'Тестовая линия', exact: true }).click()
 
   await expect(page.locator('.catalog-map-panel .rs-metro-marker.is-selected')).toHaveCount(1)
-  await expect(page.locator('.catalog-map-panel .rs-metro-marker.is-muted')).toHaveCount(1)
+  await expect(page.locator('.catalog-map-panel .rs-metro-marker.is-muted')).toHaveCount(2)
 })

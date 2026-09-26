@@ -31,6 +31,19 @@ test('uses the same query, cuisine and metro filters for map and list results', 
   assert.deepEqual(filterCatalogRestaurants(restaurants, { query: 'танук' }), [restaurants[2]])
 })
 
+test('matches every branch when the query is the chain name', () => {
+  const restaurants = [
+    { name: 'Филиал на Таганке', chainName: 'Джонджоли' },
+    { name: 'Филиал на Арбате', chainName: 'Джонджоли' },
+    { name: 'Отдельный ресторан' },
+  ]
+
+  assert.deepEqual(
+    filterCatalogRestaurants(restaurants, { query: 'Джонджоли' }),
+    restaurants.slice(0, 2),
+  )
+})
+
 test('filters by the primary venue type and ignores unknown API values', () => {
   const restaurants = [
     { name: 'Ресторан', primary_venue_type: 'restaurant' },
