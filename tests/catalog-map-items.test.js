@@ -52,6 +52,7 @@ test('list restaurants inherit every nearby metro station from their map points'
       metroStations: [
         { name: 'Третьяковская', lineColorHex: '43A047', distanceMeters: 510 },
         { name: 'Новокузнецкая', lineColorHex: '43A047', distanceMeters: 750 },
+        { name: 'Полянка', lineColorHex: '9E9E9E', distanceMeters: 910 },
       ],
     },
   ]
@@ -62,6 +63,7 @@ test('list restaurants inherit every nearby metro station from their map points'
   assert.deepEqual(enriched[0].metroStations, [
     { name: 'Третьяковская', lineColorHex: '#43A047', distanceMeters: 510 },
     { name: 'Новокузнецкая', lineColorHex: '#43A047', distanceMeters: 750 },
+    { name: 'Полянка', lineColorHex: '#9E9E9E', distanceMeters: 910 },
   ])
   assert.deepEqual(filterCatalogRestaurants(enriched, { metro: ['Новокузнецкая'] }), enriched)
 })
