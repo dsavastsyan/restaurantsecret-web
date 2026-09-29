@@ -7,7 +7,7 @@ import { MenuOutdatedModal } from '@/components/MenuOutdatedModal';
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx';
 import DishTileV2 from './DishTileV2';
 import DishRowV2 from './DishRowV2';
-import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon } from './icons';
+import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon, LockIcon } from './icons';
 import '@/pages/menu-redesign.css';
 
 const CATS_VISIBLE = 3;
@@ -312,7 +312,17 @@ export default function MenuRedesignView({
 
       <div className="rsm2-content">
         {loading && <p className="rsm2-loading">Загружаем меню…</p>}
-        {!!error && !loading && <p className="rsm2-loading">{error}</p>}
+        {!!error && !loading && (
+          error.kind === 'blocked' ? (
+            <div className="rsm2-status-block">
+              <LockIcon size={22} />
+              <p>{error.message}</p>
+              <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
+            </div>
+          ) : (
+            <p className="rsm2-loading">{error.message}</p>
+          )
+        )}
 
         {!loading && !error && (
           groupedDishes.length ? (
