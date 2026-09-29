@@ -47,6 +47,7 @@
 
   { "backend": "catalog", "method": "GET", "path": "/cities", "live": false },
   { "backend": "catalog", "method": "GET", "path": "/location", "live": false },
+  { "backend": "catalog", "method": "GET", "path": "/geocode", "live": false },
   { "backend": "catalog", "method": "GET", "path": "/filters", "live": false },
   { "backend": "catalog", "method": "GET", "path": "/metro", "live": false },
   { "backend": "catalog", "method": "GET", "path": "/restaurants", "live": false },
