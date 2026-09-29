@@ -4,7 +4,7 @@ import { useMeta } from '@/lib/useMeta'
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client.js'
 import CuisineFilter from '../components/CuisineFilter.jsx'
-import MetroFilter from '../components/MetroFilter.jsx'
+import CatalogLocationFilter from '../components/CatalogLocationFilter.jsx'
 import { useSWRLite } from '../hooks/useSWRLite.js'
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants'
 import { useAuth } from '@/store/auth'
@@ -19,6 +19,8 @@ import { getMetroSelectionPoints } from '@/lib/metroSelection'
 import {
   enrichCatalogItemsWithMapMetros,
   enrichCatalogMapItems,
+  filterCatalogItemsByMapPoints,
+  filterCatalogMapItemsByRadius,
   getNearbyMetroStations,
 } from '@/lib/catalogMapItems'
 import { collapseChainRestaurants, getChainSearchSuggestions } from '@/lib/catalogChains'
@@ -131,7 +133,44 @@ export default function Catalog() {
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [activeSearchSuggestionIndex, setActiveSearchSuggestionIndex] = useState(-1)
   const [currentPage, setCurrentPage] = useState(1)
+  const [locationMode, setLocationMode] = useState('metro')
+  const [radiusKm, setRadiusKm] = useState(1)
+  const [nearbyPoint, setNearbyPoint] = useState(null)
+  const [nearbyPointLabel, setNearbyPointLabel] = useState('')
+  const [addressQuery, setAddressQuery] = useState('')
+  const [addressResults, setAddressResults] = useState([])
+  const [addressLoading, setAddressLoading] = useState(false)
+  const [addressError, setAddressError] = useState('')
+  const [geolocationLoading, setGeolocationLoading] = useState(false)
+  const [geolocationError, setGeolocationError] = useState('')
+  const [isPickingLocation, setIsPickingLocation] = useState(false)
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
+
+  const cityMetroData = useMemo(() => {
+    const stations = (metroData.stations || []).filter((station) => station.city === selectedCity.id)
+    const availableLineIds = new Set(stations.map((station) => String(station.line_id)))
+    return {
+      lines: (metroData.lines || []).filter((line) => availableLineIds.has(String(line.id))),
+      stations,
+    }
+  }, [metroData.lines, metroData.stations, selectedCity.id])
+
+  const selectedMetroPoints = useMemo(
+    () => getMetroSelectionPoints(cityMetroData.stations, selectedMetro),
+    [cityMetroData.stations, selectedMetro],
+  )
+  const citySearchCenter = useMemo(() => {
+    const point = selectedCity?.searchCenter || selectedCity?.center
+    const lat = Number(point?.lat)
+    const lon = Number(point?.lon)
+    return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null
+  }, [selectedCity?.center, selectedCity?.searchCenter])
+  const locationAnchorPoints = useMemo(() => {
+    if (locationMode === 'metro') return selectedMetroPoints
+    if (locationMode === 'nearby') return nearbyPoint ? [nearbyPoint] : []
+    return citySearchCenter ? [citySearchCenter] : []
+  }, [citySearchCenter, locationMode, nearbyPoint, selectedMetroPoints])
+  const isLocationFilterActive = locationAnchorPoints.length > 0
 
   const navigate = useNavigate()
   const { access, requireAccess, requestPaywall } = useOutletContext() || {}
@@ -181,6 +220,14 @@ export default function Catalog() {
     setSelectedCuisines([])
     setSelectedMetro([])
     setSelectedVenueType('')
+    setLocationMode('metro')
+    setNearbyPoint(null)
+    setNearbyPointLabel('')
+    setAddressQuery('')
+    setAddressResults([])
+    setAddressError('')
+    setGeolocationError('')
+    setIsPickingLocation(false)
     setCurrentPage(1)
   }, [accessToken, navigate, query, searchParams, selectedCity.id])
 
@@ -286,34 +333,44 @@ export default function Catalog() {
   }, [activeSearchSuggestionIndex, searchSuggestions.length])
 
   // Filter items based on SEARCH and CUISINE
-  const filteredItems = useMemo(() => {
+  const catalogItemsBeforeLocation = useMemo(() => {
     return filterCatalogRestaurants(filterableItems, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
-      metro: selectedMetro,
       venueType: selectedVenueType,
       sortByRelevance: true,
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
     })
-  }, [debouncedQuery, filterableItems, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [debouncedQuery, filterableItems, selectedCuisines, selectedVenueType])
 
-  const mapItems = useMemo(() => {
+  const mapItemsBeforeLocation = useMemo(() => {
     const enriched = enrichCatalogMapItems(mapSourceItems, allItems)
 
     return filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
-      metro: selectedMetro,
       venueType: selectedVenueType,
       matchesQuery: matchesSearchQuery,
     })
-  }, [allItems, debouncedQuery, mapSourceItems, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [allItems, debouncedQuery, mapSourceItems, selectedCuisines, selectedVenueType])
+
+  const mapItems = useMemo(() => (
+    isLocationFilterActive
+      ? filterCatalogMapItemsByRadius(mapItemsBeforeLocation, locationAnchorPoints, radiusKm * 1000)
+      : mapItemsBeforeLocation
+  ), [isLocationFilterActive, locationAnchorPoints, mapItemsBeforeLocation, radiusKm])
+
+  const filteredItems = useMemo(() => (
+    isLocationFilterActive
+      ? filterCatalogItemsByMapPoints(catalogItemsBeforeLocation, mapItems)
+      : catalogItemsBeforeLocation
+  ), [catalogItemsBeforeLocation, isLocationFilterActive, mapItems])
 
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedQuery, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [debouncedQuery, locationMode, nearbyPoint, radiusKm, selectedCuisines, selectedMetro, selectedVenueType])
 
   // Physical branches remain reachable from their chain hub, but the catalog
   // itself presents one card per chain rather than exposing branch pages.
@@ -365,20 +422,6 @@ export default function Catalog() {
       name: namesById.get(option.id) || option.name,
     }))
   }, [filters?.venueTypes, filters?.venue_types])
-
-  const cityMetroData = useMemo(() => {
-    const stations = (metroData.stations || []).filter((station) => station.city === selectedCity.id)
-    const availableLineIds = new Set(stations.map((station) => String(station.line_id)))
-    return {
-      lines: (metroData.lines || []).filter((line) => availableLineIds.has(String(line.id))),
-      stations,
-    }
-  }, [metroData.lines, metroData.stations, selectedCity.id])
-
-  const selectedMetroPoints = useMemo(
-    () => getMetroSelectionPoints(cityMetroData.stations, selectedMetro),
-    [cityMetroData.stations, selectedMetro],
-  )
 
   const visibleMetroStations = useMemo(
     () => debouncedQuery
@@ -513,6 +556,118 @@ export default function Catalog() {
     applySearchQuery('')
     setActiveSearchSuggestionIndex(-1)
   }, [applySearchQuery])
+
+  const handleLocationModeChange = useCallback((nextMode) => {
+    setLocationMode(nextMode)
+    setIsPickingLocation(false)
+    setCurrentPage(1)
+    analytics.track('catalog_location_mode_changed', {
+      mode: nextMode,
+      selected_city: selectedCity.id,
+    })
+  }, [selectedCity.id])
+
+  const handleRadiusChange = useCallback((value) => {
+    setRadiusKm(value)
+    setCurrentPage(1)
+    analytics.track('catalog_location_radius_changed', {
+      mode: locationMode,
+      radius_km: value,
+      selected_city: selectedCity.id,
+    })
+  }, [locationMode, selectedCity.id])
+
+  const handleUseCurrentLocation = useCallback(() => {
+    setGeolocationError('')
+    setAddressError('')
+    if (!navigator.geolocation) {
+      setGeolocationError('Браузер не поддерживает геолокацию. Введите адрес или выберите точку на карте.')
+      return
+    }
+
+    setGeolocationLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const approximate = Number(coords.accuracy) > 500
+        setNearbyPoint({ lat: coords.latitude, lon: coords.longitude })
+        setNearbyPointLabel(approximate ? 'местоположение определено приблизительно' : 'моё местоположение')
+        setGeolocationLoading(false)
+        setIsPickingLocation(false)
+        analytics.track('catalog_location_point_selected', {
+          source: 'geolocation',
+          approximate,
+          selected_city: selectedCity.id,
+        })
+      },
+      () => {
+        setGeolocationLoading(false)
+        setGeolocationError('Не удалось определить местоположение. Введите адрес или выберите точку на карте.')
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    )
+  }, [selectedCity.id])
+
+  const handleAddressSearch = useCallback(async () => {
+    const value = addressQuery.trim()
+    if (value.length < 3 || addressLoading) return
+
+    setAddressLoading(true)
+    setAddressError('')
+    setGeolocationError('')
+    setAddressResults([])
+    try {
+      const result = await api.geocode(value, selectedCity.id)
+      const items = Array.isArray(result?.items) ? result.items : []
+      setAddressResults(items)
+      if (!items.length) setAddressError('Адрес не найден. Уточните запрос или выберите точку на карте.')
+      analytics.track('catalog_address_search', {
+        selected_city: selectedCity.id,
+        has_results: items.length > 0,
+      })
+    } catch (_) {
+      setAddressError('Поиск адреса временно недоступен. Выберите точку на карте или попробуйте позже.')
+    } finally {
+      setAddressLoading(false)
+    }
+  }, [addressLoading, addressQuery, selectedCity.id])
+
+  const handleAddressQueryChange = useCallback((value) => {
+    setAddressQuery(value)
+    setAddressResults([])
+    setAddressError('')
+  }, [])
+
+  const handleSelectAddress = useCallback((result) => {
+    setNearbyPoint({ lat: result.lat, lon: result.lon })
+    setNearbyPointLabel(result.label)
+    setAddressQuery(result.label)
+    setAddressResults([])
+    setAddressError('')
+    setIsPickingLocation(false)
+    analytics.track('catalog_location_point_selected', {
+      source: 'address',
+      selected_city: selectedCity.id,
+    })
+  }, [selectedCity.id])
+
+  const handlePickOnMap = useCallback(() => {
+    setLocationMode('nearby')
+    setIsPickingLocation(true)
+    setAddressError('')
+    setGeolocationError('')
+    if (viewMode !== 'map') changeViewMode('map')
+  }, [changeViewMode, viewMode])
+
+  const handleMapLocationPick = useCallback((point) => {
+    setNearbyPoint(point)
+    setNearbyPointLabel('точка на карте')
+    setAddressResults([])
+    setIsPickingLocation(false)
+    analytics.track('catalog_location_point_selected', {
+      source: 'map',
+      selected_city: selectedCity.id,
+    })
+  }, [selectedCity.id])
 
   return (
     <div className={`catalog-page catalog-page--${viewMode}`}>
@@ -703,16 +858,28 @@ export default function Catalog() {
                   />
                 </div>
               </div>
-              <div className="catalog-filter catalog-filter--metro">
-                <div className="catalog-filter__label">Метро</div>
-                <div className="catalog-filter__control">
-                  <MetroFilter
-                    metroData={cityMetroData}
-                    selectedStationNames={selectedMetro}
-                    onChange={setSelectedMetro}
-                  />
-                </div>
-              </div>
+              <CatalogLocationFilter
+                mode={locationMode}
+                onModeChange={handleLocationModeChange}
+                radiusKm={radiusKm}
+                onRadiusChange={handleRadiusChange}
+                metroData={cityMetroData}
+                selectedStationNames={selectedMetro}
+                onMetroChange={setSelectedMetro}
+                pointLabel={nearbyPointLabel}
+                addressQuery={addressQuery}
+                onAddressQueryChange={handleAddressQueryChange}
+                onAddressSearch={handleAddressSearch}
+                addressResults={addressResults}
+                addressLoading={addressLoading}
+                addressError={addressError}
+                onSelectAddress={handleSelectAddress}
+                onUseCurrentLocation={handleUseCurrentLocation}
+                geolocationLoading={geolocationLoading}
+                geolocationError={geolocationError}
+                onPickOnMap={handlePickOnMap}
+                isPickingOnMap={isPickingLocation}
+              />
             </div>
           </form>
         </div>
@@ -724,7 +891,12 @@ export default function Catalog() {
             restaurants={mapLoading ? [] : mapItems}
             metroStations={visibleMetroStations}
             selectedMetroStationNames={selectedMetro}
-            focusPoints={selectedMetroPoints}
+            focusPoints={locationAnchorPoints}
+            radiusPoints={locationAnchorPoints}
+            radiusMeters={radiusKm * 1000}
+            isPickingLocation={isPickingLocation}
+            onPickLocation={handleMapLocationPick}
+            onCancelLocationPick={() => setIsPickingLocation(false)}
             center={selectedCity?.center ? [selectedCity.center.lat, selectedCity.center.lon] : undefined}
             zoom={selectedCity?.recommendedZoom}
             loading={mapLoading}

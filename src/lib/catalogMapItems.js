@@ -173,13 +173,13 @@ export function getCatalogMapPointKey(restaurant) {
     .toLowerCase()
 }
 
-function getCoordinates(item) {
+export function getCatalogCoordinates(item) {
   const lat = Number(item?.lat)
   const lon = Number(item?.lon ?? item?.lng)
   return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null
 }
 
-function distanceInMeters(left, right) {
+export function getDistanceInMeters(left, right) {
   const toRadians = (value) => value * (Math.PI / 180)
   const latitudeDelta = toRadians(right.lat - left.lat)
   const longitudeDelta = toRadians(right.lon - left.lon)
@@ -198,7 +198,7 @@ export function getNearbyMetroStations(
 ) {
   if (!restaurants.length) return []
 
-  const restaurantPoints = restaurants.map(getCoordinates).filter(Boolean)
+  const restaurantPoints = restaurants.map(getCatalogCoordinates).filter(Boolean)
   const restaurantMetroNames = new Set(
     restaurants.flatMap(getCatalogRestaurantMetroNames),
   )
@@ -207,10 +207,38 @@ export function getNearbyMetroStations(
     const stationName = String(station?.name_ru || station?.name || '').trim().toLowerCase()
     if (stationName && restaurantMetroNames.has(stationName)) return true
 
-    const stationPoint = getCoordinates(station)
+    const stationPoint = getCatalogCoordinates(station)
     if (!stationPoint) return false
     return restaurantPoints.some((restaurantPoint) => (
-      distanceInMeters(restaurantPoint, stationPoint) <= maxDistanceMeters
+      getDistanceInMeters(restaurantPoint, stationPoint) <= maxDistanceMeters
     ))
+  })
+}
+
+export function filterCatalogMapItemsByRadius(items = [], anchorPoints = [], radiusMeters = 0) {
+  const anchors = anchorPoints.map(getCatalogCoordinates).filter(Boolean)
+  const normalizedRadius = Number(radiusMeters)
+  if (!anchors.length || !Number.isFinite(normalizedRadius) || normalizedRadius <= 0) return items
+
+  return items.filter((item) => {
+    const point = getCatalogCoordinates(item)
+    return point && anchors.some((anchor) => getDistanceInMeters(point, anchor) <= normalizedRadius)
+  })
+}
+
+export function filterCatalogItemsByMapPoints(items = [], mapPoints = []) {
+  const restaurantIds = new Set()
+  const fallbackSlugs = new Set()
+  for (const point of mapPoints) {
+    const restaurantId = normalizeIdentity(point?.restaurantId ?? point?.restaurant_id)
+    const slug = normalizeIdentity(point?.slug ?? point?.restaurantSlug ?? point?.restaurant_slug)
+    if (restaurantId) restaurantIds.add(restaurantId)
+    else if (slug) fallbackSlugs.add(slug)
+  }
+
+  return items.filter((item) => {
+    const restaurantId = normalizeIdentity(item?.id ?? item?.restaurantId ?? item?.restaurant_id)
+    if (restaurantId && restaurantIds.size) return restaurantIds.has(restaurantId)
+    return fallbackSlugs.has(normalizeIdentity(item?.slug))
   })
 }
