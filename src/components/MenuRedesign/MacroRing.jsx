@@ -1,7 +1,7 @@
 // Calorie ring used by the dish tile, dish row and full dish card. Renders
 // a conic-gradient ring (protein/fat/carb shares) with the kcal number in
 // the center. See computeMacroGeometry() in lib/nutrition.js for the math.
-export default function MacroRing({ geometry, kcal, size = 'tile', className = '' }) {
+export default function MacroRing({ geometry, kcal, size = 'tile', className = '', concealed = false }) {
   const sizeClass = {
     tile: 'rsm2-ring',
     row: 'rsm2-row__ring',
@@ -21,7 +21,7 @@ export default function MacroRing({ geometry, kcal, size = 'tile', className = '
       aria-hidden="true"
     >
       <div className={coreClass}>
-        <strong>{Number.isFinite(kcal) ? Math.round(kcal) : '—'}</strong>
+        <strong>{concealed ? '—' : (Number.isFinite(kcal) ? Math.round(kcal) : '—')}</strong>
         {/* On the compact mobile row the label only fits once the ring is
             rendered tall; CSS hides it in the small variant. */}
         <span>ккал</span>
