@@ -21,6 +21,7 @@ const restaurant = {
   lat: 55.7645,
   lon: 37.6055,
   dishesCount: 42,
+  instagramUrl: 'https://instagram.com/coffee-test?igsh=tracking',
   dishes: [
     { name: 'Суп', kcal: 220 },
     { name: 'Паста', kcal: 480 },
@@ -108,6 +109,7 @@ test.beforeEach(async ({ page }) => {
             { id: 'cafe', name: 'Кафе' },
             { id: 'coffee_tea', name: 'Кофе и чай' },
             { id: 'fast_food', name: 'Быстрая еда' },
+            { id: 'bar', name: 'Бары' },
           ],
         },
       })
@@ -149,6 +151,10 @@ test('opens on the map, shows a restaurant card and persists mobile list view in
   await mapCard.getByRole('button', { name: 'Развернуть все' }).click()
   await expect(mapCard).toContainText('м Кузнецкий Мост (900м)')
   await expect(mapCard.getByRole('button', { name: 'Открыть меню' })).toBeVisible()
+  await expect(mapCard.getByRole('link', { name: 'Открыть Instagram' })).toHaveAttribute(
+    'href',
+    'https://www.instagram.com/coffee-test/',
+  )
 
   await page.getByRole('button', { name: 'Показать список ресторанов' }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
@@ -521,6 +527,10 @@ test('keeps the auto-update badge next to the restaurant name', async ({ page })
   await expect(page.locator('.catalog-card')).not.toContainText('Кузнецкий Мост')
   await expect(page.locator('.catalog-card__metro .metro-stations__symbol').first()).toHaveCSS('color', 'rgb(126, 87, 194)')
   await expect(title).toHaveCSS('display', 'flex')
+  await expect(page.locator('.catalog-card').getByRole('link', { name: 'Открыть Instagram' })).toHaveAttribute(
+    'href',
+    'https://www.instagram.com/coffee-test/',
+  )
 
   const [nameBox, badgeBox] = await Promise.all([
     name.boundingBox(),
