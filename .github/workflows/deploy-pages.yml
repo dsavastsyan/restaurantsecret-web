@@ -40,6 +40,8 @@ jobs:
           SITEMAP_API_KEY: ${{ secrets.SITEMAP_API_KEY }}
           SITEMAP_STRICT_API_FETCH: 'true'
           SITEMAP_MIN_RESTAURANTS: '300'
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          VITE_RESTAURANT_API_BASE: https://tg.restaurantsecret.ru
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4

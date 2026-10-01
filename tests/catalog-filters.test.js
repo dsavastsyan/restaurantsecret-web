@@ -54,7 +54,7 @@ test('filters by the primary venue type and ignores unknown API values', () => {
 
   assert.deepEqual(
     CATALOG_VENUE_TYPES.map((option) => option.name),
-    ['Рестораны', 'Кафе', 'Кофе и чай', 'Быстрая еда'],
+    ['Рестораны', 'Кафе', 'Кофе и чай', 'Быстрая еда', 'Бары'],
   )
   assert.equal(getCatalogRestaurantVenueType(restaurants[2]), '')
   assert.deepEqual(
@@ -67,5 +67,18 @@ test('reads all supported metro fields used by catalog and map responses', () =>
   assert.deepEqual(
     getCatalogRestaurantMetroNames({ metro_name: 'Охотный ряд', metros: ['Театральная'] }),
     ['охотный ряд', 'театральная'],
+  )
+})
+
+test('supports selecting several venue types together', () => {
+  const restaurants = [
+    { name: 'Ресторан', primary_venue_type: 'restaurant' },
+    { name: 'Кафе', primary_venue_type: 'cafe' },
+    { name: 'Кофейня', primary_venue_type: 'coffee_tea' },
+  ]
+
+  assert.deepEqual(
+    filterCatalogRestaurants(restaurants, { venueType: ['restaurant', 'coffee_tea'] }),
+    [restaurants[0], restaurants[2]],
   )
 })

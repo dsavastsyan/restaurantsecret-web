@@ -9,6 +9,10 @@ const waitForSuccessfulResponse = (page, predicate) =>
   })
 
 test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) => {
+  // This is a deployed-preview integration check against the full staging
+  // catalog, not a mocked UI test. The real catalog response can take longer
+  // than Playwright's 30s default while D1 is under load.
+  test.setTimeout(60_000)
   const mapRuntimeErrors = []
   page.on('console', (message) => {
     if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
@@ -49,8 +53,13 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
 
   // Moving past the landing page should fetch the catalog data.
   const catalogResponsePromise = waitForSuccessfulResponse(page, (response) => {
-    const path = new URL(response.url()).pathname
-    return path.endsWith('/restaurants') && response.request().method() === 'GET'
+    const url = new URL(response.url())
+    const limit = Number(url.searchParams.get('limit'))
+    return url.pathname.endsWith('/restaurants')
+      && Number.isInteger(limit)
+      && limit > 0
+      && limit <= 48
+      && response.request().method() === 'GET'
   })
 
   await Promise.all([
@@ -65,8 +74,8 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // don't assume identity between the two, just that results exist.
   expect(catalogPayload?.items?.length).toBeGreaterThan(0)
 
-  await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
+  await expect(page.locator('.catalog-results')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
   await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
@@ -76,11 +85,10 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   if (await previewPersonaToggle.isVisible() && await previewPersonaToggle.getAttribute('aria-expanded') === 'true') {
     await previewPersonaToggle.click()
   }
-  await page.getByRole('button', { name: 'Список', exact: true }).click()
-  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
-
-  const cards = page.locator('.catalog-card')
-  const firstCardButton = cards.first().getByRole('button', { name: 'Открыть меню' })
+  const firstCardButton = page
+    .locator('.catalog-card:not(.catalog-card--chain)')
+    .first()
+    .getByRole('button', { name: 'Открыть меню' })
   await expect(firstCardButton).toBeVisible()
 
   // Opening a restaurant navigates straight into its menu (no blocking modal

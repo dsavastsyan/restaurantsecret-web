@@ -33,6 +33,10 @@ export type Restaurant = {
 
 export type RestaurantListResponse = {
   items: Restaurant[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+  hasMore?: boolean;
 };
 
 export type SearchRestaurant = {

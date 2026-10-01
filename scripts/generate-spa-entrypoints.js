@@ -15,6 +15,7 @@ const spaRoutes = [
   'admin/login',
   'admin/menu-revisions',
   'admin/restaurant-reviews',
+  'admin/google-place-reviews',
   // City catalog pages (/catalog/:city) are NOT listed here — generate-sitemap.js
   // writes a fully prerendered entrypoint for each real city (title/H1/meta,
   // not just the bare SPA shell), and runs after this script in `npm run build`.

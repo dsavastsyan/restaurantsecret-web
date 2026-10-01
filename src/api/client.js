@@ -1,10 +1,15 @@
 // Tiny wrapper around fetch. Handles query parameters, JSON parsing errors,
 // and provides typed errors for UI handling.
-import { API_BASE } from '@/config/api';
+import { API_BASE, IS_PREVIEW } from '@/config/api';
 
 const BASE = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
 const URL_BASE = new URL(BASE, globalThis.location?.origin ?? 'http://localhost');
-const DEFAULT_TIMEOUT_MS = 15_000;
+// Staging D1 is intentionally smaller and less provisioned than production;
+// its full catalog query can exceed 15 seconds while a preview or local smoke
+// test is under CI load. Local Vite uses the staging URL without setting the
+// preview flag, so identify that backend explicitly as well.
+const IS_STAGING_API = URL_BASE.hostname === 'restaurantsecret-api-staging.dsavastyan.workers.dev';
+const DEFAULT_TIMEOUT_MS = IS_PREVIEW || IS_STAGING_API ? 30_000 : 15_000;
 
 const createApiError = (status, message, kind) => ({
   status,
@@ -82,6 +87,7 @@ export const api = {
   detectedCity: () => get('location'),
   filters: (city = 'Москва') => get('filters', { city }),
   metro: () => get('metro'),
+  geocode: (query, city) => get('geocode', { query, city }),
   restaurants: (opts) => get('restaurants', opts),
   restaurantMap: (opts) => get('restaurants/map', opts),
   restaurant: (slug, city = 'Москва') => get(`restaurants/${encodeURIComponent(slug)}`, { city }),

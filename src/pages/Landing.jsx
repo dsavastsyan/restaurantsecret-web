@@ -26,6 +26,7 @@ const STATS_FALLBACK = {
   weeklyAdded: 0,
 }
 const FEATURED_RESTAURANTS_LIMIT = 12
+const FEATURED_RESTAURANTS_FETCH_LIMIT = 48
 const RestaurantMap = lazy(() => import('@/components/RestaurantMap'))
 
 const POPULAR_QUERIES = ['бургер', 'боул с лососем', 'салат цезарь', 'стейк', 'паста']
@@ -253,7 +254,10 @@ export default function Landing() {
 
     setFeaturedRestaurants([])
     setTotalRestaurantsCount(0)
-    getRestaurants(2000, selectedCatalogCity)
+    // # The landing page only needs a small candidate set for its featured
+    // # cards. Loading the whole catalog here competed with the catalog search
+    // # request when a user submitted a query from the hero search.
+    getRestaurants(FEATURED_RESTAURANTS_FETCH_LIMIT, selectedCatalogCity)
       .then((payload) => {
         if (cancelled) return
         const items = Array.isArray(payload?.items) ? payload.items : []
@@ -271,7 +275,8 @@ export default function Landing() {
           .slice(0, FEATURED_RESTAURANTS_LIMIT)
 
         setFeaturedRestaurants(featured)
-        setTotalRestaurantsCount(normalized.length)
+        const total = Number(payload?.total)
+        setTotalRestaurantsCount(Number.isFinite(total) ? total : normalized.length)
       })
       .catch((error) => {
         console.error('Failed to load featured restaurants', error)

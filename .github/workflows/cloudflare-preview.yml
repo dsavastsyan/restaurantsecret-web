@@ -41,8 +41,13 @@ jobs:
           VITE_API_BASE: ${{ env.STAGING_PUBLIC_API }}
           VITE_API_URL: ${{ env.STAGING_PUBLIC_API }}
           VITE_PD_API_BASE: ${{ env.STAGING_PD_API }}
+          VITE_RESTAURANT_API_BASE: ${{ env.STAGING_PUBLIC_API_UPSTREAM }}
           VITE_DEPLOY_ENV: preview
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SITEMAP_API_URL: ${{ env.STAGING_PUBLIC_API_UPSTREAM }}
+          SITEMAP_FETCH_TIMEOUT_MS: '45000'
+          SITEMAP_STRICT_API_FETCH: 'true'
+          SITEMAP_MIN_RESTAURANTS: '1'
         run: npm run build:preview
 
       - name: Select Cloudflare Pages branch
