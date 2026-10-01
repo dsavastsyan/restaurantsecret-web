@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('unauthenticated admin preview redirects before loading protected page data', async ({ page }) => {
+test('@smoke unauthenticated admin preview redirects before loading protected page data', async ({ page }) => {
   const protectedCalls = []
 
   await page.route('**/api/admin/**', async (route) => {
@@ -22,7 +22,7 @@ test('unauthenticated admin preview redirects before loading protected page data
   expect(protectedCalls).toEqual([])
 })
 
-test('administrator confirms a network alias and attaches a Google point to a branch', async ({ page }) => {
+test('@smoke administrator confirms a network alias and attaches a Google point to a branch', async ({ page }) => {
   const decisions = []
 
   await page.route('**/api/admin/**', async (route) => {

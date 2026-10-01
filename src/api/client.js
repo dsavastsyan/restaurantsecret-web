@@ -5,10 +5,11 @@ import { API_BASE, IS_PREVIEW } from '@/config/api';
 const BASE = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
 const URL_BASE = new URL(BASE, globalThis.location?.origin ?? 'http://localhost');
 // Staging D1 is intentionally smaller and less provisioned than production;
-// its full catalog query can exceed 15 seconds while a preview is under CI
-// load. Keep the production budget unchanged, but let preview validation wait
-// for the real response instead of showing a false network error.
-const DEFAULT_TIMEOUT_MS = IS_PREVIEW ? 30_000 : 15_000;
+// its full catalog query can exceed 15 seconds while a preview or local smoke
+// test is under CI load. Local Vite uses the staging URL without setting the
+// preview flag, so identify that backend explicitly as well.
+const IS_STAGING_API = URL_BASE.hostname === 'restaurantsecret-api-staging.dsavastyan.workers.dev';
+const DEFAULT_TIMEOUT_MS = IS_PREVIEW || IS_STAGING_API ? 30_000 : 15_000;
 
 const createApiError = (status, message, kind) => ({
   status,
