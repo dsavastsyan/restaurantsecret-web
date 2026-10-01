@@ -31,6 +31,7 @@ import {
   normalizeCatalogCuisine,
 } from '@/lib/catalogFilters'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
+import '../catalog-compact.css'
 
 const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 
@@ -146,7 +147,27 @@ export default function Catalog() {
   const [geolocationLoading, setGeolocationLoading] = useState(false)
   const [geolocationError, setGeolocationError] = useState('')
   const [isPickingLocation, setIsPickingLocation] = useState(false)
+  const [openFilter, setOpenFilter] = useState(null)
+  const compactFiltersRef = useRef(null)
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => {
+      if (compactFiltersRef.current && !compactFiltersRef.current.contains(event.target)) {
+        setOpenFilter(null)
+      }
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpenFilter(null)
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
 
   const cityMetroData = useMemo(() => {
     const stations = (metroData.stations || []).filter((station) => station.city === selectedCity.id)
@@ -230,6 +251,7 @@ export default function Catalog() {
     setAddressError('')
     setGeolocationError('')
     setIsPickingLocation(false)
+    setOpenFilter(null)
     setCurrentPage(1)
   }, [accessToken, navigate, query, searchParams, selectedCity.id])
 
@@ -429,6 +451,22 @@ export default function Catalog() {
       name: namesById.get(option.id) || option.name,
     }))
   }, [filters?.venueTypes, filters?.venue_types])
+
+  const selectedVenueTypeName = venueTypeOptions.find((option) => option.id === selectedVenueType)?.name
+  const placeFilterCount = selectedCuisines.length + (selectedVenueType ? 1 : 0)
+  const placeFilterSummary = [
+    selectedCuisines.length === 1
+      ? selectedCuisines[0]
+      : selectedCuisines.length > 1
+        ? `${selectedCuisines.length} ${getRussianPluralWord(selectedCuisines.length, 'кухня', 'кухни', 'кухонь')}`
+        : null,
+    selectedVenueTypeName,
+  ].filter(Boolean).join(' · ') || 'Кухня и тип'
+  const locationFilterSummary = locationMode === 'metro'
+    ? `${selectedMetro.length === 1 ? selectedMetro[0] : selectedMetro.length > 1 ? `${selectedMetro.length} метро` : 'У метро'} · ${radiusKm} км`
+    : locationMode === 'nearby'
+      ? `${nearbyPointLabel || 'Рядом с точкой'} · ${radiusKm} км`
+      : `В центре · ${radiusKm} км`
 
   const visibleMetroStations = useMemo(
     () => debouncedQuery
@@ -660,6 +698,7 @@ export default function Catalog() {
   const handlePickOnMap = useCallback(() => {
     setLocationMode('nearby')
     setIsPickingLocation(true)
+    setOpenFilter(null)
     setAddressError('')
     setGeolocationError('')
     if (viewMode !== 'map') changeViewMode('map')
@@ -679,37 +718,8 @@ export default function Catalog() {
   return (
     <div className={`catalog-page catalog-page--${viewMode}`}>
       <header className="catalog-heading">
-        <p className="catalog-heading__eyebrow">КБЖУ ресторанов</p>
         <div className="catalog-heading__row">
-          <h1 className="catalog-heading__title">КБЖУ ресторанов {cityGenitiveName}</h1>
-          <div className="catalog-view-switch" role="group" aria-label="Вид каталога">
-            <button
-              type="button"
-              className={viewMode === 'map' ? 'is-active' : ''}
-              aria-pressed={viewMode === 'map'}
-              onClick={() => changeViewMode('map')}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="m3 6 5-3 8 3 5-3v15l-5 3-8-3-5 3Z" />
-                <path d="M8 3v15M16 6v15" />
-              </svg>
-              Карта
-            </button>
-            <button
-              type="button"
-              className={viewMode === 'list' ? 'is-active' : ''}
-              aria-pressed={viewMode === 'list'}
-              onClick={() => changeViewMode('list')}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M9 6h12M9 12h12M9 18h12" />
-                <circle cx="4" cy="6" r="1" />
-                <circle cx="4" cy="12" r="1" />
-                <circle cx="4" cy="18" r="1" />
-              </svg>
-              Список
-            </button>
-          </div>
+          <h1 className="catalog-heading__title">Куда пойдём <em>сегодня?</em></h1>
         </div>
         <p className="catalog-heading__lead">
           {'КБЖУ блюд в '}
@@ -730,7 +740,7 @@ export default function Catalog() {
 
       <section className="catalog-hero" aria-label="Поиск и фильтры ресторанов">
         <div className="catalog-hero__inner">
-          <form className="catalog-search" onSubmit={handleSubmit}>
+          <form className="catalog-search" onSubmit={handleSubmit} ref={compactFiltersRef}>
             <label className="sr-only" htmlFor="restaurant-search">Поиск по ресторанам</label>
             <div
               className="catalog-search__field"
@@ -808,115 +818,182 @@ export default function Catalog() {
               )}
             </div>
             <button
-              type="button"
-              className="catalog-search__filter-btn"
-              aria-label="Фильтры ресторанов"
-              onClick={() => document.querySelector('.catalog-filter')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+              type="submit"
+              className="catalog-search__submit btn btn--primary"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M3 6h10M17 6h4M9 6a2 2 0 1 0 0 0ZM3 12h4M11 12h10M15 12a2 2 0 1 0 0 0ZM3 18h10M17 18h4M9 18a2 2 0 1 0 0 0Z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
+              Найти
             </button>
-            <div className="catalog-filter-row">
-              <div className="catalog-filter">
-                <label className="catalog-filter__label" htmlFor="catalog-city">Город</label>
-                <div className="catalog-filter__select-wrap">
-                  <select id="catalog-city" className="catalog-metro-select" value={selectedCity.id}
-                    onFocus={() => analytics.track('city_selector_open', { selected_city: selectedCity.id })}
-                    onChange={(event) => {
-                    const city = cities.find((item) => item.id === event.target.value)
-                    if (city) changeCity(city)
-                  }}>
-                    {cities.length ? cities.map((city) => (
-                      <option key={city.id} value={city.id}>{city.name}</option>
-                    )) : <option value="Москва">Москва</option>}
-                  </select>
+
+            <div className="catalog-compact-filters">
+              <button
+                type="button"
+                className={`catalog-compact-filter${openFilter === 'location' ? ' is-open' : ''}`}
+                aria-expanded={openFilter === 'location'}
+                aria-controls="catalog-location-popover"
+                onClick={() => setOpenFilter((current) => current === 'location' ? null : 'location')}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
+                  <circle cx="12" cy="10" r="2.1" />
+                </svg>
+                <span>
+                  <small>Где удобно?</small>
+                  <strong>{locationFilterSummary}</strong>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`catalog-compact-filter${openFilter === 'place' ? ' is-open' : ''}`}
+                aria-expanded={openFilter === 'place'}
+                aria-controls="catalog-place-popover"
+                onClick={() => setOpenFilter((current) => current === 'place' ? null : 'place')}
+              >
+                <CuisineIcon />
+                <span>
+                  <small>Что ищем?</small>
+                  <strong>{placeFilterSummary}</strong>
+                </span>
+                {placeFilterCount > 0 && <b aria-label={`Выбрано фильтров: ${placeFilterCount}`}>{placeFilterCount}</b>}
+              </button>
+            </div>
+
+            {openFilter && (
+              <button
+                type="button"
+                className="catalog-filter-backdrop"
+                aria-label="Закрыть фильтры"
+                onClick={() => setOpenFilter(null)}
+              />
+            )}
+
+            <div
+              id="catalog-location-popover"
+              className={`catalog-filter-popover catalog-filter-popover--location${openFilter === 'location' ? ' is-open' : ''}`}
+              role="dialog"
+              aria-labelledby="catalog-location-popover-title"
+              aria-hidden={openFilter !== 'location'}
+            >
+              <div className="catalog-filter-popover__head">
+                <div>
+                  <h2 id="catalog-location-popover-title">Где удобно?</h2>
+                  <p>Выберите ориентир и допустимый радиус</p>
                 </div>
-              </div>
-              <div className="catalog-filter">
-                <label className="catalog-filter__label" htmlFor="catalog-venue-type">Тип заведения</label>
-                <div className="catalog-filter__select-wrap">
-                  <select
-                    id="catalog-venue-type"
-                    className="catalog-metro-select"
-                    value={selectedVenueType}
-                    onChange={(event) => setSelectedVenueType(event.target.value)}
-                  >
-                    <option value="">Все типы</option>
-                    {venueTypeOptions.map((venueType) => (
-                      <option key={venueType.id} value={venueType.id}>{venueType.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="catalog-filter">
-                <div className="catalog-filter__label">Кухня</div>
-                <div className="catalog-filter__control">
-                  <CuisineFilter
-                    cuisines={cuisineOptions}
-                    selectedCuisines={selectedCuisines}
-                    onChange={setSelectedCuisines}
-                  />
-                </div>
+                <button type="button" onClick={() => setOpenFilter(null)} aria-label="Закрыть">×</button>
               </div>
               <CatalogLocationFilter
-                mode={locationMode}
-                onModeChange={handleLocationModeChange}
-                radiusKm={radiusKm}
-                onRadiusChange={handleRadiusChange}
-                metroData={cityMetroData}
-                selectedStationNames={selectedMetro}
-                onMetroChange={setSelectedMetro}
-                pointLabel={nearbyPointLabel}
-                addressQuery={addressQuery}
-                onAddressQueryChange={handleAddressQueryChange}
-                onAddressSearch={handleAddressSearch}
-                addressResults={addressResults}
-                addressLoading={addressLoading}
-                addressError={addressError}
-                onSelectAddress={handleSelectAddress}
-                onUseCurrentLocation={handleUseCurrentLocation}
-                geolocationLoading={geolocationLoading}
-                geolocationError={geolocationError}
-                onPickOnMap={handlePickOnMap}
-                isPickingOnMap={isPickingLocation}
-              />
+                  mode={locationMode}
+                  onModeChange={handleLocationModeChange}
+                  radiusKm={radiusKm}
+                  onRadiusChange={handleRadiusChange}
+                  metroData={cityMetroData}
+                  selectedStationNames={selectedMetro}
+                  onMetroChange={setSelectedMetro}
+                  pointLabel={nearbyPointLabel}
+                  addressQuery={addressQuery}
+                  onAddressQueryChange={handleAddressQueryChange}
+                  onAddressSearch={handleAddressSearch}
+                  addressResults={addressResults}
+                  addressLoading={addressLoading}
+                  addressError={addressError}
+                  onSelectAddress={handleSelectAddress}
+                  onUseCurrentLocation={handleUseCurrentLocation}
+                  geolocationLoading={geolocationLoading}
+                  geolocationError={geolocationError}
+                  onPickOnMap={handlePickOnMap}
+                  isPickingOnMap={isPickingLocation}
+                />
+            </div>
+
+            <div
+              id="catalog-place-popover"
+              className={`catalog-filter-popover catalog-filter-popover--place${openFilter === 'place' ? ' is-open' : ''}`}
+              role="dialog"
+              aria-labelledby="catalog-place-popover-title"
+              aria-hidden={openFilter !== 'place'}
+            >
+              <div className="catalog-filter-popover__head">
+                <div>
+                  <h2 id="catalog-place-popover-title">Кухня и тип заведения</h2>
+                  <p>Можно выбрать несколько кухонь</p>
+                </div>
+                <button type="button" onClick={() => setOpenFilter(null)} aria-label="Закрыть">×</button>
+              </div>
+              <div className="catalog-filter-popover__grid">
+                <div className="catalog-filter">
+                  <label className="catalog-filter__label" htmlFor="catalog-city">Город</label>
+                  <div className="catalog-filter__select-wrap">
+                    <select id="catalog-city" className="catalog-metro-select" value={selectedCity.id}
+                      onFocus={() => analytics.track('city_selector_open', { selected_city: selectedCity.id })}
+                      onChange={(event) => {
+                      const city = cities.find((item) => item.id === event.target.value)
+                      if (city) changeCity(city)
+                    }}>
+                      {cities.length ? cities.map((city) => (
+                        <option key={city.id} value={city.id}>{city.name}</option>
+                      )) : <option value="Москва">Москва</option>}
+                    </select>
+                  </div>
+                </div>
+                <div className="catalog-filter">
+                  <label className="catalog-filter__label" htmlFor="catalog-venue-type">Тип заведения</label>
+                  <div className="catalog-filter__select-wrap">
+                    <select
+                      id="catalog-venue-type"
+                      className="catalog-metro-select"
+                      value={selectedVenueType}
+                      onChange={(event) => setSelectedVenueType(event.target.value)}
+                    >
+                      <option value="">Все типы</option>
+                      {venueTypeOptions.map((venueType) => (
+                        <option key={venueType.id} value={venueType.id}>{venueType.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="catalog-filter catalog-filter--cuisine">
+                  <div className="catalog-filter__label">Кухня</div>
+                  <div className="catalog-filter__control">
+                    <CuisineFilter
+                      cuisines={cuisineOptions}
+                      selectedCuisines={selectedCuisines}
+                      onChange={setSelectedCuisines}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </form>
         </div>
       </section>
 
-      {viewMode === 'map' ? (
-        <Suspense fallback={<div className="catalog-map-fallback">Загружаем карту…</div>}>
-          <CatalogMap
-            restaurants={mapLoading ? [] : mapItems}
-            metroStations={visibleMetroStations}
-            selectedMetroStationNames={selectedMetro}
-            focusPoints={locationAnchorPoints}
-            radiusPoints={locationAnchorPoints}
-            radiusMeters={radiusKm * 1000}
-            isPickingLocation={isPickingLocation}
-            onPickLocation={handleMapLocationPick}
-            onCancelLocationPick={() => setIsPickingLocation(false)}
-            center={selectedCity?.center ? [selectedCity.center.lat, selectedCity.center.lon] : undefined}
-            zoom={selectedCity?.recommendedZoom}
-            loading={mapLoading}
-            error={mapError}
-            totalResults={filteredItems.length}
-            isFavorite={isFavorite}
-            onToggleFavorite={handleToggleFavorite}
-            onOpenRestaurant={openMenu}
-            onShowList={() => changeViewMode('list')}
-          />
-        </Suspense>
-      ) : (
-      <section className="catalog-results">
+      <div className="catalog-content">
+        <div className="catalog-map-column">
+          <Suspense fallback={<div className="catalog-map-fallback">Загружаем карту…</div>}>
+            <CatalogMap
+              key={viewMode}
+              restaurants={mapLoading ? [] : mapItems}
+              metroStations={visibleMetroStations}
+              selectedMetroStationNames={selectedMetro}
+              focusPoints={locationAnchorPoints}
+              radiusPoints={locationAnchorPoints}
+              radiusMeters={radiusKm * 1000}
+              isPickingLocation={isPickingLocation}
+              onPickLocation={handleMapLocationPick}
+              onCancelLocationPick={() => setIsPickingLocation(false)}
+              center={selectedCity?.center ? [selectedCity.center.lat, selectedCity.center.lon] : undefined}
+              zoom={selectedCity?.recommendedZoom}
+              loading={mapLoading}
+              error={mapError}
+              totalResults={filteredItems.length}
+              isFavorite={isFavorite}
+              onToggleFavorite={handleToggleFavorite}
+              onOpenRestaurant={openMenu}
+              onShowList={() => changeViewMode('list')}
+            />
+          </Suspense>
+        </div>
+        <section className="catalog-results">
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
         {!isInitialLoading && !error && (
           <div className="catalog-results__summary" role="status" aria-live="polite">
@@ -1093,8 +1170,30 @@ export default function Catalog() {
             </button>
           </nav>
         )}
-      </section>
-      )}
+        </section>
+      </div>
+
+      <button
+        type="button"
+        className={`catalog-mobile-view-toggle${openFilter ? ' is-hidden' : ''}`}
+        onClick={() => changeViewMode(viewMode === 'map' ? 'list' : 'map')}
+        aria-label={viewMode === 'map' ? 'Показать список ресторанов' : 'Показать карту ресторанов'}
+      >
+        {viewMode === 'map' ? (
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M8 6h12M8 12h12M8 18h12" />
+            <circle cx="4" cy="6" r="1" />
+            <circle cx="4" cy="12" r="1" />
+            <circle cx="4" cy="18" r="1" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m3 6 5-2 8 3 5-2v13l-5 2-8-3-5 2V6Z" />
+            <path d="M8 4v13M16 7v13" />
+          </svg>
+        )}
+        {viewMode === 'map' ? 'Список' : 'Карта'}
+      </button>
     </div>
   )
 }
