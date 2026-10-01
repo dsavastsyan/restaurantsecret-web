@@ -158,6 +158,7 @@ export const adminMenuRevisionsApi = {
       body,
     }),
   googlePlaceBranchReviews: () => request('/api/admin/google-place-branch-reviews'),
+  googlePlacesUsage: () => request('/api/admin/google-places-usage'),
   decideGooglePlaceBranchReview: (locationId, body) =>
     request(`/api/admin/google-place-branch-reviews/${encodeURIComponent(locationId)}/decision`, {
       method: 'POST',

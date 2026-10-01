@@ -108,6 +108,7 @@ test.beforeEach(async ({ page }) => {
             { id: 'cafe', name: 'Кафе' },
             { id: 'coffee_tea', name: 'Кофе и чай' },
             { id: 'fast_food', name: 'Быстрая еда' },
+            { id: 'bar', name: 'Бары' },
           ],
         },
       })

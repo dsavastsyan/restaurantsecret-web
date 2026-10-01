@@ -15,6 +15,54 @@ const REASON_LABELS = {
   google_place_id_conflict: 'Эти точки уже принадлежат другой внутренней сети',
 }
 
+function formatCount(value) {
+  return new Intl.NumberFormat('ru-RU').format(Number(value || 0))
+}
+
+function formatUsageMonth(value) {
+  if (!/^\d{4}-\d{2}$/.test(value || '')) return 'текущий месяц'
+  const [year, month] = value.split('-').map(Number)
+  return new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' })
+    .format(new Date(Date.UTC(year, month - 1, 1)))
+}
+
+function GooglePlacesUsageCard({ usage, loading, error }) {
+  const hasLimit = Number.isFinite(usage?.monthly_limit) && usage.monthly_limit > 0
+  const percentUsed = hasLimit ? Number(usage.percent_used || 0) : 0
+  const progressValue = Math.min(percentUsed, 100)
+
+  return (
+    <aside className="admin-place-review__usage" aria-label="Расход Google Places">
+      <div>
+        <p className="admin-place-review__eyebrow">Расход Google Places</p>
+        <div className="admin-place-review__usage-number">
+          {loading ? '…' : formatCount(usage?.request_count)}{' '}
+          <span>запросов</span>
+        </div>
+        <p className="admin-place-review__usage-period">
+          {formatUsageMonth(usage?.usage_month)} · Places UI Kit Query
+        </p>
+      </div>
+      <div className={`admin-place-review__usage-budget${percentUsed >= 100 ? ' is-over-budget' : ''}`}>
+        {hasLimit ? (
+          <>
+            <strong>{formatCount(usage.remaining)} осталось</strong>
+            <span>из {formatCount(usage.monthly_limit)} в заданном лимите</span>
+            <progress value={progressValue} max="100" aria-label={`Использовано ${percentUsed}% лимита`} />
+            <small>Использовано {percentUsed}%</small>
+          </>
+        ) : (
+          <span>Лимит проекта не задан</span>
+        )}
+      </div>
+      <p className="admin-place-review__usage-note">
+        Считаем успешные запросы карточек Google. Для стоимости сверяйте этот показатель с Google Cloud Billing.
+        {error ? ` Счётчик недоступен: ${error}` : ''}
+      </p>
+    </aside>
+  )
+}
+
 function mapsUrl(placeId) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(placeId)}`
 }
@@ -184,6 +232,9 @@ export default function AdminGooglePlaceReviews() {
   const [loading, setLoading] = useState(true)
   const [workingId, setWorkingId] = useState(null)
   const [error, setError] = useState('')
+  const [usage, setUsage] = useState(null)
+  const [usageLoading, setUsageLoading] = useState(true)
+  const [usageError, setUsageError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -202,6 +253,25 @@ export default function AdminGooglePlaceReviews() {
   }, [mode, status])
 
   useEffect(() => { load() }, [load])
+
+  const loadUsage = useCallback(async () => {
+    setUsageLoading(true)
+    setUsageError('')
+    try {
+      setUsage(await adminMenuRevisionsApi.googlePlacesUsage())
+    } catch (requestError) {
+      setUsageError(requestError.message || 'не удалось загрузить')
+    } finally {
+      setUsageLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadUsage() }, [loadUsage])
+
+  const refresh = () => {
+    load()
+    loadUsage()
+  }
 
   const selectMode = (nextMode) => {
     const next = new URLSearchParams(searchParams)
@@ -251,8 +321,10 @@ export default function AdminGooglePlaceReviews() {
           <h1>Ревью сетей и точек</h1>
           <p>Сначала подтверждаем название всей сети. Привязка к филиалу — отдельный необязательный шаг.</p>
         </div>
-        <button type="button" onClick={load} disabled={loading}>Обновить</button>
+        <button type="button" onClick={refresh} disabled={loading || usageLoading}>Обновить</button>
       </header>
+
+      <GooglePlacesUsageCard usage={usage} loading={usageLoading} error={usageError} />
 
       <div className="admin-place-review__mode-tabs" role="tablist" aria-label="Тип очереди">
         <button type="button" className={mode === 'networks' ? 'active' : ''} onClick={() => selectMode('networks')}>

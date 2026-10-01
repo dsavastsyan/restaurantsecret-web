@@ -61,6 +61,18 @@ test('@smoke administrator confirms a network alias and attaches a Google point 
         },
       })
     }
+    if (path === '/api/admin/google-places-usage' && request.method() === 'GET') {
+      return route.fulfill({
+        json: {
+          ok: true,
+          usage_month: '2026-10',
+          request_count: 42,
+          monthly_limit: 1000,
+          remaining: 958,
+          percent_used: 4.2,
+        },
+      })
+    }
     if (path === '/api/admin/google-place-branch-reviews' && request.method() === 'GET') {
       return route.fulfill({
         json: {
@@ -88,6 +100,8 @@ test('@smoke administrator confirms a network alias and attaches a Google point 
   await page.goto('/admin/google-place-reviews')
 
   await expect(page.getByRole('heading', { name: 'Ревью сетей и точек' })).toBeVisible()
+  await expect(page.getByLabel('Расход Google Places')).toContainText('42 запросов')
+  await expect(page.getByLabel('Расход Google Places')).toContainText('958 осталось')
   await expect(page.getByRole('heading', { name: 'Братья Карваевы' })).toBeVisible()
   await page.getByText('Проверить найденные точки (1)').click()
   await expect(page.getByRole('link', { name: 'Кулинарная лавка братьев Караваевых' }))
