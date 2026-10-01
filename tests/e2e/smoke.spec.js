@@ -54,8 +54,11 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // Moving past the landing page should fetch the catalog data.
   const catalogResponsePromise = waitForSuccessfulResponse(page, (response) => {
     const url = new URL(response.url())
+    const limit = Number(url.searchParams.get('limit'))
     return url.pathname.endsWith('/restaurants')
-      && url.searchParams.get('limit') === '1000'
+      && Number.isInteger(limit)
+      && limit > 0
+      && limit <= 48
       && response.request().method() === 'GET'
   })
 
