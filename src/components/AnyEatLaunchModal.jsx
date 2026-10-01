@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiGet, apiPost } from '@/lib/api'
-import { requestTurnstileToken } from '@/lib/turnstile'
+import { loadTurnstile } from '@/lib/turnstile'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import preview from '@/assets/anyeat-phone-left.png'
@@ -45,6 +45,9 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const turnstileContainerRef = useRef(null)
+  const turnstileWidgetIdRef = useRef(null)
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   const segment = token && hasActiveSub ? 'active' : 'default'
 
@@ -87,6 +90,38 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return () => { active = false }
   }, [open, token])
 
+  // Anonymous visitors render the Turnstile widget inline in the form itself
+  // (not a second overlay on top of this one) — in managed mode it usually
+  // auto-verifies within a second with no visible challenge, and the token
+  // lands in state via the callback for submit to pick up.
+  useEffect(() => {
+    if (!open || token || success) return
+    let active = true
+    let widgetId = null
+
+    loadTurnstile().then((turnstile) => {
+      if (!active || !turnstileContainerRef.current) return
+      widgetId = turnstile.render(turnstileContainerRef.current, {
+        sitekey: TURNSTILE_SITEKEY,
+        action: 'anyeat_waitlist',
+        theme: 'auto',
+        callback: (value) => setTurnstileToken(value),
+        'error-callback': () => setTurnstileToken(''),
+        'expired-callback': () => setTurnstileToken(''),
+      })
+      turnstileWidgetIdRef.current = widgetId
+    }).catch(() => { /* widget failed to load — submit stays disabled without a token */ })
+
+    return () => {
+      active = false
+      setTurnstileToken('')
+      if (widgetId != null) {
+        try { window.turnstile?.remove(widgetId) } catch { /* already gone */ }
+      }
+      turnstileWidgetIdRef.current = null
+    }
+  }, [open, token, success])
+
   useEffect(() => {
     if (!open) return
     trackGoal(`anyeat_modal_open_${segment}`)
@@ -104,7 +139,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   const canSubmit = token
     ? /^\S+@\S+\.\S+$/.test(email.trim()) &&
       consents.personal_data_advertising && consents.marketing_communications && !submitting
-    : /^\S+@\S+\.\S+$/.test(email.trim()) && publicConsent && !submitting
+    : /^\S+@\S+\.\S+$/.test(email.trim()) && publicConsent && Boolean(turnstileToken) && !submitting
 
   const submitAccountLinked = async () => {
     if (!accountEmail || email.trim().toLowerCase() !== accountEmail.toLowerCase()) {
@@ -119,12 +154,11 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   }
 
   const submitPublic = async () => {
-    let turnstileToken
-    try {
-      turnstileToken = await requestTurnstileToken(TURNSTILE_SITEKEY)
-    } catch (err) {
-      if (err?.message?.includes('отмен')) return // widget closed/expired — not an error to surface
-      throw err
+    // Gated by canSubmit, but the widget's token can still expire in the
+    // gap between becoming enabled and the click landing.
+    if (!turnstileToken) {
+      setError('Проверка безопасности ещё не завершена. Подождите секунду и попробуйте снова.')
+      return
     }
     await apiPost('/api/marketing-consent', {
       email: email.trim().toLowerCase(),
@@ -151,6 +185,12 @@ export default function AnyEatLaunchModal({ embedded = false }) {
       window.dispatchEvent(new CustomEvent('rs:anyeat-launch-submitted'))
     } catch {
       setError('Не удалось сохранить заявку. Попробуйте ещё раз.')
+      // A Turnstile token is single-use — whether or not this attempt
+      // actually consumed it server-side, force a fresh one before retry.
+      if (!token && turnstileWidgetIdRef.current != null) {
+        try { window.turnstile?.reset(turnstileWidgetIdRef.current) } catch { /* widget already gone */ }
+        setTurnstileToken('')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -200,6 +240,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             ) : (
               <div className="rs-anyeat__consents">
                 <label><input type="checkbox" checked={publicConsent} onChange={(event) => setPublicConsent(event.target.checked)} /><span>Даю согласие на <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> и согласен получить одно письмо о запуске AnyEat.</span></label>
+                <div className="rs-anyeat__turnstile" ref={turnstileContainerRef} />
               </div>
             )}
             {error && <p className="rs-anyeat__error" role="alert">{error}</p>}

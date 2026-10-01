@@ -4,6 +4,7 @@ const SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render
 type TurnstileApi = {
   render: (container: HTMLElement, options: Record<string, unknown>) => string;
   remove: (widgetId: string) => void;
+  reset: (widgetId: string) => void;
 };
 
 declare global {
@@ -14,7 +15,7 @@ declare global {
 
 let scriptPromise: Promise<TurnstileApi> | null = null;
 
-function loadTurnstile(): Promise<TurnstileApi> {
+export function loadTurnstile(): Promise<TurnstileApi> {
   if (window.turnstile) return Promise.resolve(window.turnstile);
   if (scriptPromise) return scriptPromise;
 
