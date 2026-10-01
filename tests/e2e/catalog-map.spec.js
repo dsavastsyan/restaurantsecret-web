@@ -160,6 +160,15 @@ test('opens on the map, shows a restaurant card and persists mobile list view in
   await expect(page.locator('.catalog-grid')).toBeVisible()
 })
 
+test('keeps the wide catalog container on city routes', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/catalog/sankt-peterburg/')
+
+  const catalogContainer = page.locator('.container--catalog')
+  await expect(catalogContainer).toHaveCount(1)
+  await expect(catalogContainer).toHaveCSS('max-width', '1360px')
+})
+
 test('falls back to raster tiles when the vector base map cannot load', async ({ page }) => {
   await page.route('https://tiles.openfreemap.org/styles/positron*', (route) => route.fulfill({
     json: {
