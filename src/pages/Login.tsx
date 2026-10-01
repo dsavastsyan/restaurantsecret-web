@@ -90,6 +90,7 @@ export default function LoginPage() {
   const finishLogin = (token: string, nextPath: string) => {
     setToken(token);
     analytics.recordPolicyAcceptance();
+    analytics.identify();
     resetImmersiveViewport({ blurActiveElement: true });
     navigate(nextPath, { replace: true });
   };
