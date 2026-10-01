@@ -69,3 +69,16 @@ test('reads all supported metro fields used by catalog and map responses', () =>
     ['охотный ряд', 'театральная'],
   )
 })
+
+test('supports selecting several venue types together', () => {
+  const restaurants = [
+    { name: 'Ресторан', primary_venue_type: 'restaurant' },
+    { name: 'Кафе', primary_venue_type: 'cafe' },
+    { name: 'Кофейня', primary_venue_type: 'coffee_tea' },
+  ]
+
+  assert.deepEqual(
+    filterCatalogRestaurants(restaurants, { venueType: ['restaurant', 'coffee_tea'] }),
+    [restaurants[0], restaurants[2]],
+  )
+})

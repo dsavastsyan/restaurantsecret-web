@@ -64,7 +64,9 @@ export function filterCatalogRestaurants(
   const normalizedMetro = (Array.isArray(metro) ? metro : [metro])
     .map((station) => String(station || '').trim().toLowerCase())
     .filter(Boolean)
-  const normalizedVenueType = String(venueType).trim().toLowerCase()
+  const normalizedVenueTypes = (Array.isArray(venueType) ? venueType : [venueType])
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean)
 
   const matches = items.filter((item) => {
     const itemCuisines = String(item?.cuisine || '')
@@ -81,8 +83,8 @@ export function filterCatalogRestaurants(
     const restaurantMetroNames = getCatalogRestaurantMetroNames(item)
     const matchesMetro = !normalizedMetro.length
       || normalizedMetro.some((station) => restaurantMetroNames.includes(station))
-    const matchesVenueType = !normalizedVenueType
-      || getCatalogRestaurantVenueType(item) === normalizedVenueType
+    const matchesVenueType = !normalizedVenueTypes.length
+      || normalizedVenueTypes.includes(getCatalogRestaurantVenueType(item))
 
     return queryMatches && matchesCuisine && matchesMetro && matchesVenueType
   })

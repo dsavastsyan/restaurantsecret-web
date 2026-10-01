@@ -142,7 +142,7 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
           was trapped inside a single line. Everything else stacks to its right.
         */}
         <div className={`rsm2-row__lower ${hasDishAccess ? '' : 'rsm2-row__lower--teaser'}`}>
-          <MacroRing geometry={geometry} kcal={dish.kcal} size="row" className="rsm2-row__ring--tall" />
+          <MacroRing geometry={geometry} kcal={dish.kcal} size="row" className="rsm2-row__ring--tall" concealed={!hasDishAccess} />
 
           <div className="rsm2-row__macro-col">
             <div className="rsm2-row__macrobar" aria-hidden="true">
@@ -151,7 +151,9 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
               <span className="rsm2-macrobar__seg rsm2-macrobar__seg--carb" style={{ width: `${geometry.carbPct}%` }} />
             </div>
             <span className="rsm2-row__macro-text">
-              Б {formatNumeric(dish.protein)} · Ж {formatNumeric(dish.fat)} · У {formatNumeric(dish.carbs)}
+              {hasDishAccess
+                ? `Б ${formatNumeric(dish.protein)} · Ж ${formatNumeric(dish.fat)} · У ${formatNumeric(dish.carbs)}`
+                : 'Б — · Ж — · У —'}
             </span>
           </div>
 

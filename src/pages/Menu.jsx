@@ -12,6 +12,7 @@ import {
   menuHasCompositions,
 } from '@/lib/ingredients'
 import { formatMenuCapturedAt } from '@/lib/dates'
+import { parseCatalogNutritionCriteria } from '@/lib/catalogFilterParams'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { useDishCardStore } from '@/store/dishCard'
@@ -32,6 +33,35 @@ const createDefaultRange = () => ({
 // Excluding is the common case ("покажи всё без грибов"), so it is the default
 // mode; 'include' flips the filter into "только с этим ингредиентом".
 const createDefaultIngredientFilter = () => ({ mode: 'exclude', selected: [] })
+
+const CATALOG_TO_MENU_PRESETS = [
+  { key: 'lowKcal', field: 'calories', bound: 'max', value: 400 },
+  { key: 'highProtein', field: 'protein', bound: 'min', value: 25 },
+  { key: 'lowFat', field: 'fat', bound: 'max', value: 10 },
+]
+
+const createMenuFiltersFromCatalog = (searchParams) => {
+  const criteria = parseCatalogNutritionCriteria(searchParams)
+  const presets = createDefaultPresets()
+  const range = {
+    kcal: { ...criteria.calories },
+    protein: { ...criteria.protein },
+    fat: { ...criteria.fat },
+    carbs: { ...criteria.carbs },
+  }
+
+  CATALOG_TO_MENU_PRESETS.forEach(({ key, field, bound, value }) => {
+    const current = criteria[field] || {}
+    const oppositeBound = bound === 'min' ? 'max' : 'min'
+    if (current[oppositeBound] === '' && String(current[bound] ?? '') === String(value)) {
+      presets[key] = true
+      const menuField = field === 'calories' ? 'kcal' : field
+      range[menuField] = { min: '', max: '' }
+    }
+  })
+
+  return { presets, range }
+}
 
 // Russian numeral agreement: 1 блюдо / 2-4 блюда / 5+ блюд (11-14 always
 // take the "many" form regardless of the last digit, hence the % 100 check).
@@ -85,6 +115,11 @@ export default function Menu({
   const { slug: routeSlug } = useParams()
   const slug = previewRestaurantSlug || routeSlug
   const [routeSearchParams] = useSearchParams()
+  const routeFilterKey = routeSearchParams.toString()
+  const initialMenuFilters = useMemo(
+    () => createMenuFiltersFromCatalog(routeSearchParams),
+    [routeFilterKey],
+  )
   const city = routeSearchParams.get('city') || 'Москва'
   const navigate = useNavigate()
   const accessToken = useAuth((state) => state.accessToken)
@@ -114,24 +149,25 @@ export default function Menu({
   const [selectedSection, setSelectedSection] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
-  const [presets, setPresets] = useState(createDefaultPresets)
-  const [range, setRange] = useState(createDefaultRange)
+  const [presets, setPresets] = useState(() => initialMenuFilters.presets)
+  const [range, setRange] = useState(() => initialMenuFilters.range)
   const [allCategoriesExpanded, setAllCategoriesExpanded] = useState(false)
   const [isIngredientFilterOpen, setIsIngredientFilterOpen] = useState(false)
   const [ingredientFilter, setIngredientFilter] = useState(createDefaultIngredientFilter)
 
-  // Reset filters whenever the restaurant slug changes.
+  // Reset menu-local filters when the restaurant or incoming catalog filters change.
   useEffect(() => {
     setQuery('')
     setSelectedSection('all')
     setSelectedCategory('all')
     setIsAdvancedFiltersOpen(false)
-    setPresets(createDefaultPresets())
-    setRange(createDefaultRange())
     setAllCategoriesExpanded(false)
     setIsIngredientFilterOpen(false)
     setIngredientFilter(createDefaultIngredientFilter())
-  }, [city, slug])
+    const nextMenuFilters = createMenuFiltersFromCatalog(routeSearchParams)
+    setPresets(nextMenuFilters.presets)
+    setRange(nextMenuFilters.range)
+  }, [city, routeFilterKey, slug])
 
   // Fetch the menu.
   useEffect(() => {

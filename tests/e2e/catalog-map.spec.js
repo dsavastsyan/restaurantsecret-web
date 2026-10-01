@@ -21,6 +21,7 @@ const restaurant = {
   lat: 55.7645,
   lon: 37.6055,
   dishesCount: 42,
+  instagramUrl: 'https://instagram.com/coffee-test?igsh=tracking',
   dishes: [
     { name: 'Суп', kcal: 220 },
     { name: 'Паста', kcal: 480 },
@@ -150,6 +151,10 @@ test('opens on the map, shows a restaurant card and persists mobile list view in
   await mapCard.getByRole('button', { name: 'Развернуть все' }).click()
   await expect(mapCard).toContainText('м Кузнецкий Мост (900м)')
   await expect(mapCard.getByRole('button', { name: 'Открыть меню' })).toBeVisible()
+  await expect(mapCard.getByRole('link', { name: 'Открыть Instagram' })).toHaveAttribute(
+    'href',
+    'https://www.instagram.com/coffee-test/',
+  )
 
   await page.getByRole('button', { name: 'Показать список ресторанов' }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
@@ -159,6 +164,74 @@ test('opens on the map, shows a restaurant card and persists mobile list view in
   await page.reload()
   await expect(page.getByRole('button', { name: 'Показать карту ресторанов' })).toBeVisible()
   await expect(page.locator('.catalog-grid')).toBeVisible()
+})
+
+test('keeps the wide catalog container on city routes', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/catalog/sankt-peterburg/')
+
+  const catalogContainer = page.locator('.container--catalog')
+  await expect(catalogContainer).toHaveCount(1)
+  await expect(catalogContainer).toHaveCSS('max-width', '1360px')
+})
+
+test('clears a previous geolocation error after a later successful location request', async ({ page }) => {
+  await page.addInitScript(() => {
+    let requestCount = 0
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success, failure) {
+          requestCount += 1
+          if (requestCount === 1) {
+            failure({ code: 1 })
+            return
+          }
+          success({ coords: { latitude: 55.751244, longitude: 37.618423, accuracy: 30 } })
+        },
+      },
+    })
+  })
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: /Рядом с точкой/ }).click()
+
+  await page.getByRole('button', { name: 'Выбрать' }).click()
+  await expect(page.getByText('Не удалось определить местоположение.', { exact: false })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Выбрать' }).click()
+  await expect(page.locator('.catalog-location-filter__status')).toHaveText('Выбрано: моё местоположение')
+  await expect(page.getByText('Не удалось определить местоположение.', { exact: false })).toHaveCount(0)
+})
+
+test('allows location filters without a radius limit', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'В центре', exact: true }).click()
+  await page.getByRole('button', { name: 'Без ограничения', exact: true }).click()
+
+  await expect(page.getByRole('button', { name: 'Без ограничения', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('Escape')
+
+  const locationFilter = page.getByRole('button', { name: /Где удобно/ })
+  await expect(locationFilter).toContainText('В центре')
+  await expect(locationFilter).not.toContainText('3 км')
+  await expect(page.locator('.catalog-applied-filter')).toHaveCount(1)
+  await expect(page.locator('.catalog-applied-filter')).toHaveText('Центр×')
+})
+
+test('groups metro stations under expandable colored lines', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /Где удобно/ }).click()
+
+  const line = page.getByRole('button', { name: /Тестовая линия/ })
+  await expect(line).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('checkbox', { name: 'Тверская' })).toHaveCount(0)
+  await expect(line.locator('.catalog-location-filter__line-color')).toHaveCSS('background-color', 'rgb(229, 57, 53)')
+
+  await line.click()
+  await expect(line).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('checkbox', { name: 'Тверская' })).toBeVisible()
 })
 
 test('falls back to raster tiles when the vector base map cannot load', async ({ page }) => {
@@ -227,14 +300,44 @@ test('falls back to raster tiles when WebGL context is lost', async ({ page }) =
 test('filters both map and list by the primary venue type', async ({ page }) => {
   await page.goto('/catalog/moskva/')
 
-  await page.getByRole('button', { name: /Что ищем/ }).click()
-  await page.getByLabel('Тип заведения', { exact: true }).selectOption('coffee_tea')
+  await page.getByRole('button', { name: /Какое место/ }).click()
+  const coffee = page.getByRole('button', { name: 'Кофейня', exact: true })
+  await coffee.click()
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
-  await page.getByLabel('Тип заведения', { exact: true }).selectOption('restaurant')
+  await coffee.click()
+  await page.getByRole('button', { name: 'Ресторан', exact: true }).click()
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(0)
 
   await expect(page.locator('.catalog-card')).toHaveCount(0)
+})
+
+test('shows six popular cuisines first and expands the full list on demand', async ({ page }) => {
+  const cuisines = [
+    'Европейская',
+    'Итальянская',
+    'Японская',
+    'Грузинская',
+    'Азиатская',
+    'Американская',
+    'Аргентинская',
+    'Вьетнамская',
+  ]
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/filters')
+  ), (route) => route.fulfill({
+    json: { cuisines, venue_types: [{ id: 'restaurant', name: 'Рестораны' }] },
+  }))
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: /Какое место/ }).click()
+  const cuisineOptions = page.locator('.catalog-place-filter__cuisines input[type="checkbox"]')
+  await expect(cuisineOptions).toHaveCount(6)
+  await expect(page.getByRole('button', { name: 'Показать все кухни' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Показать все кухни' }).click()
+  await expect(cuisineOptions).toHaveCount(8)
+  await expect(page.getByRole('button', { name: 'Скрыть кухни' })).toBeVisible()
 })
 
 test('shows the filtered restaurant count above the list', async ({ page }) => {
@@ -253,17 +356,23 @@ test('shows the filtered restaurant count above the list', async ({ page }) => {
   const summary = page.locator('.catalog-results__summary')
   await expect(summary).toHaveText('Найдено: 1 ресторан')
 
-  await page.getByRole('button', { name: /Что ищем/ }).click()
-  await page.getByLabel('Тип заведения', { exact: true }).selectOption('restaurant')
+  await page.getByRole('button', { name: /Какое место/ }).click()
+  await page.getByRole('button', { name: 'Ресторан', exact: true }).click()
   await expect(summary).toHaveText('Найдено: 0 ресторанов')
 })
 
 test('filters restaurants by dish calories and shows only the matching dish count', async ({ page }) => {
   await page.route((url) => (
     isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
-  ), (route) => route.fulfill({
-    json: { items: [{ ...restaurant, chainSlug: null, chainName: null }], total: 1 },
-  }))
+  ), (route) => {
+    const { dishes, ...restaurantWithoutDishes } = restaurant
+    return route.fulfill({
+      json: { items: [{ ...restaurantWithoutDishes, chainSlug: null, chainName: null }], total: 1 },
+    })
+  })
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/coffee-test/menu')
+  ), (route) => route.fulfill({ json: { items: restaurant.dishes } }))
   await page.goto('/catalog/moskva/?view=list')
 
   await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
@@ -278,7 +387,7 @@ test('nutrition presets, custom values and reset stay functional', async ({ page
   await page.goto('/catalog/moskva/?view=list')
 
   await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
-  const calories = page.getByRole('button', { name: /До 400 ккал/ })
+  const calories = page.getByRole('button', { name: 'До 400 ккал', exact: true })
   await calories.click()
   await expect(calories).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('button', { name: /По блюдам/ })).toContainText('до 400 ккал')
@@ -287,11 +396,100 @@ test('nutrition presets, custom values and reset stay functional', async ({ page
   const proteinMin = page.locator('#catalog-nutrition-protein-min')
   await proteinMin.fill('25')
   await expect(proteinMin).toHaveValue('25')
-  await expect(page.getByRole('button', { name: /Белка от 25 г/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Белка от 25 г', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   await page.getByRole('button', { name: 'Сбросить' }).click()
   await expect(calories).toHaveAttribute('aria-pressed', 'false')
   await expect(proteinMin).toHaveValue('')
+})
+
+test('updates filter URLs without reloading the catalog page', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+  let loadEvents = 0
+  page.on('load', () => { loadEvents += 1 })
+
+  await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
+  await page.getByRole('button', { name: 'До 400 ккал', exact: true }).click()
+  await page.getByRole('button', { name: 'Задать свои значения' }).click()
+  await page.locator('#catalog-nutrition-protein-min').fill('25')
+
+  await expect(page).toHaveURL(/catalog_calories_max=400/)
+  await expect(page).toHaveURL(/catalog_protein_min=25/)
+  expect(loadEvents).toBe(0)
+})
+
+test('keeps catalog nutrition filters on the restaurant menu and on return', async ({ page }) => {
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
+  ), (route) => {
+    const { dishes, ...restaurantWithoutDishes } = restaurant
+    return route.fulfill({
+      json: {
+        items: [{ ...restaurantWithoutDishes, chainSlug: null, chainName: null }],
+        total: 1,
+      },
+    })
+  })
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants/coffee-test/menu')
+  ), (route) => route.fulfill({
+    json: {
+      name: 'Кофемания Тестовая',
+      categories: [{
+        name: 'Основные блюда',
+        menuSection: 'food',
+        dishes: [
+          { id: 1, name: 'Белковый суп', menuSection: 'food', kcal: 220, protein: 30, fat: 8, carbs: 20 },
+          { id: 2, name: 'Паста', menuSection: 'food', kcal: 520, protein: 12, fat: 24, carbs: 60 },
+        ],
+      }],
+    },
+  }))
+
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
+  await page.getByRole('button', { name: 'До 400 ккал', exact: true }).click()
+  await page.getByRole('button', { name: 'Задать свои значения' }).click()
+  await page.locator('#catalog-nutrition-protein-min').fill('25')
+  await expect(page).toHaveURL(/\/catalog\/moskva\/\?[^#]*catalog_calories_max=400[^#]*catalog_protein_min=25/)
+  const catalogUrl = page.url()
+
+  await Promise.all([
+    page.waitForURL(/\/restaurants\/coffee-test\/menu\/?\?/),
+    page.locator('.catalog-card:not(.catalog-card--chain)').first().getByRole('button', { name: 'Открыть меню' }).click(),
+  ])
+  await expect(page.getByRole('button', { name: /Мало калорий/ })).toHaveClass(/is-on/)
+  await expect(page.getByRole('button', { name: /Много белка/ })).toHaveClass(/is-on/)
+  await expect(page.locator('.rsm2-grid.rsm2-desktop-only .rsm2-tile__cover-name')).toHaveText(['Белковый суп'])
+  await expect(page.getByText('Паста', { exact: true })).toHaveCount(0)
+
+  await page.goto(catalogUrl)
+  await expect(page.getByRole('button', { name: /По блюдам/ })).toContainText('до 400 ккал')
+  await expect(page.locator('.catalog-applied-filter')).toContainText(['До 400 ккал', 'Белок от 25 г'])
+})
+
+test('shows applied filter chips on mobile and removes individual choices', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: /Любое место/ }).click()
+  await page.getByRole('button', { name: 'Ресторан', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: /У метро/ }).click()
+  await page.getByRole('button', { name: /Тестовая линия/ }).click()
+  await page.getByRole('checkbox', { name: 'Тверская' }).check()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: /^КБЖУ/ }).click()
+  await page.getByRole('button', { name: 'До 400 ккал', exact: true }).click()
+
+  const chips = page.locator('.catalog-applied-filter')
+  await expect(chips).toHaveCount(4)
+  await expect(chips).toContainText(['Тверская', 'до 3 км', 'Ресторан', 'До 400 ккал'])
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Убрать фильтр «Ресторан»' }).click()
+  await expect(page.getByRole('button', { name: 'Убрать фильтр «Ресторан»' })).toHaveCount(0)
+  await expect(chips).toHaveCount(3)
 })
 
 test('keeps the auto-update badge next to the restaurant name', async ({ page }) => {
@@ -318,6 +516,10 @@ test('keeps the auto-update badge next to the restaurant name', async ({ page })
   await expect(page.locator('.catalog-card')).not.toContainText('Кузнецкий Мост')
   await expect(page.locator('.catalog-card__metro .metro-stations__symbol').first()).toHaveCSS('color', 'rgb(126, 87, 194)')
   await expect(title).toHaveCSS('display', 'flex')
+  await expect(page.locator('.catalog-card').getByRole('link', { name: 'Открыть Instagram' })).toHaveAttribute(
+    'href',
+    'https://www.instagram.com/coffee-test/',
+  )
 
   const [nameBox, badgeBox] = await Promise.all([
     name.boundingBox(),
@@ -336,9 +538,8 @@ test('list includes restaurants whose map point is near the selected metro', asy
   await page.goto('/catalog/moskva/?view=list')
 
   await page.getByRole('button', { name: /Где удобно/ }).click()
-  await page.getByRole('button', { name: 'Станции метро' }).click()
-  await page.getByPlaceholder('Поиск станции...').fill('Лубянка')
-  await page.getByRole('button', { name: 'Лубянка', exact: true }).click()
+  await page.getByPlaceholder('Найти станцию метро').fill('Лубянка')
+  await page.getByRole('checkbox', { name: 'Лубянка' }).check()
 
   await expect(page.locator('.catalog-card')).toHaveCount(1)
   await expect(page.locator('.catalog-card')).toContainText(restaurant.chainName)
@@ -374,7 +575,7 @@ test('finds the She chain by the Cyrillic query ши', async ({ page }) => {
   await expect(page.getByRole('option', { name: /She/ })).toBeVisible()
 })
 
-test('highlights only stations selected through a metro line', async ({ page }) => {
+test('highlights only stations selected through the metro filter', async ({ page }) => {
   const restaurantRequests = []
   page.on('request', (request) => {
     const url = new URL(request.url())
@@ -385,8 +586,8 @@ test('highlights only stations selected through a metro line', async ({ page }) 
 
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(3, { timeout: 15_000 })
   await page.getByRole('button', { name: /Где удобно/ }).click()
-  await page.getByRole('button', { name: 'Станции метро' }).click()
-  await page.getByRole('button', { name: 'Тестовая линия', exact: true }).click()
+  await page.getByPlaceholder('Найти станцию метро').fill('Тверская')
+  await page.getByRole('checkbox', { name: 'Тверская' }).check()
 
   await expect.poll(() => restaurantRequests.length).toBeGreaterThan(1)
   const metroRequest = restaurantRequests.at(-1)
