@@ -283,9 +283,6 @@ class AnalyticsService {
         if (status === "granted") {
             this.trackSessionStart().catch(() => { });
             this.trackLandingAttribution().catch(() => { });
-            // Yandex Metrika only loads once consent is granted (see index.html);
-            // kick it off immediately instead of waiting for the next page load/interaction.
-            window.__loadYandexMetrika?.();
         }
     }
 
