@@ -16,12 +16,22 @@ export default function CatalogPlaceFilter({
   onVenueTypesChange,
 }) {
   const [cuisineSearch, setCuisineSearch] = useState('')
+  const [showAllCuisines, setShowAllCuisines] = useState(false)
   const normalizedSearch = cuisineSearch.trim().toLocaleLowerCase('ru-RU')
-  const visibleCuisines = useMemo(() => (
+  const matchingCuisines = useMemo(() => (
     normalizedSearch
       ? cuisines.filter((cuisine) => cuisine.toLocaleLowerCase('ru-RU').includes(normalizedSearch))
       : cuisines
   ), [cuisines, normalizedSearch])
+  const visibleCuisines = useMemo(() => {
+    if (normalizedSearch || showAllCuisines || matchingCuisines.length <= 6) return matchingCuisines
+
+    const popularCuisines = matchingCuisines.slice(0, 6)
+    const selectedOutsidePopular = selectedCuisines.filter((cuisine) => !popularCuisines.includes(cuisine))
+    return [...popularCuisines, ...selectedOutsidePopular]
+  }, [matchingCuisines, normalizedSearch, selectedCuisines, showAllCuisines])
+
+  const canExpandCuisines = !normalizedSearch && matchingCuisines.length > 6
 
   const toggleCuisine = (cuisine) => {
     const next = selectedCuisines.includes(cuisine)
@@ -72,6 +82,16 @@ export default function CatalogPlaceFilter({
             <p className="catalog-place-filter__empty">Ничего не нашли</p>
           )}
         </div>
+        {canExpandCuisines && (
+          <button
+            type="button"
+            className="catalog-place-filter__expand"
+            aria-expanded={showAllCuisines}
+            onClick={() => setShowAllCuisines((expanded) => !expanded)}
+          >
+            {showAllCuisines ? 'Скрыть кухни' : 'Показать все кухни'}
+          </button>
+        )}
       </section>
 
       <section className="catalog-place-filter__section" aria-labelledby="catalog-venue-title">

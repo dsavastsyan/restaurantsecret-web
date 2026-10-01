@@ -1117,6 +1117,22 @@
   font-weight: 650;
 }
 
+.catalog-place-filter__expand {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--catalog-compact-sage-dark);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.catalog-place-filter__expand:hover {
+  color: var(--catalog-compact-ink);
+}
+
 .catalog-place-filter__venues {
   display: flex;
   flex-wrap: wrap;

@@ -247,6 +247,34 @@ test('filters both map and list by the primary venue type', async ({ page }) => 
   await expect(page.locator('.catalog-card')).toHaveCount(0)
 })
 
+test('shows six popular cuisines first and expands the full list on demand', async ({ page }) => {
+  const cuisines = [
+    'Европейская',
+    'Итальянская',
+    'Японская',
+    'Грузинская',
+    'Азиатская',
+    'Американская',
+    'Аргентинская',
+    'Вьетнамская',
+  ]
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/filters')
+  ), (route) => route.fulfill({
+    json: { cuisines, venue_types: [{ id: 'restaurant', name: 'Рестораны' }] },
+  }))
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: /Какое место/ }).click()
+  const cuisineOptions = page.locator('.catalog-place-filter__cuisines input[type="checkbox"]')
+  await expect(cuisineOptions).toHaveCount(6)
+  await expect(page.getByRole('button', { name: 'Показать все кухни' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Показать все кухни' }).click()
+  await expect(cuisineOptions).toHaveCount(8)
+  await expect(page.getByRole('button', { name: 'Скрыть кухни' })).toBeVisible()
+})
+
 test('shows the filtered restaurant count above the list', async ({ page }) => {
   await page.route((url) => (
     isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')

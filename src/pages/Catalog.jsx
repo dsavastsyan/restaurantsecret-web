@@ -394,14 +394,15 @@ export default function Catalog() {
   const usesClientMetroFilter = locationMode === 'metro' && selectedMetro.length > 0
   const usesClientVenueFilter = selectedVenueTypes.length > 1
   const hasNutritionFilter = hasCatalogNutritionCriteria(nutritionCriteria)
-  const usesClientFilteredCatalog = usesClientMetroFilter || usesClientVenueFilter || hasNutritionFilter
+  const loadsCuisinePopularity = openFilter === 'place' && !debouncedQuery
+  const usesClientFilteredCatalog = usesClientMetroFilter || usesClientVenueFilter || hasNutritionFilter || loadsCuisinePopularity
   const catalogFetchLimit = usesClientFilteredCatalog ? CLIENT_LOCATION_FETCH_LIMIT : FETCH_LIMIT
   const catalogPagesPerFetch = catalogFetchLimit / PAGE_SIZE
   // Text search is owned by /search. Keep the paginated catalog request
   // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
     () => api.restaurants({
       limit: catalogFetchLimit,
       offset: serverPage * catalogFetchLimit,
@@ -605,12 +606,24 @@ export default function Catalog() {
   // Options are memoized so the filter chips do not re-render unnecessarily.
   const cuisineOptions = useMemo(() => {
     const raw = filters?.cuisines ?? []
-    return Array.from(new Set(raw.map(c => {
+    const options = Array.from(new Set(raw.map(c => {
       let val = String(c).trim()
       if (val.toLowerCase() === 'nan') return 'Другое'
       return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()
-    }))).sort((a, b) => a.localeCompare(b, 'ru'))
-  }, [filters?.cuisines])
+    })))
+    const popularity = new Map(options.map((cuisine) => [cuisine, 0]))
+    allItems.forEach((restaurant) => {
+      normalizeCatalogCuisine(restaurant.cuisine)
+        .split(',')
+        .map((cuisine) => cuisine.trim())
+        .filter(Boolean)
+        .forEach((cuisine) => popularity.set(cuisine, (popularity.get(cuisine) || 0) + 1))
+    })
+    return options.sort((left, right) => (
+      (popularity.get(right) || 0) - (popularity.get(left) || 0)
+      || left.localeCompare(right, 'ru')
+    ))
+  }, [allItems, filters?.cuisines])
 
   const venueTypeOptions = useMemo(() => {
     const raw = filters?.venue_types ?? filters?.venueTypes ?? []
