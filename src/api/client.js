@@ -1,10 +1,14 @@
 // Tiny wrapper around fetch. Handles query parameters, JSON parsing errors,
 // and provides typed errors for UI handling.
-import { API_BASE } from '@/config/api';
+import { API_BASE, IS_PREVIEW } from '@/config/api';
 
 const BASE = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
 const URL_BASE = new URL(BASE, globalThis.location?.origin ?? 'http://localhost');
-const DEFAULT_TIMEOUT_MS = 15_000;
+// Staging D1 is intentionally smaller and less provisioned than production;
+// its full catalog query can exceed 15 seconds while a preview is under CI
+// load. Keep the production budget unchanged, but let preview validation wait
+// for the real response instead of showing a false network error.
+const DEFAULT_TIMEOUT_MS = IS_PREVIEW ? 30_000 : 15_000;
 
 const createApiError = (status, message, kind) => ({
   status,

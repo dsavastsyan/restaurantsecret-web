@@ -9,10 +9,15 @@ const page = await readFile(
   new URL('../src/pages/admin/AdminGooglePlaceReviews.jsx', import.meta.url),
   'utf8',
 )
+const spaEntrypoints = await readFile(
+  new URL('../scripts/generate-spa-entrypoints.js', import.meta.url),
+  'utf8',
+)
 
 test('admin exposes a dedicated Google Places review route', () => {
   assert.match(router, /path="google-place-reviews"/)
   assert.match(shell, /to="\/admin\/google-place-reviews"/)
+  assert.match(spaEntrypoints, /'admin\/google-place-reviews'/)
 })
 
 test('review UI keeps network confirmation and branch attachment separate', () => {

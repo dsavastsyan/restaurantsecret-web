@@ -37,8 +37,20 @@ export default function AdminShell() {
   }, [])
 
   if (loginPage) return <div className="admin-menu"><Outlet /></div>
+  if (status === 'checking') {
+    return (
+      <div className="admin-menu admin-menu--center" role="status">
+        Проверяем доступ…
+      </div>
+    )
+  }
   if (status === 'error') {
-    return <div className="admin-menu admin-menu--center"><button onClick={verify}>Повторить</button></div>
+    return (
+      <div className="admin-menu admin-menu--center">
+        <p>Не удалось проверить доступ к админке.</p>
+        <button type="button" onClick={verify}>Повторить</button>
+      </div>
+    )
   }
 
   const logout = async () => {
