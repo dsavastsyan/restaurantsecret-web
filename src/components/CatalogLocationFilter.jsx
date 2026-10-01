@@ -1,4 +1,5 @@
-import MetroFilter from './MetroFilter.jsx'
+import { useMemo, useState } from 'react'
+import { buildMetroLineGroups, normalizeMetroStationName } from '@/lib/metroSelection'
 
 const MODES = [
   { id: 'metro', label: 'У метро' },
@@ -30,6 +31,41 @@ export default function CatalogLocationFilter({
   onPickOnMap,
   isPickingOnMap,
 }) {
+  const [metroSearch, setMetroSearch] = useState('')
+  const lineGroups = useMemo(
+    () => buildMetroLineGroups(metroData.lines || [], metroData.stations || []),
+    [metroData.lines, metroData.stations],
+  )
+  const visibleStations = useMemo(() => {
+    const normalizedQuery = metroSearch.trim().toLocaleLowerCase('ru-RU')
+    const byName = new Map()
+
+    lineGroups.forEach((line) => {
+      line.stations.forEach((station) => {
+        if (normalizedQuery && !station.name_ru.toLocaleLowerCase('ru-RU').includes(normalizedQuery)) return
+        const current = byName.get(station.key)
+        if (current) {
+          if (!current.lineNames.includes(line.name_ru)) current.lineNames.push(line.name_ru)
+          return
+        }
+        byName.set(station.key, { ...station, lineNames: [line.name_ru] })
+      })
+    })
+
+    return Array.from(byName.values()).sort((a, b) => a.name_ru.localeCompare(b.name_ru, 'ru'))
+  }, [lineGroups, metroSearch])
+  const selectedKeys = useMemo(
+    () => new Set(selectedStationNames.map(normalizeMetroStationName).filter(Boolean)),
+    [selectedStationNames],
+  )
+
+  const toggleStation = (stationName) => {
+    const normalized = normalizeMetroStationName(stationName)
+    const next = selectedStationNames.filter((name) => normalizeMetroStationName(name) !== normalized)
+    if (!selectedKeys.has(normalized)) next.push(stationName)
+    onMetroChange(next.sort((a, b) => a.localeCompare(b, 'ru')))
+  }
+
   return (
     <fieldset className="catalog-location-filter">
       <legend>Где удобно?</legend>
@@ -51,48 +87,104 @@ export default function CatalogLocationFilter({
       <div className="catalog-location-filter__body">
         {mode === 'metro' && (
           <div className="catalog-location-filter__metro">
-            <span className="catalog-location-filter__caption">Станции</span>
-            <MetroFilter
-              metroData={metroData}
-              selectedStationNames={selectedStationNames}
-              onChange={onMetroChange}
-            />
+            <label className="catalog-location-filter__search">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="11" cy="11" r="6.2" />
+                <path d="m16 16 4 4" />
+              </svg>
+              <span className="sr-only">Найти станцию метро</span>
+              <input
+                type="search"
+                value={metroSearch}
+                onChange={(event) => setMetroSearch(event.target.value)}
+                placeholder="Найти станцию метро"
+                autoComplete="off"
+              />
+            </label>
+
+            {selectedStationNames.length > 0 && (
+              <div className="catalog-location-filter__selected" aria-label="Выбранные станции метро">
+                {selectedStationNames.map((stationName) => (
+                  <button
+                    key={stationName}
+                    type="button"
+                    className="catalog-location-filter__mini-chip"
+                    onClick={() => toggleStation(stationName)}
+                  >
+                    {stationName} <span aria-hidden="true">×</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="catalog-location-filter__stations" role="group" aria-label="Станции метро">
+              {visibleStations.length ? visibleStations.map((station) => {
+                const isSelected = selectedKeys.has(station.key)
+                return (
+                  <label className={`catalog-location-filter__station${isSelected ? ' is-selected' : ''}`} key={station.key}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleStation(station.name_ru)}
+                    />
+                    <span className="catalog-location-filter__station-name">{station.name_ru}</span>
+                    <span className="catalog-location-filter__station-line">{station.lineNames.join(' · ')}</span>
+                  </label>
+                )
+              }) : (
+                <p className="catalog-location-filter__empty">Ничего не нашли</p>
+              )}
+            </div>
           </div>
         )}
 
         {mode === 'nearby' && (
           <div className="catalog-location-filter__nearby">
-            <div className="catalog-location-filter__point-actions">
+            <div className="catalog-location-filter__location-card">
+              <div className="catalog-location-filter__location-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <circle cx="12" cy="12" r="3" />
+                  <circle cx="12" cy="12" r="8" />
+                  <path d="M12 2V5M12 19v3M2 12h3M19 12h3" />
+                </svg>
+              </div>
+              <div className="catalog-location-filter__location-copy">
+                <strong>Моё местоположение</strong>
+                <span>Использовать текущую точку</span>
+              </div>
               <button type="button" onClick={onUseCurrentLocation} disabled={geolocationLoading}>
-                {geolocationLoading ? 'Определяем…' : 'Моё местоположение'}
-              </button>
-              <button type="button" onClick={onPickOnMap} aria-pressed={isPickingOnMap}>
-                {isPickingOnMap ? 'Нажмите на карту' : 'Указать на карте'}
+                {geolocationLoading ? 'Определяем…' : 'Выбрать'}
               </button>
             </div>
 
-            <div className="catalog-location-filter__address">
-              <label htmlFor="catalog-address">Адрес или место</label>
-              <div className="catalog-location-filter__address-row">
-                <input
-                  id="catalog-address"
-                  name="catalog-address"
-                  type="search"
-                  value={addressQuery}
-                  onChange={(event) => onAddressQueryChange(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      onAddressSearch()
-                    }
-                  }}
-                  placeholder="Например, Тверская, 7…"
-                  autoComplete="off"
-                />
-                <button type="button" onClick={onAddressSearch} disabled={addressLoading || addressQuery.trim().length < 3}>
+            <label className="catalog-location-filter__search catalog-location-filter__address">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="11" cy="11" r="6.2" />
+                <path d="m16 16 4 4" />
+              </svg>
+              <span className="sr-only">Введите адрес</span>
+              <input
+                id="catalog-address"
+                name="catalog-address"
+                type="search"
+                value={addressQuery}
+                onChange={(event) => onAddressQueryChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    onAddressSearch()
+                  }
+                }}
+                placeholder="Введите адрес"
+                autoComplete="off"
+              />
+              {addressQuery.trim().length >= 3 && (
+                <button type="button" onClick={onAddressSearch} disabled={addressLoading}>
                   {addressLoading ? 'Ищем…' : 'Найти'}
                 </button>
-              </div>
+              )}
+            </label>
+            <div className="catalog-location-filter__address-results-wrap">
               {addressResults.length > 0 && (
                 <ul
                   className="catalog-location-filter__address-results"
@@ -106,15 +198,19 @@ export default function CatalogLocationFilter({
                   ))}
                 </ul>
               )}
-              <a
-                className="catalog-location-filter__attribution"
-                href="https://www.openstreetmap.org/copyright"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Адреса © OpenStreetMap
-              </a>
             </div>
+
+            <button type="button" className="catalog-location-filter__map-action" onClick={onPickOnMap} aria-pressed={isPickingOnMap}>
+              {isPickingOnMap ? 'Нажмите на карту' : 'Указать точку на карте'} <span aria-hidden="true">→</span>
+            </button>
+            <a
+              className="catalog-location-filter__attribution"
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Адреса © OpenStreetMap
+            </a>
 
             {(pointLabel || geolocationError || addressError) && (
               <p className={`catalog-location-filter__status${geolocationError || addressError ? ' is-error' : ''}`} role="status">
