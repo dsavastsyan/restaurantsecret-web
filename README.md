@@ -61,7 +61,10 @@ an isolated Cloudflare Pages preview from the same workflow.
    npm install
    ```
 2. **Setup environment variables**:
-   Create a `.env` file (if applicable) or ensure `src/config/index.js` points to the correct API endpoints.
+   Create a `.env` file (if applicable) or ensure `src/config/index.js` points to the
+   correct API endpoints. The experimental Google Places photo on the first catalog
+   card also requires `VITE_GOOGLE_MAPS_API_KEY`; use a browser key restricted by
+   website referrer and to the Maps JavaScript API.
 3. **Run in development mode**:
    ```bash
    npm run dev

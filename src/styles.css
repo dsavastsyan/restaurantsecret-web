@@ -4412,6 +4412,44 @@ html[data-rs-theme="night"] .catalog-location-filter__center-note {
   gap: 18px;
 }
 
+.catalog-card__place-media {
+  position: relative;
+  width: min(100%, 300px);
+  margin: 0 auto 20px;
+  border-radius: 16px;
+  background: rgba(235, 230, 219, 0.72);
+}
+
+.catalog-card__place-media:not(.is-loaded) {
+  aspect-ratio: 16 / 10;
+}
+
+.catalog-card__place-media-placeholder {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(242, 238, 229, 0.9), rgba(225, 218, 204, 0.72));
+}
+
+.catalog-card__place-media-element {
+  width: 100%;
+}
+
+.catalog-card__place-media-element gmp-place-details-compact {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color-scheme: light;
+  visibility: hidden;
+}
+
+.catalog-card__place-media.is-loaded gmp-place-details-compact {
+  visibility: visible;
+}
+
 .catalog-page .catalog-card__identity {
   align-items: flex-start;
   gap: 20px;
@@ -4954,6 +4992,11 @@ html[data-rs-theme="night"] .catalog-location-filter__center-note {
 
   .catalog-page .catalog-card__top {
     gap: 10px;
+  }
+
+  .catalog-card__place-media {
+    margin-bottom: 16px;
+    border-radius: 14px;
   }
 
   .catalog-page .catalog-card__top-actions {

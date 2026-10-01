@@ -13,6 +13,7 @@ import { getRussianPluralWord, getSearchQueryScore, matchesSearchQuery } from '@
 import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import MetroStationsText from '@/components/MetroStationsText.jsx'
+import GooglePlaceMedia from '@/components/GooglePlaceMedia.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { getMetroSelectionPoints } from '@/lib/metroSelection'
@@ -29,6 +30,7 @@ import {
   filterCatalogRestaurants,
   normalizeCatalogCuisine,
 } from '@/lib/catalogFilters'
+import { getGooglePlaceId } from '@/lib/googlePlaces'
 
 const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 
@@ -385,6 +387,11 @@ export default function Catalog() {
     const start = (currentPage - 1) * PAGE_SIZE
     return displayItems.slice(start, start + PAGE_SIZE)
   }, [currentPage, displayItems])
+
+  const firstPlaceMediaRestaurant = useMemo(() => {
+    if (currentPage !== 1) return null
+    return visibleItems.find((item) => !item.isChainCard && getGooglePlaceId(item)) || null
+  }, [currentPage, visibleItems])
 
   const isInitialLoading = loading && !allItems.length
 
@@ -991,8 +998,12 @@ export default function Catalog() {
               ? r.dishesCount
               : allDishes.length
             const badgeText = getInitials(r?.name)
+            const googlePlaceId = r === firstPlaceMediaRestaurant ? getGooglePlaceId(r) : ''
             return (
               <li key={`${r.slug || r.name}-${i}`} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
+                {googlePlaceId && (
+                  <GooglePlaceMedia key={googlePlaceId} placeId={googlePlaceId} restaurantName={r.name} />
+                )}
                 <div className="catalog-card__top">
                   <div className="catalog-card__identity">
                     <div className={`${getBadgeClassName(r?.name)} catalog-card__badge--tone-${i % 4}`} aria-hidden="true">{badgeText}</div>
