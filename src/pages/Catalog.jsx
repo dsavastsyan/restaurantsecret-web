@@ -3,8 +3,8 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useStat
 import { useMeta } from '@/lib/useMeta'
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client.js'
-import CuisineFilter from '../components/CuisineFilter.jsx'
 import CatalogLocationFilter from '../components/CatalogLocationFilter.jsx'
+import CatalogPlaceFilter from '../components/CatalogPlaceFilter.jsx'
 import { useSWRLite } from '../hooks/useSWRLite.js'
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants'
 import { useAuth } from '@/store/auth'
@@ -59,6 +59,14 @@ const NUTRITION_PRESETS = [
   { key: 'protein', label: 'Белка от 25 г', field: 'min', value: 25 },
   { key: 'fat', label: 'Жиров до 10 г', field: 'max', value: 10 },
 ]
+
+const getNutritionMenuKey = (city, slug) => `${city}:${slug}`
+
+const getNutritionMenuDishes = (payload) => {
+  if (Array.isArray(payload?.items)) return payload.items
+  if (Array.isArray(payload?.dishes)) return payload.dishes
+  return []
+}
 
 const CuisineIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -150,8 +158,9 @@ export default function Catalog() {
   const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
   const [selectedCuisines, setSelectedCuisines] = useState([])
   const [selectedMetro, setSelectedMetro] = useState([])
-  const [selectedVenueType, setSelectedVenueType] = useState('')
+  const [selectedVenueTypes, setSelectedVenueTypes] = useState([])
   const [nutritionCriteria, setNutritionCriteria] = useState(EMPTY_NUTRITION_CRITERIA)
+  const [nutritionMenuData, setNutritionMenuData] = useState({})
   const [isNutritionCustomOpen, setIsNutritionCustomOpen] = useState(false)
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
@@ -171,6 +180,7 @@ export default function Catalog() {
   const [isPickingLocation, setIsPickingLocation] = useState(false)
   const [openFilter, setOpenFilter] = useState(null)
   const compactFiltersRef = useRef(null)
+  const nutritionMenuRequestsRef = useRef(new Set())
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
 
   const isNutritionPresetActive = (preset, criteria = nutritionCriteria) => {
@@ -229,7 +239,7 @@ export default function Catalog() {
 
   const resetPlaceFilter = () => {
     setSelectedCuisines([])
-    setSelectedVenueType('')
+    setSelectedVenueTypes([])
   }
 
   useEffect(() => {
@@ -323,7 +333,7 @@ export default function Catalog() {
     navigate(`/catalog/${citySlug(city.id)}/${queryString ? `?${queryString}` : ''}`)
     setSelectedCuisines([])
     setSelectedMetro([])
-    setSelectedVenueType('')
+    setSelectedVenueTypes([])
     resetNutritionCriteria()
     setLocationMode('metro')
     setNearbyPoint(null)
@@ -382,21 +392,22 @@ export default function Catalog() {
     { enabled: Boolean(debouncedQuery) },
   )
   const usesClientMetroFilter = locationMode === 'metro' && selectedMetro.length > 0
+  const usesClientVenueFilter = selectedVenueTypes.length > 1
   const hasNutritionFilter = hasCatalogNutritionCriteria(nutritionCriteria)
-  const usesClientFilteredCatalog = usesClientMetroFilter || hasNutritionFilter
+  const usesClientFilteredCatalog = usesClientMetroFilter || usesClientVenueFilter || hasNutritionFilter
   const catalogFetchLimit = usesClientFilteredCatalog ? CLIENT_LOCATION_FETCH_LIMIT : FETCH_LIMIT
   const catalogPagesPerFetch = catalogFetchLimit / PAGE_SIZE
   // Text search is owned by /search. Keep the paginated catalog request
   // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueType}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
     () => api.restaurants({
       limit: catalogFetchLimit,
       offset: serverPage * catalogFetchLimit,
       city: selectedCity.id,
       cuisine: selectedCuisines,
-      venue_type: selectedVenueType || undefined,
+      venue_type: selectedVenueTypes.length === 1 ? selectedVenueTypes[0] : undefined,
       metro: usesClientMetroFilter ? undefined : selectedMetro,
       calorie_range: undefined,
       near_lat: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lat) : undefined,
@@ -424,25 +435,30 @@ export default function Catalog() {
     }).filter(Boolean)
   }, [rawData])
 
+  const allItemsWithNutrition = useMemo(() => allItems.map((item) => {
+    const menuData = item.slug ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, item.slug)] : null
+    return menuData?.status === 'ready' ? { ...item, dishes: menuData.dishes } : item
+  }), [allItems, nutritionMenuData, selectedCity.id])
+
   const searchItems = useMemo(() => {
     const restaurants = Array.isArray(crossCityResults?.restaurants) ? crossCityResults.restaurants : []
     return restaurants.map((result) => {
-      const catalogItem = allItems.find((item) => item.slug === result.slug)
+      const catalogItem = allItemsWithNutrition.find((item) => item.slug === result.slug)
       return {
         ...catalogItem,
         ...result,
         cuisine: normalizeCatalogCuisine(result.cuisine || catalogItem?.cuisine),
       }
     })
-  }, [allItems, crossCityResults?.restaurants])
+  }, [allItemsWithNutrition, crossCityResults?.restaurants])
 
   const mapSourceItems = useMemo(
     () => Array.isArray(rawMapData?.items) ? rawMapData.items : [],
     [rawMapData?.items],
   )
   const filterableItems = useMemo(
-    () => enrichCatalogItemsWithMapMetros(allItems, mapSourceItems),
-    [allItems, mapSourceItems],
+    () => enrichCatalogItemsWithMapMetros(allItemsWithNutrition, mapSourceItems),
+    [allItemsWithNutrition, mapSourceItems],
   )
 
   // The list uses the map's per-point metro coverage as well as the nearest
@@ -474,7 +490,7 @@ export default function Catalog() {
     const filtered = filterCatalogRestaurants(sourceItems, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
-      venueType: selectedVenueType,
+      venueType: selectedVenueTypes,
       metro: selectedMetro,
       sortByRelevance: true,
       matchesQuery: matchesSearchQuery,
@@ -483,22 +499,22 @@ export default function Catalog() {
     return hasNutritionFilter
       ? filtered.filter((restaurant) => matchesCatalogNutritionCriteria(restaurant, nutritionCriteria))
       : filtered
-  }, [debouncedQuery, filterableItems, hasNutritionFilter, nutritionCriteria, searchItems, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [debouncedQuery, filterableItems, hasNutritionFilter, nutritionCriteria, searchItems, selectedCuisines, selectedMetro, selectedVenueTypes])
 
   const mapItemsBeforeLocation = useMemo(() => {
-    const enriched = enrichCatalogMapItems(mapSourceItems, allItems)
+    const enriched = enrichCatalogMapItems(mapSourceItems, allItemsWithNutrition)
 
     const filtered = filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       metro: selectedMetro,
-      venueType: selectedVenueType,
+      venueType: selectedVenueTypes,
       matchesQuery: matchesSearchQuery,
     })
     return hasNutritionFilter
       ? filtered.filter((restaurant) => matchesCatalogNutritionCriteria(restaurant, nutritionCriteria))
       : filtered
-  }, [allItems, debouncedQuery, hasNutritionFilter, mapSourceItems, nutritionCriteria, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [allItemsWithNutrition, debouncedQuery, hasNutritionFilter, mapSourceItems, nutritionCriteria, selectedCuisines, selectedMetro, selectedVenueTypes])
 
   const mapItems = useMemo(() => (
     isLocationFilterActive
@@ -515,7 +531,7 @@ export default function Catalog() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedQuery, locationMode, nearbyPoint, nutritionCriteria, radiusKm, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [debouncedQuery, locationMode, nearbyPoint, nutritionCriteria, radiusKm, selectedCuisines, selectedMetro, selectedVenueTypes])
 
   // Physical branches remain reachable from their chain hub, but the catalog
   // itself presents one card per chain rather than exposing branch pages.
@@ -534,6 +550,41 @@ export default function Catalog() {
     const start = pageWithinFetch * PAGE_SIZE
     return displayItems.slice(start, start + PAGE_SIZE)
   }, [catalogPagesPerFetch, currentPage, debouncedQuery, displayItems])
+
+  useEffect(() => {
+    if (!hasNutritionFilter) return
+
+    const candidates = visibleItems.filter((restaurant) => (
+      !restaurant.isChainCard
+      && restaurant.slug
+      && nutritionMenuData[getNutritionMenuKey(selectedCity.id, restaurant.slug)] == null
+      && !nutritionMenuRequestsRef.current.has(getNutritionMenuKey(selectedCity.id, restaurant.slug))
+    ))
+    if (!candidates.length) return
+
+    const requests = candidates.map((restaurant) => {
+      const key = getNutritionMenuKey(selectedCity.id, restaurant.slug)
+      nutritionMenuRequestsRef.current.add(key)
+      return api.menu(restaurant.slug, selectedCity.id)
+        .then((payload) => ({
+          key,
+          status: 'ready',
+          dishes: getNutritionMenuDishes(payload),
+        }))
+        .catch(() => ({ key, status: 'error', dishes: [] }))
+        .finally(() => nutritionMenuRequestsRef.current.delete(key))
+    })
+
+    Promise.all(requests).then((results) => {
+      setNutritionMenuData((current) => {
+        const next = { ...current }
+        results.forEach((result) => {
+          next[result.key] = result
+        })
+        return next
+      })
+    })
+  }, [hasNutritionFilter, nutritionMenuData, selectedCity.id, visibleItems])
 
   const catalogLoading = debouncedQuery ? searchLoading : loading
   const catalogError = debouncedQuery ? searchError : error
@@ -571,19 +622,32 @@ export default function Catalog() {
     return CATALOG_VENUE_TYPES.map((option) => ({
       ...option,
       name: namesById.get(option.id) || option.name,
+      displayName: {
+        restaurant: 'Ресторан',
+        cafe: 'Кафе',
+        coffee_tea: 'Кофейня',
+        fast_food: 'Бистро',
+      }[option.id] || option.name,
     }))
   }, [filters?.venueTypes, filters?.venue_types])
 
-  const selectedVenueTypeName = venueTypeOptions.find((option) => option.id === selectedVenueType)?.name
-  const placeFilterCount = selectedCuisines.length + (selectedVenueType ? 1 : 0)
+  const selectedVenueTypeEntries = venueTypeOptions
+    .filter((option) => selectedVenueTypes.includes(option.id))
+  const selectedVenueTypeNames = selectedVenueTypeEntries
+    .map((option) => option.displayName || option.name)
+  const placeFilterCount = selectedCuisines.length + selectedVenueTypes.length
   const placeFilterSummary = [
     selectedCuisines.length === 1
       ? selectedCuisines[0]
       : selectedCuisines.length > 1
         ? `${selectedCuisines.length} ${getRussianPluralWord(selectedCuisines.length, 'кухня', 'кухни', 'кухонь')}`
         : null,
-    selectedVenueTypeName,
-  ].filter(Boolean).join(' · ') || 'Кухня и тип'
+    selectedVenueTypeNames.length === 1
+      ? selectedVenueTypeNames[0]
+      : selectedVenueTypeNames.length > 1
+        ? `${selectedVenueTypeNames.length} типа`
+        : null,
+  ].filter(Boolean).join(' · ') || 'Любое место'
   const locationFilterSummary = locationMode === 'metro'
     ? `${selectedMetro.length === 1 ? selectedMetro[0] : selectedMetro.length > 1 ? `${selectedMetro.length} метро` : 'У метро'} · ${radiusKm} км`
     : locationMode === 'nearby'
@@ -610,6 +674,69 @@ export default function Catalog() {
   ]
   const nutritionFilterSummary = nutritionFilterParts.join(' · ') || 'КБЖУ блюд'
   const nutritionFilterCount = nutritionFilterParts.length
+
+  const appliedFilterChips = [
+    ...(locationMode === 'metro'
+      ? selectedMetro.map((stationName) => ({
+        key: `metro:${stationName}`,
+        label: stationName,
+        onRemove: () => setSelectedMetro((current) => current.filter((value) => value !== stationName)),
+      }))
+      : locationMode === 'nearby' && nearbyPoint
+        ? [{
+          key: 'location:nearby',
+          label: nearbyPointLabel || 'Рядом с точкой',
+          onRemove: resetLocationFilter,
+        }]
+        : locationMode === 'center'
+          ? [{ key: 'location:center', label: 'Центр', onRemove: resetLocationFilter }]
+          : []),
+    ...((selectedMetro.length || (locationMode !== 'metro' && (nearbyPoint || locationMode === 'center')))
+      ? [{ key: 'location:radius', label: `до ${radiusKm} км`, onRemove: () => setRadiusKm(3) }]
+      : []),
+    ...selectedCuisines.map((cuisine) => ({
+      key: `cuisine:${cuisine}`,
+      label: cuisine,
+      onRemove: () => setSelectedCuisines((current) => current.filter((value) => value !== cuisine)),
+    })),
+    ...selectedVenueTypeEntries.map((venueType) => {
+      return {
+        key: `venue:${venueType.id}`,
+        label: venueType.displayName || venueType.name,
+        onRemove: () => setSelectedVenueTypes((current) => current.filter((value) => value !== venueType.id)),
+      }
+    }),
+    ...NUTRITION_PRESETS
+      .filter((preset) => isNutritionPresetActive(preset))
+      .map((preset) => ({
+        key: `nutrition:${preset.key}`,
+        label: preset.label.replace(/^Белка/, 'Белок'),
+        onRemove: () => setNutritionCriteria((current) => ({
+          ...current,
+          [preset.key]: { ...(current[preset.key] || {}), [preset.field]: '' },
+        })),
+        })),
+    ...['calories', 'protein', 'fat', 'carbs'].flatMap((field) => {
+      const value = nutritionCriteria[field] || {}
+      const activePreset = NUTRITION_PRESETS.some((preset) => preset.key === field && isNutritionPresetActive(preset))
+      if (activePreset || (value.min === '' && value.max === '')) return []
+      const labels = { calories: 'Калории', protein: 'Белок', fat: 'Жиры', carbs: 'Углеводы' }
+      const unit = field === 'calories' ? 'ккал' : 'г'
+      const label = value.min !== '' && value.max !== ''
+        ? `${labels[field]} ${value.min}–${value.max} ${unit}`
+        : value.min !== ''
+          ? `${labels[field]} от ${value.min} ${unit}`
+          : `${labels[field]} до ${value.max} ${unit}`
+      return [{
+        key: `nutrition:${field}:custom`,
+        label,
+        onRemove: () => setNutritionCriteria((current) => ({
+          ...current,
+          [field]: { min: '', max: '' },
+        })),
+      }]
+    }),
+  ]
 
   const visibleMetroStations = useMemo(
     () => debouncedQuery
@@ -1001,7 +1128,7 @@ export default function Catalog() {
               >
                 <CuisineIcon />
                 <span>
-                  <small>Что ищем?</small>
+                  <small>Какое место?</small>
                   <strong>{placeFilterSummary}</strong>
                 </span>
                 {placeFilterCount > 0 && <b aria-label={`Выбрано фильтров: ${placeFilterCount}`}>{placeFilterCount}</b>}
@@ -1029,6 +1156,19 @@ export default function Catalog() {
                 {nutritionFilterCount > 0 && <b aria-label={`Фильтров КБЖУ: ${nutritionFilterCount}`}>{nutritionFilterCount}</b>}
               </button>
             </div>
+
+            {appliedFilterChips.length > 0 && (
+              <div className="catalog-applied-filters" aria-label="Применённые фильтры">
+                {appliedFilterChips.map((chip) => (
+                  <span className="catalog-applied-filter" key={chip.key}>
+                    <span>{chip.label}</span>
+                    <button type="button" onClick={chip.onRemove} aria-label={`Убрать фильтр «${chip.label}»`}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
             {openFilter && (
               <button
@@ -1090,34 +1230,14 @@ export default function Catalog() {
                 </div>
                 <button type="button" className="catalog-filter-popover__clear" onClick={resetPlaceFilter}>Сбросить</button>
               </div>
-              <div className="catalog-filter-popover__grid">
-                <div className="catalog-filter">
-                  <label className="catalog-filter__label" htmlFor="catalog-venue-type">Тип заведения</label>
-                  <div className="catalog-filter__select-wrap">
-                    <select
-                      id="catalog-venue-type"
-                      className="catalog-metro-select"
-                      value={selectedVenueType}
-                      onChange={(event) => setSelectedVenueType(event.target.value)}
-                    >
-                      <option value="">Все типы</option>
-                      {venueTypeOptions.map((venueType) => (
-                        <option key={venueType.id} value={venueType.id}>{venueType.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="catalog-filter catalog-filter--cuisine">
-                  <div className="catalog-filter__label">Кухня</div>
-                  <div className="catalog-filter__control">
-                    <CuisineFilter
-                      cuisines={cuisineOptions}
-                      selectedCuisines={selectedCuisines}
-                      onChange={setSelectedCuisines}
-                    />
-                  </div>
-                </div>
-              </div>
+              <CatalogPlaceFilter
+                cuisines={cuisineOptions}
+                selectedCuisines={selectedCuisines}
+                onCuisinesChange={setSelectedCuisines}
+                venueTypes={venueTypeOptions}
+                selectedVenueTypes={selectedVenueTypes}
+                onVenueTypesChange={setSelectedVenueTypes}
+              />
             </div>
 
             <div
@@ -1309,6 +1429,9 @@ export default function Catalog() {
             const restaurantLinkUrl = normalizeRestaurantLinkUrl(r.instagramUrl)
             const nutritionStats = getCatalogNutritionStatsForCriteria(r, nutritionCriteria)
             const dishesCount = hasNutritionFilter ? nutritionStats.matching : nutritionStats.total
+            const nutritionMenuState = r.slug
+              ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, r.slug)]
+              : null
             const priceRange = formatRestaurantPriceRange(r)
             const googleRating = getRestaurantGoogleRating(r)
             const googlePlaceId = getGooglePlaceId(r)
@@ -1374,7 +1497,9 @@ export default function Catalog() {
                       <div className="catalog-card__label">
                         {hasNutritionFilter
                           ? dishesCount === null
-                            ? '— подходящих блюд'
+                            ? nutritionMenuState?.status === 'error'
+                              ? 'Не удалось загрузить блюда'
+                              : 'Загрузка блюд…'
                             : `${dishesCount} ${getRussianPluralWord(dishesCount, 'подходящее блюдо', 'подходящих блюда', 'подходящих блюд')}`
                           : `Блюда в меню: ${dishesCount} ${getRussianPluralWord(dishesCount, 'блюдо', 'блюда', 'блюд')}`}
                       </div>
