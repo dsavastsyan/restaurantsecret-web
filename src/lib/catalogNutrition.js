@@ -6,6 +6,61 @@ export const DEFAULT_CALORIE_RANGES = [
   { key: 'gt600', label: 'Больше 600 ккал', min: 601, max: 5000 },
 ]
 
+const NUTRITION_FIELDS = ['calories', 'protein', 'fat', 'carbs']
+
+function getNutritionCriteriaEntries(criteria = {}) {
+  return NUTRITION_FIELDS.map((field) => {
+    const value = criteria[field] || {}
+    const min = value.min === '' || value.min == null ? null : Number(value.min)
+    const max = value.max === '' || value.max == null ? null : Number(value.max)
+    return {
+      field: field === 'calories' ? 'kcal' : field,
+      min: Number.isFinite(min) ? min : null,
+      max: Number.isFinite(max) ? max : null,
+    }
+  }).filter(({ min, max }) => min !== null || max !== null)
+}
+
+export function hasCatalogNutritionCriteria(criteria = {}) {
+  return getNutritionCriteriaEntries(criteria).length > 0
+}
+
+function matchesNutritionDish(dish, entries) {
+  return entries.every(({ field, min, max }) => {
+    const value = Number(dish?.[field])
+    // Keep restaurants visible when the API has not embedded that macro yet;
+    // the server/card can still provide the nutrition information later.
+    if (!Number.isFinite(value)) return true
+    if (min !== null && value < min) return false
+    if (max !== null && value > max) return false
+    return true
+  })
+}
+
+export function getCatalogNutritionStatsForCriteria(restaurant, criteria = {}) {
+  const dishes = getCatalogNutritionDishes(restaurant)
+  const total = Number.isFinite(Number(restaurant?.dishesCount)) ? Number(restaurant.dishesCount) : dishes.length
+  const entries = getNutritionCriteriaEntries(criteria)
+
+  if (!entries.length) return { total, matching: total, hasData: dishes.length > 0 || total > 0 }
+  if (!dishes.length) return { total, matching: null, hasData: false }
+
+  return {
+    total,
+    matching: dishes.filter((dish) => matchesNutritionDish(dish, entries)).length,
+    hasData: true,
+  }
+}
+
+export function matchesCatalogNutritionCriteria(restaurant, criteria = {}) {
+  const entries = getNutritionCriteriaEntries(criteria)
+  if (!entries.length) return true
+
+  const dishes = getCatalogNutritionDishes(restaurant)
+  if (!dishes.length) return true
+  return dishes.some((dish) => matchesNutritionDish(dish, entries))
+}
+
 const DISH_LIST_KEYS = ['dishes', 'menu_preview', 'popular_dishes', 'topDishes', 'top_dishes']
 const SUMMARY_KEYS = ['nutritionCounts', 'nutrition_counts', 'kbjuCounts', 'kbju_counts', 'calorieCounts', 'calorie_counts']
 

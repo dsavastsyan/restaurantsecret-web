@@ -200,7 +200,7 @@
 .catalog-filter-popover {
   position: absolute;
   top: calc(100% + 10px);
-  z-index: 60;
+  z-index: 100;
   display: none;
   width: min(570px, calc(100vw - 64px));
   padding: 20px;
@@ -841,91 +841,6 @@
   margin-top: 10px;
 }
 
-.catalog-filter-popover--nutrition {
-  right: 0;
-  width: min(480px, calc(100vw - 64px));
-}
-
-@media (min-width: 761px) {
-  .catalog-filter-popover--nutrition {
-    right: auto;
-    left: 50%;
-    width: min(956px, calc(100vw - 64px));
-    padding: 40px;
-    transform: translateX(-50%);
-  }
-
-  .catalog-filter-popover--nutrition.is-open {
-    animation: catalog-filter-nutrition-in 180ms ease-out both;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-filter-popover__head {
-    margin-bottom: 34px;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-filter-popover__head h2 {
-    font-size: 42px;
-    line-height: 1.1;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-filter-popover__head p {
-    max-width: 740px;
-    margin-top: 14px;
-    font-size: 22px;
-    line-height: 1.45;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-filter-popover__head > button {
-    width: 64px;
-    height: 64px;
-    flex-basis: 64px;
-    font-size: 32px;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-nutrition-options {
-    gap: 20px;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-nutrition-options button {
-    min-height: 96px;
-    padding: 0 28px;
-    border-radius: 18px;
-    font-size: 25px;
-  }
-}
-
-@keyframes catalog-filter-nutrition-in {
-  from { opacity: 0; transform: translate(-50%, -5px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
-}
-
-.catalog-nutrition-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.catalog-nutrition-options button {
-  min-height: 48px;
-  padding: 0 14px;
-  border: 1px solid #deded6;
-  border-radius: 12px;
-  background: #fcfcfa;
-  color: #4f5c4a;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  text-align: left;
-  cursor: pointer;
-}
-
-.catalog-nutrition-options button:hover,
-.catalog-nutrition-options button.is-active {
-  border-color: var(--catalog-compact-sage);
-  background: var(--catalog-compact-sage-soft);
-  color: #26311f;
-}
-
 /* The nested MetroFilter used to retain a legacy 300px width and margin. */
 .catalog-filter-popover .metro-filter-container {
   width: 100%;
@@ -1110,25 +1025,6 @@
     white-space: nowrap;
   }
 
-  .catalog-filter-popover--nutrition {
-    width: auto;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-filter-popover__head h2 {
-    font-size: 30px;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-filter-popover__head p {
-    font-size: 16px;
-    line-height: 1.4;
-  }
-
-  .catalog-filter-popover--nutrition .catalog-nutrition-options button {
-    min-height: 58px;
-    padding: 0 14px;
-    font-size: 18px;
-  }
-
   .catalog-page .catalog-card__layout {
     display: block;
     min-height: 0;
@@ -1150,8 +1046,207 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .catalog-nutrition-options button,
+  .catalog-nutrition-quick-card,
+  .catalog-nutrition-custom-toggle > span:last-child,
   .catalog-city-filter select {
     transition: none;
+  }
+}
+
+/* Nutrition popover mirrors the source HTML: quick macro presets first,
+   optional custom bounds second, with the same compact mobile sheet. */
+.catalog-page .catalog-filter-popover--nutrition {
+  right: 138px;
+  left: auto;
+  width: min(455px, calc(100vw - 64px));
+  padding: 20px;
+}
+
+.catalog-page .catalog-filter-popover--nutrition .catalog-filter-popover__head {
+  margin-bottom: 16px;
+}
+
+.catalog-page .catalog-filter-popover--nutrition .catalog-filter-popover__head h2 {
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.catalog-page .catalog-filter-popover--nutrition .catalog-filter-popover__head p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.catalog-page .catalog-filter-popover__clear {
+  display: block;
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #78816f;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.catalog-page .catalog-filter-popover__clear:hover {
+  color: var(--catalog-compact-sage-dark);
+}
+
+.catalog-nutrition-intro {
+  margin: -4px 0 13px;
+  color: #7b8490;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.catalog-nutrition-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-nutrition-quick-card {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  border: 1px solid #e4e5df;
+  border-radius: 13px;
+  background: #fff;
+  color: #444d59;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.catalog-nutrition-quick-card:hover {
+  border-color: #bac5ae;
+  background: #fdfffb;
+}
+
+.catalog-nutrition-quick-card.is-active {
+  border-color: #bdc8b0;
+  background: #f8faf4;
+}
+
+.catalog-nutrition-quick-card__tick {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  place-items: center;
+  border: 1px solid #d4d9cf;
+  border-radius: 6px;
+  color: transparent;
+  font-size: 12px;
+}
+
+.catalog-nutrition-quick-card.is-active .catalog-nutrition-quick-card__tick {
+  border-color: var(--catalog-compact-sage);
+  background: var(--catalog-compact-sage);
+  color: #fff;
+}
+
+.catalog-nutrition-custom-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 11px;
+  padding: 9px 2px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--catalog-compact-sage-dark);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.catalog-nutrition-custom-toggle > span:last-child {
+  transition: transform 0.18s ease;
+}
+
+.catalog-nutrition-custom-toggle.is-open > span:last-child {
+  transform: rotate(180deg);
+}
+
+.catalog-nutrition-custom-values {
+  display: none;
+  padding-top: 12px;
+}
+
+.catalog-nutrition-custom-values.is-open {
+  display: block;
+}
+
+.catalog-nutrition-input-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+}
+
+.catalog-nutrition-input-row label {
+  color: #4c5561;
+  font-size: 12px;
+}
+
+.catalog-nutrition-input-row input {
+  width: 100%;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid #e1e3dd;
+  border-radius: 10px;
+  outline: 0;
+  background: #fcfcfa;
+  font: inherit;
+  font-size: 12px;
+}
+
+.catalog-nutrition-input-row input:focus {
+  border-color: var(--catalog-compact-sage);
+  box-shadow: 0 0 0 3px rgba(138, 154, 107, 0.09);
+  background: #fff;
+}
+
+.catalog-nutrition-input-row > span {
+  color: #99a0a9;
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .catalog-page .catalog-filter-popover--nutrition {
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-height: 82dvh;
+    padding: 18px;
+    border-radius: 22px;
+    bottom: 10px;
+  }
+
+  .catalog-page .catalog-filter-popover--nutrition .catalog-filter-popover__head {
+    margin-bottom: 14px;
+  }
+
+  .catalog-page .catalog-filter-popover--nutrition .catalog-filter-popover__head h2 {
+    font-size: 20px;
+  }
+
+  .catalog-page .catalog-filter-popover--nutrition .catalog-filter-popover__head p {
+    font-size: 11px;
+  }
+
+  .catalog-nutrition-input-row {
+    grid-template-columns: 74px minmax(0, 1fr) minmax(0, 1fr) 25px;
+    gap: 6px;
   }
 }

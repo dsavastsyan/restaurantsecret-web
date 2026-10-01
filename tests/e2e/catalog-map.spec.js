@@ -266,11 +266,31 @@ test('filters restaurants by dish calories and shows only the matching dish coun
   await page.goto('/catalog/moskva/?view=list')
 
   await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
-  await page.getByRole('button', { name: '< 300 kcal', exact: true }).click()
+  await page.getByRole('button', { name: /До 400 ккал/ }).click()
 
   await expect(page.locator('.catalog-card')).toHaveCount(1)
   await expect(page.locator('.catalog-card__label')).toHaveText('1 подходящее блюдо')
   await expect(page.locator('.catalog-card__dish')).toHaveCount(0)
+})
+
+test('nutrition presets, custom values and reset stay functional', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
+  const calories = page.getByRole('button', { name: /До 400 ккал/ })
+  await calories.click()
+  await expect(calories).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: /По блюдам/ })).toContainText('до 400 ккал')
+
+  await page.getByRole('button', { name: 'Задать свои значения' }).click()
+  const proteinMin = page.locator('#catalog-nutrition-protein-min')
+  await proteinMin.fill('25')
+  await expect(proteinMin).toHaveValue('25')
+  await expect(page.getByRole('button', { name: /Белка от 25 г/ })).toHaveAttribute('aria-pressed', 'true')
+
+  await page.getByRole('button', { name: 'Сбросить' }).click()
+  await expect(calories).toHaveAttribute('aria-pressed', 'false')
+  await expect(proteinMin).toHaveValue('')
 })
 
 test('keeps the auto-update badge next to the restaurant name', async ({ page }) => {
