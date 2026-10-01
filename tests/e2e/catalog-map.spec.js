@@ -169,6 +169,20 @@ test('keeps the wide catalog container on city routes', async ({ page }) => {
   await expect(catalogContainer).toHaveCSS('max-width', '1360px')
 })
 
+test('groups metro stations under expandable colored lines', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /Где удобно/ }).click()
+
+  const line = page.getByRole('button', { name: /Тестовая линия/ })
+  await expect(line).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('checkbox', { name: 'Тверская' })).toHaveCount(0)
+  await expect(line.locator('.catalog-location-filter__line-color')).toHaveCSS('background-color', 'rgb(229, 57, 53)')
+
+  await line.click()
+  await expect(line).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('checkbox', { name: 'Тверская' })).toBeVisible()
+})
+
 test('falls back to raster tiles when the vector base map cannot load', async ({ page }) => {
   await page.route('https://tiles.openfreemap.org/styles/positron*', (route) => route.fulfill({
     json: {
@@ -346,6 +360,7 @@ test('shows applied filter chips on mobile and removes individual choices', asyn
   await page.getByRole('button', { name: 'Ресторан', exact: true }).click()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: /У метро/ }).click()
+  await page.getByRole('button', { name: /Тестовая линия/ }).click()
   await page.getByRole('checkbox', { name: 'Тверская' }).check()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: /^КБЖУ/ }).click()
