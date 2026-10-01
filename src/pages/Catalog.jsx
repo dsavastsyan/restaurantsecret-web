@@ -37,6 +37,11 @@ import {
   getRestaurantGoogleRating,
   matchesCatalogNutritionCriteria,
 } from '@/lib/catalogNutrition'
+import {
+  createEmptyCatalogNutritionCriteria,
+  parseCatalogFilterState,
+  serializeCatalogFilterState,
+} from '@/lib/catalogFilterParams'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
 import '../catalog-compact.css'
 
@@ -48,12 +53,6 @@ const FETCH_LIMIT = 48;
 const CLIENT_LOCATION_FETCH_LIMIT = 2000;
 const PAGE_SIZE = 8;
 const EMPTY_METRO_DATA = { lines: [], stations: [] };
-const EMPTY_NUTRITION_CRITERIA = {
-  calories: { min: '', max: '' },
-  protein: { min: '', max: '' },
-  fat: { min: '', max: '' },
-  carbs: { min: '', max: '' },
-}
 const NUTRITION_PRESETS = [
   { key: 'calories', label: 'До 400 ккал', field: 'max', value: 400 },
   { key: 'protein', label: 'Белка от 25 г', field: 'min', value: 25 },
@@ -151,15 +150,16 @@ export default function Catalog() {
   const selectedCity = cities.find((item) => citySlug(item.id) === cityPath || item.id === cityPath)
     || cities.find((item) => item.id === localStorage.getItem('catalog_city'))
     || { id: 'Москва', name: 'Москва' }
+  const initialCatalogFilters = parseCatalogFilterState(searchParams)
 
   const { data: filters } = useSWRLite(`filters:${selectedCity.id}`, () => api.filters(selectedCity.id))
   const { data: metroResponse } = useSWRLite('metro', () => api.metro())
   const metroData = metroResponse || EMPTY_METRO_DATA
   const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
-  const [selectedCuisines, setSelectedCuisines] = useState([])
-  const [selectedMetro, setSelectedMetro] = useState([])
-  const [selectedVenueTypes, setSelectedVenueTypes] = useState([])
-  const [nutritionCriteria, setNutritionCriteria] = useState(EMPTY_NUTRITION_CRITERIA)
+  const [selectedCuisines, setSelectedCuisines] = useState(() => initialCatalogFilters.selectedCuisines)
+  const [selectedMetro, setSelectedMetro] = useState(() => initialCatalogFilters.selectedMetro)
+  const [selectedVenueTypes, setSelectedVenueTypes] = useState(() => initialCatalogFilters.selectedVenueTypes)
+  const [nutritionCriteria, setNutritionCriteria] = useState(() => initialCatalogFilters.nutritionCriteria)
   const [nutritionMenuData, setNutritionMenuData] = useState({})
   const [isNutritionCustomOpen, setIsNutritionCustomOpen] = useState(false)
   const [query, setQuery] = useState(searchParams.get('q') || '')
@@ -167,11 +167,11 @@ export default function Catalog() {
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [activeSearchSuggestionIndex, setActiveSearchSuggestionIndex] = useState(-1)
   const [currentPage, setCurrentPage] = useState(1)
-  const [locationMode, setLocationMode] = useState('metro')
-  const [radiusKm, setRadiusKm] = useState(3)
-  const [nearbyPoint, setNearbyPoint] = useState(null)
-  const [nearbyPointLabel, setNearbyPointLabel] = useState('')
-  const [addressQuery, setAddressQuery] = useState('')
+  const [locationMode, setLocationMode] = useState(() => initialCatalogFilters.locationMode)
+  const [radiusKm, setRadiusKm] = useState(() => initialCatalogFilters.radiusKm)
+  const [nearbyPoint, setNearbyPoint] = useState(() => initialCatalogFilters.nearbyPoint)
+  const [nearbyPointLabel, setNearbyPointLabel] = useState(() => initialCatalogFilters.nearbyPointLabel)
+  const [addressQuery, setAddressQuery] = useState(() => initialCatalogFilters.addressQuery)
   const [addressResults, setAddressResults] = useState([])
   const [addressLoading, setAddressLoading] = useState(false)
   const [addressError, setAddressError] = useState('')
@@ -182,6 +182,24 @@ export default function Catalog() {
   const compactFiltersRef = useRef(null)
   const nutritionMenuRequestsRef = useRef(new Set())
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    serializeCatalogFilterState(next, {
+      selectedCuisines,
+      selectedVenueTypes,
+      selectedMetro,
+      locationMode,
+      radiusKm,
+      nearbyPoint,
+      nearbyPointLabel,
+      addressQuery,
+      nutritionCriteria,
+    })
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [addressQuery, locationMode, nearbyPoint, nearbyPointLabel, nutritionCriteria, radiusKm, searchParams, selectedCuisines, selectedMetro, selectedVenueTypes, setSearchParams])
 
   const isNutritionPresetActive = (preset, criteria = nutritionCriteria) => {
     const current = criteria[preset.key] || {}
@@ -215,12 +233,7 @@ export default function Catalog() {
   }
 
   const resetNutritionCriteria = () => {
-    setNutritionCriteria({
-      calories: { min: '', max: '' },
-      protein: { min: '', max: '' },
-      fat: { min: '', max: '' },
-      carbs: { min: '', max: '' },
-    })
+    setNutritionCriteria(createEmptyCatalogNutritionCriteria())
     setIsNutritionCustomOpen(false)
   }
 
@@ -284,7 +297,7 @@ export default function Catalog() {
     if (locationMode === 'nearby') return nearbyPoint ? [nearbyPoint] : []
     return citySearchCenter ? [citySearchCenter] : []
   }, [citySearchCenter, locationMode, nearbyPoint, selectedMetroPoints])
-  const isLocationFilterActive = locationAnchorPoints.length > 0
+  const isRadiusFilterActive = locationAnchorPoints.length > 0 && radiusKm != null
 
   const navigate = useNavigate()
   const { access, requireAccess, requestPaywall } = useOutletContext() || {}
@@ -370,9 +383,11 @@ export default function Catalog() {
     if (!slug) return
     if (ensureAccess()) {
       analytics.track('restaurant_open', { slug, selected_city: selectedCity.id })
-      navigate(`/restaurants/${slug}/menu/?city=${encodeURIComponent(selectedCity.id)}`)
+      const menuParams = new URLSearchParams(searchParams)
+      menuParams.set('city', selectedCity.id)
+      navigate(`/restaurants/${slug}/menu/?${menuParams.toString()}`)
     }
-  }, [ensureAccess, navigate, selectedCity.id])
+  }, [ensureAccess, navigate, searchParams, selectedCity.id])
 
   // The hub just lists a chain's locations (no nutrition data of its own),
   // so — like the catalog itself — it isn't behind the paywall gate.
@@ -394,14 +409,15 @@ export default function Catalog() {
   const usesClientMetroFilter = locationMode === 'metro' && selectedMetro.length > 0
   const usesClientVenueFilter = selectedVenueTypes.length > 1
   const hasNutritionFilter = hasCatalogNutritionCriteria(nutritionCriteria)
-  const usesClientFilteredCatalog = usesClientMetroFilter || usesClientVenueFilter || hasNutritionFilter
+  const loadsCuisinePopularity = openFilter === 'place' && !debouncedQuery
+  const usesClientFilteredCatalog = usesClientMetroFilter || usesClientVenueFilter || hasNutritionFilter || loadsCuisinePopularity
   const catalogFetchLimit = usesClientFilteredCatalog ? CLIENT_LOCATION_FETCH_LIMIT : FETCH_LIMIT
   const catalogPagesPerFetch = catalogFetchLimit / PAGE_SIZE
   // Text search is owned by /search. Keep the paginated catalog request
   // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
     () => api.restaurants({
       limit: catalogFetchLimit,
       offset: serverPage * catalogFetchLimit,
@@ -410,9 +426,9 @@ export default function Catalog() {
       venue_type: selectedVenueTypes.length === 1 ? selectedVenueTypes[0] : undefined,
       metro: usesClientMetroFilter ? undefined : selectedMetro,
       calorie_range: undefined,
-      near_lat: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lat) : undefined,
-      near_lon: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lon) : undefined,
-      radius_m: isLocationFilterActive && !usesClientMetroFilter ? radiusKm * 1000 : undefined,
+      near_lat: isRadiusFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lat) : undefined,
+      near_lon: isRadiusFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lon) : undefined,
+      radius_m: isRadiusFilterActive && !usesClientMetroFilter ? radiusKm * 1000 : undefined,
     }),
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
@@ -517,16 +533,16 @@ export default function Catalog() {
   }, [allItemsWithNutrition, debouncedQuery, hasNutritionFilter, mapSourceItems, nutritionCriteria, selectedCuisines, selectedMetro, selectedVenueTypes])
 
   const mapItems = useMemo(() => (
-    isLocationFilterActive
+    isRadiusFilterActive
       ? filterCatalogMapItemsByRadius(mapItemsBeforeLocation, locationAnchorPoints, radiusKm * 1000)
       : mapItemsBeforeLocation
-  ), [isLocationFilterActive, locationAnchorPoints, mapItemsBeforeLocation, radiusKm])
+  ), [isRadiusFilterActive, locationAnchorPoints, mapItemsBeforeLocation, radiusKm])
 
   const filteredItems = useMemo(() => (
-    isLocationFilterActive
+    isRadiusFilterActive
       ? filterCatalogItemsByMapPoints(catalogItemsBeforeLocation, mapItems)
       : catalogItemsBeforeLocation
-  ), [catalogItemsBeforeLocation, isLocationFilterActive, mapItems])
+  ), [catalogItemsBeforeLocation, isRadiusFilterActive, mapItems])
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -605,12 +621,24 @@ export default function Catalog() {
   // Options are memoized so the filter chips do not re-render unnecessarily.
   const cuisineOptions = useMemo(() => {
     const raw = filters?.cuisines ?? []
-    return Array.from(new Set(raw.map(c => {
+    const options = Array.from(new Set(raw.map(c => {
       let val = String(c).trim()
       if (val.toLowerCase() === 'nan') return 'Другое'
       return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()
-    }))).sort((a, b) => a.localeCompare(b, 'ru'))
-  }, [filters?.cuisines])
+    })))
+    const popularity = new Map(options.map((cuisine) => [cuisine, 0]))
+    allItems.forEach((restaurant) => {
+      normalizeCatalogCuisine(restaurant.cuisine)
+        .split(',')
+        .map((cuisine) => cuisine.trim())
+        .filter(Boolean)
+        .forEach((cuisine) => popularity.set(cuisine, (popularity.get(cuisine) || 0) + 1))
+    })
+    return options.sort((left, right) => (
+      (popularity.get(right) || 0) - (popularity.get(left) || 0)
+      || left.localeCompare(right, 'ru')
+    ))
+  }, [allItems, filters?.cuisines])
 
   const venueTypeOptions = useMemo(() => {
     const raw = filters?.venue_types ?? filters?.venueTypes ?? []
@@ -648,11 +676,12 @@ export default function Catalog() {
         ? `${selectedVenueTypeNames.length} типа`
         : null,
   ].filter(Boolean).join(' · ') || 'Любое место'
+  const radiusSummary = radiusKm == null ? '' : ` · ${radiusKm} км`
   const locationFilterSummary = locationMode === 'metro'
-    ? `${selectedMetro.length === 1 ? selectedMetro[0] : selectedMetro.length > 1 ? `${selectedMetro.length} метро` : 'У метро'} · ${radiusKm} км`
+    ? `${selectedMetro.length === 1 ? selectedMetro[0] : selectedMetro.length > 1 ? `${selectedMetro.length} метро` : 'У метро'}${radiusSummary}`
     : locationMode === 'nearby'
-      ? `${nearbyPointLabel || 'Рядом с точкой'} · ${radiusKm} км`
-      : `В центре · ${radiusKm} км`
+      ? `${nearbyPointLabel || 'Рядом с точкой'}${radiusSummary}`
+      : `В центре${radiusSummary}`
   const nutritionFilterParts = [
     ...NUTRITION_PRESETS
       .filter((preset) => isNutritionPresetActive(preset))
@@ -691,8 +720,8 @@ export default function Catalog() {
         : locationMode === 'center'
           ? [{ key: 'location:center', label: 'Центр', onRemove: resetLocationFilter }]
           : []),
-    ...((selectedMetro.length || (locationMode !== 'metro' && (nearbyPoint || locationMode === 'center')))
-      ? [{ key: 'location:radius', label: `до ${radiusKm} км`, onRemove: () => setRadiusKm(3) }]
+    ...((radiusKm != null && (selectedMetro.length || (locationMode !== 'metro' && (nearbyPoint || locationMode === 'center'))))
+      ? [{ key: 'location:radius', label: `до ${radiusKm} км`, onRemove: () => setRadiusKm(null) }]
       : []),
     ...selectedCuisines.map((cuisine) => ({
       key: `cuisine:${cuisine}`,
@@ -891,6 +920,7 @@ export default function Catalog() {
         const approximate = Number(coords.accuracy) > 500
         setNearbyPoint({ lat: coords.latitude, lon: coords.longitude })
         setNearbyPointLabel(approximate ? 'местоположение определено приблизительно' : 'моё местоположение')
+        setGeolocationError('')
         setGeolocationLoading(false)
         setIsPickingLocation(false)
         analytics.track('catalog_location_point_selected', {
@@ -903,7 +933,9 @@ export default function Catalog() {
         setGeolocationLoading(false)
         setGeolocationError('Не удалось определить местоположение. Введите адрес или выберите точку на карте.')
       },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+      // Не ограничиваем запрос коротким таймаутом: браузер может держать
+      // системное окно разрешения открытым дольше, чем длится обычный запрос.
+      { enableHighAccuracy: true, maximumAge: 60_000 },
     )
   }, [selectedCity.id])
 
@@ -1334,7 +1366,7 @@ export default function Catalog() {
               selectedMetroStationNames={selectedMetro}
               focusPoints={locationAnchorPoints}
               radiusPoints={locationAnchorPoints}
-              radiusMeters={radiusKm * 1000}
+              radiusMeters={radiusKm == null ? 0 : radiusKm * 1000}
               isPickingLocation={isPickingLocation}
               onPickLocation={handleMapLocationPick}
               onCancelLocationPick={() => setIsPickingLocation(false)}
