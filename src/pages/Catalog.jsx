@@ -310,21 +310,15 @@ export default function Catalog() {
     () => api.search(debouncedQuery, { city: selectedCity.id }),
     { enabled: Boolean(debouncedQuery) },
   )
-  const searchSlugs = useMemo(
-    () => (Array.isArray(crossCityResults?.restaurants) ? crossCityResults.restaurants : [])
-      .map((restaurant) => restaurant?.slug)
-      .filter(Boolean)
-      .slice(0, 45),
-    [crossCityResults?.restaurants],
-  )
+  // Text search is owned by /search. Keep the paginated catalog request
+  // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / PAGES_PER_FETCH)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueType}:${selectedMetro.join(',')}:${selectedNutritionRange}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}:${searchSlugs.join(',')}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueType}:${selectedMetro.join(',')}:${selectedNutritionRange}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
     () => api.restaurants({
-      limit: debouncedQuery ? Math.max(FETCH_LIMIT, searchSlugs.length) : FETCH_LIMIT,
+      limit: FETCH_LIMIT,
       offset: serverPage * FETCH_LIMIT,
       city: selectedCity.id,
-      slug: debouncedQuery ? searchSlugs : undefined,
       cuisine: selectedCuisines,
       venue_type: selectedVenueType || undefined,
       metro: selectedMetro,
@@ -333,7 +327,6 @@ export default function Catalog() {
       near_lon: isLocationFilterActive ? locationAnchorPoints.map((point) => point.lon) : undefined,
       radius_m: isLocationFilterActive ? radiusKm * 1000 : undefined,
     }),
-    { enabled: !debouncedQuery || searchSlugs.length > 0 },
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
     `restaurants-map:${selectedCity.id}`,
