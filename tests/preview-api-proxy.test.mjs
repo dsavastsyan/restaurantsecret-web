@@ -14,6 +14,17 @@ test('preview API proxy preserves the path and query on the staging Worker', () 
   )
 })
 
+test('preview API proxy preserves the internal admin API prefix', () => {
+  const upstreamUrl = buildStagingApiUrl(
+    'https://develop.restaurantsecret-web.pages.dev/api/admin/auth/me',
+  )
+
+  assert.equal(
+    upstreamUrl.href,
+    'https://restaurantsecret-api-staging.dsavastyan.workers.dev/api/admin/auth/me',
+  )
+})
+
 test('preview API proxy cannot be redirected to another origin through its path', () => {
   const upstreamUrl = buildStagingApiUrl(
     'https://preview.example/api//attacker.example/collect',
@@ -67,6 +78,40 @@ test('preview API proxy streams the upstream response and filters browser-only h
     assert.equal(proxiedRequest.headers.has('origin'), false)
     assert.equal(response.headers.get('x-preview-api-proxy'), 'staging')
     assert.deepEqual(await response.json(), { restaurants: 334 })
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('preview API proxy forwards admin session and CSRF credentials only to admin routes', async () => {
+  const originalFetch = globalThis.fetch
+  let proxiedRequest
+
+  globalThis.fetch = async (request) => {
+    proxiedRequest = request
+    return Response.json(
+      { ok: true },
+      { headers: { 'Set-Cookie': 'rs_admin_session=next; Path=/; HttpOnly; Secure; SameSite=None' } },
+    )
+  }
+
+  try {
+    const response = await onRequest({
+      request: new Request('https://branch.restaurantsecret-web.pages.dev/api/admin/auth/logout', {
+        method: 'POST',
+        headers: {
+          Cookie: 'preview_persona=free; rs_admin_session=current; unrelated=private',
+          Origin: 'https://branch.restaurantsecret-web.pages.dev',
+          'X-CSRF-Token': 'csrf-token',
+        },
+      }),
+    })
+
+    assert.equal(proxiedRequest.url, 'https://restaurantsecret-api-staging.dsavastyan.workers.dev/api/admin/auth/logout')
+    assert.equal(proxiedRequest.headers.get('cookie'), 'rs_admin_session=current')
+    assert.equal(proxiedRequest.headers.get('x-csrf-token'), 'csrf-token')
+    assert.equal(proxiedRequest.headers.has('origin'), false)
+    assert.match(response.headers.get('set-cookie'), /rs_admin_session=next/)
   } finally {
     globalThis.fetch = originalFetch
   }

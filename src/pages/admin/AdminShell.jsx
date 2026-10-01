@@ -37,8 +37,20 @@ export default function AdminShell() {
   }, [])
 
   if (loginPage) return <div className="admin-menu"><Outlet /></div>
+  if (status === 'checking') {
+    return (
+      <div className="admin-menu admin-menu--center" role="status">
+        Проверяем доступ…
+      </div>
+    )
+  }
   if (status === 'error') {
-    return <div className="admin-menu admin-menu--center"><button onClick={verify}>Повторить</button></div>
+    return (
+      <div className="admin-menu admin-menu--center">
+        <p>Не удалось проверить доступ к админке.</p>
+        <button type="button" onClick={verify}>Повторить</button>
+      </div>
+    )
   }
 
   const logout = async () => {
@@ -60,6 +72,7 @@ export default function AdminShell() {
           <Link className={location.pathname.startsWith('/admin/product-matches') ? 'active' : ''} to="/admin/product-matches">Продукты</Link>
           <Link className={location.pathname.startsWith('/admin/kbju-flags') ? 'active' : ''} to="/admin/kbju-flags">Странные КБЖУ</Link>
           <Link className={location.pathname.startsWith('/admin/restaurant-reviews') ? 'active' : ''} to="/admin/restaurant-reviews">Ревью ресторанов</Link>
+          <Link className={location.pathname.startsWith('/admin/google-place-reviews') ? 'active' : ''} to="/admin/google-place-reviews">Точки Google</Link>
         </nav>
         <button type="button" onClick={logout}>Выйти</button>
       </header>

@@ -9,6 +9,10 @@ const waitForSuccessfulResponse = (page, predicate) =>
   })
 
 test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) => {
+  // This is a deployed-preview integration check against the full staging
+  // catalog, not a mocked UI test. The real catalog response can take longer
+  // than Playwright's 30s default while D1 is under load.
+  test.setTimeout(60_000)
   const mapRuntimeErrors = []
   page.on('console', (message) => {
     if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
@@ -49,8 +53,10 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
 
   // Moving past the landing page should fetch the catalog data.
   const catalogResponsePromise = waitForSuccessfulResponse(page, (response) => {
-    const path = new URL(response.url()).pathname
-    return path.endsWith('/restaurants') && response.request().method() === 'GET'
+    const url = new URL(response.url())
+    return url.pathname.endsWith('/restaurants')
+      && url.searchParams.get('limit') === '1000'
+      && response.request().method() === 'GET'
   })
 
   await Promise.all([
