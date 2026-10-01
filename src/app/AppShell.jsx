@@ -16,6 +16,7 @@ const DishCardModal = lazy(() => import('@/components/DishCardModal'))
 // const DiaryFloatingButton = lazy(() => import('@/components/DiaryFloatingButton'))
 const Footer = lazy(() => import('@/components/Footer.jsx'))
 const AnyEatLaunchModal = lazy(() => import('@/components/AnyEatLaunchModal.jsx'))
+const AnyEatLaunchBanner = lazy(() => import('@/components/AnyEatLaunchBanner.jsx'))
 
 // Default shape for the subscription/access status persisted in localStorage.
 const defaultAccess = { ok: false, isActive: false, expiresAt: null, event: null }
@@ -275,6 +276,10 @@ export default function AppShell() {
   // /menu suffix requirement and needs its own, equally full-width container.
   const isChainHubPage = /^\/restaurants\/[^/]+\/?$/.test(normalizedPath)
   const isSearchPage = normalizedPath === '/search' || normalizedPath === '/app/search'
+  // Broader than the modal's own auto-trigger pages — the banner is meant to
+  // be a persistent presence on every key page, including the account area.
+  const isAnyEatBannerEligible =
+    isLanding || isRestaurantsCatalogPage || isSearchPage || isRestaurantMenuPage || isAccountPage
 
   // Idle guard for QR-scanned menu access: any interaction resets the clock,
   // and 15 minutes of inactivity revokes the temporary pass and, if the user
@@ -337,7 +342,8 @@ export default function AppShell() {
 
   return (
     <div className={`min-h-screen flex flex-col app-theme app-theme--day${isSearchPage ? ' app-theme--search' : ''}`}>
-      <Suspense fallback={null}><AnyEatLaunchModal eligible={isLanding || isRestaurantsCatalogPage || isSearchPage || isRestaurantMenuPage} /></Suspense>
+      <Suspense fallback={null}><AnyEatLaunchBanner eligible={isAnyEatBannerEligible} /></Suspense>
+      <Suspense fallback={null}><AnyEatLaunchModal /></Suspense>
       <Suspense fallback={null}>
         {!isMarketingPage && !isImmersivePage && <NavBar forceGuest={isFeedbackPage} />}
         {!isMarketingPage && <DishCardModal />}

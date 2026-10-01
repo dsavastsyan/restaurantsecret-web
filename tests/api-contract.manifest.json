@@ -28,6 +28,7 @@
   { "backend": "pd", "method": "DELETE", "path": "/api/diary/{param}", "live": true },
   { "backend": "pd", "method": "GET", "path": "/api/consent/communications", "live": true },
   { "backend": "pd", "method": "POST", "path": "/api/consent/communications", "live": true },
+  { "backend": "pd", "method": "POST", "path": "/api/marketing-consent", "live": false, "publicWrite": true },
   { "backend": "pd", "method": "POST", "path": "/api/friends/requests", "live": true },
   { "backend": "pd", "method": "POST", "path": "/api/friends/requests/{param}/{param}", "live": true },
   { "backend": "pd", "method": "GET", "path": "/api/city-preference", "live": true, "probeQuery": "visitor_id=00000000-0000-4000-8000-000000000000" },
