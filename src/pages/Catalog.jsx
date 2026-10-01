@@ -407,6 +407,16 @@ export default function Catalog() {
     { enabled: Boolean(debouncedQuery) },
   )
   const usesClientMetroFilter = locationMode === 'metro' && selectedMetro.length > 0
+  // With a radius, station coordinates are the source of truth. Requiring a
+  // matching API metro label first would hide restaurants that are physically
+  // nearby but whose station metadata is incomplete or stale.
+  const metroFilterForCatalog = useMemo(() => (
+    locationMode === 'metro'
+    && selectedMetro.length > 0
+    && (radiusKm == null || selectedMetroPoints.length === 0)
+      ? selectedMetro
+      : []
+  ), [locationMode, radiusKm, selectedMetro, selectedMetroPoints])
   const usesClientVenueFilter = selectedVenueTypes.length > 1
   const hasNutritionFilter = hasCatalogNutritionCriteria(nutritionCriteria)
   const loadsCuisinePopularity = openFilter === 'place' && !debouncedQuery
@@ -507,7 +517,7 @@ export default function Catalog() {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       venueType: selectedVenueTypes,
-      metro: selectedMetro,
+      metro: metroFilterForCatalog,
       sortByRelevance: true,
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
@@ -515,7 +525,7 @@ export default function Catalog() {
     return hasNutritionFilter
       ? filtered.filter((restaurant) => matchesCatalogNutritionCriteria(restaurant, nutritionCriteria))
       : filtered
-  }, [debouncedQuery, filterableItems, hasNutritionFilter, nutritionCriteria, searchItems, selectedCuisines, selectedMetro, selectedVenueTypes])
+  }, [debouncedQuery, filterableItems, hasNutritionFilter, metroFilterForCatalog, nutritionCriteria, searchItems, selectedCuisines, selectedVenueTypes])
 
   const mapItemsBeforeLocation = useMemo(() => {
     const enriched = enrichCatalogMapItems(mapSourceItems, allItemsWithNutrition)
@@ -523,14 +533,14 @@ export default function Catalog() {
     const filtered = filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
-      metro: selectedMetro,
+      metro: metroFilterForCatalog,
       venueType: selectedVenueTypes,
       matchesQuery: matchesSearchQuery,
     })
     return hasNutritionFilter
       ? filtered.filter((restaurant) => matchesCatalogNutritionCriteria(restaurant, nutritionCriteria))
       : filtered
-  }, [allItemsWithNutrition, debouncedQuery, hasNutritionFilter, mapSourceItems, nutritionCriteria, selectedCuisines, selectedMetro, selectedVenueTypes])
+  }, [allItemsWithNutrition, debouncedQuery, hasNutritionFilter, mapSourceItems, metroFilterForCatalog, nutritionCriteria, selectedCuisines, selectedVenueTypes])
 
   const mapItems = useMemo(() => (
     isRadiusFilterActive

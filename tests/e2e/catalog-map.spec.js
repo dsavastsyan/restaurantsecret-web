@@ -521,6 +521,42 @@ test('list includes restaurants whose map point is near the selected metro', asy
   await expect(page.locator('.catalog-card')).toContainText(restaurant.chainName)
 })
 
+test('metro radius includes nearby restaurants without matching station metadata', async ({ page }) => {
+  const nearbyRestaurant = {
+    ...restaurant,
+    id: 'nearby-metro-1',
+    slug: 'nearby-metro-test',
+    name: 'Ресторан рядом с метро',
+    chainSlug: 'nearby-metro-test',
+    chainName: 'Ресторан рядом с метро',
+    metro: 'Другая станция',
+    metroNames: ['Другая станция'],
+    lat: 55.7598,
+    lon: 37.627,
+  }
+
+  await page.route((url) => {
+    const parsed = new URL(url)
+    return isCatalogApi(url) && (
+      parsed.pathname.endsWith('/restaurants') || parsed.pathname.endsWith('/restaurants/map')
+    )
+  }, (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/restaurants/map')) {
+      return route.fulfill({ json: { items: [restaurant, nearbyRestaurant] } })
+    }
+    return route.fulfill({ json: { items: [restaurant, nearbyRestaurant], total: 2 } })
+  })
+
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByPlaceholder('Найти станцию метро').fill('Лубянка')
+  await page.getByRole('checkbox', { name: 'Лубянка' }).check()
+
+  await expect(page.locator('.catalog-card')).toHaveCount(2)
+  await expect(page.locator('.catalog-card').filter({ hasText: nearbyRestaurant.name })).toHaveCount(1)
+})
+
 test('suggests a matching chain and leaves only nearby metro markers after selection', async ({ page }) => {
   await page.goto('/catalog/moskva/')
   await expect(page.locator('#rs-splash')).toHaveAttribute('data-state', 'hidden', { timeout: 10_000 })
