@@ -284,7 +284,7 @@ export default function Catalog() {
     if (locationMode === 'nearby') return nearbyPoint ? [nearbyPoint] : []
     return citySearchCenter ? [citySearchCenter] : []
   }, [citySearchCenter, locationMode, nearbyPoint, selectedMetroPoints])
-  const isLocationFilterActive = locationAnchorPoints.length > 0
+  const isRadiusFilterActive = locationAnchorPoints.length > 0 && radiusKm != null
 
   const navigate = useNavigate()
   const { access, requireAccess, requestPaywall } = useOutletContext() || {}
@@ -411,9 +411,9 @@ export default function Catalog() {
       venue_type: selectedVenueTypes.length === 1 ? selectedVenueTypes[0] : undefined,
       metro: usesClientMetroFilter ? undefined : selectedMetro,
       calorie_range: undefined,
-      near_lat: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lat) : undefined,
-      near_lon: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lon) : undefined,
-      radius_m: isLocationFilterActive && !usesClientMetroFilter ? radiusKm * 1000 : undefined,
+      near_lat: isRadiusFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lat) : undefined,
+      near_lon: isRadiusFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lon) : undefined,
+      radius_m: isRadiusFilterActive && !usesClientMetroFilter ? radiusKm * 1000 : undefined,
     }),
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
@@ -518,16 +518,16 @@ export default function Catalog() {
   }, [allItemsWithNutrition, debouncedQuery, hasNutritionFilter, mapSourceItems, nutritionCriteria, selectedCuisines, selectedMetro, selectedVenueTypes])
 
   const mapItems = useMemo(() => (
-    isLocationFilterActive
+    isRadiusFilterActive
       ? filterCatalogMapItemsByRadius(mapItemsBeforeLocation, locationAnchorPoints, radiusKm * 1000)
       : mapItemsBeforeLocation
-  ), [isLocationFilterActive, locationAnchorPoints, mapItemsBeforeLocation, radiusKm])
+  ), [isRadiusFilterActive, locationAnchorPoints, mapItemsBeforeLocation, radiusKm])
 
   const filteredItems = useMemo(() => (
-    isLocationFilterActive
+    isRadiusFilterActive
       ? filterCatalogItemsByMapPoints(catalogItemsBeforeLocation, mapItems)
       : catalogItemsBeforeLocation
-  ), [catalogItemsBeforeLocation, isLocationFilterActive, mapItems])
+  ), [catalogItemsBeforeLocation, isRadiusFilterActive, mapItems])
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -661,11 +661,12 @@ export default function Catalog() {
         ? `${selectedVenueTypeNames.length} типа`
         : null,
   ].filter(Boolean).join(' · ') || 'Любое место'
+  const radiusSummary = radiusKm == null ? '' : ` · ${radiusKm} км`
   const locationFilterSummary = locationMode === 'metro'
-    ? `${selectedMetro.length === 1 ? selectedMetro[0] : selectedMetro.length > 1 ? `${selectedMetro.length} метро` : 'У метро'} · ${radiusKm} км`
+    ? `${selectedMetro.length === 1 ? selectedMetro[0] : selectedMetro.length > 1 ? `${selectedMetro.length} метро` : 'У метро'}${radiusSummary}`
     : locationMode === 'nearby'
-      ? `${nearbyPointLabel || 'Рядом с точкой'} · ${radiusKm} км`
-      : `В центре · ${radiusKm} км`
+      ? `${nearbyPointLabel || 'Рядом с точкой'}${radiusSummary}`
+      : `В центре${radiusSummary}`
   const nutritionFilterParts = [
     ...NUTRITION_PRESETS
       .filter((preset) => isNutritionPresetActive(preset))
@@ -704,8 +705,8 @@ export default function Catalog() {
         : locationMode === 'center'
           ? [{ key: 'location:center', label: 'Центр', onRemove: resetLocationFilter }]
           : []),
-    ...((selectedMetro.length || (locationMode !== 'metro' && (nearbyPoint || locationMode === 'center')))
-      ? [{ key: 'location:radius', label: `до ${radiusKm} км`, onRemove: () => setRadiusKm(3) }]
+    ...((radiusKm != null && (selectedMetro.length || (locationMode !== 'metro' && (nearbyPoint || locationMode === 'center'))))
+      ? [{ key: 'location:radius', label: `до ${radiusKm} км`, onRemove: () => setRadiusKm(null) }]
       : []),
     ...selectedCuisines.map((cuisine) => ({
       key: `cuisine:${cuisine}`,
@@ -1350,7 +1351,7 @@ export default function Catalog() {
               selectedMetroStationNames={selectedMetro}
               focusPoints={locationAnchorPoints}
               radiusPoints={locationAnchorPoints}
-              radiusMeters={radiusKm * 1000}
+              radiusMeters={radiusKm == null ? 0 : radiusKm * 1000}
               isPickingLocation={isPickingLocation}
               onPickLocation={handleMapLocationPick}
               onCancelLocationPick={() => setIsPickingLocation(false)}

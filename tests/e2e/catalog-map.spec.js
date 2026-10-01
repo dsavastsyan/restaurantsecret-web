@@ -198,6 +198,22 @@ test('clears a previous geolocation error after a later successful location requ
   await expect(page.getByText('Не удалось определить местоположение.', { exact: false })).toHaveCount(0)
 })
 
+test('allows location filters without a radius limit', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'В центре', exact: true }).click()
+  await page.getByRole('button', { name: 'Без ограничения', exact: true }).click()
+
+  await expect(page.getByRole('button', { name: 'Без ограничения', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('Escape')
+
+  const locationFilter = page.getByRole('button', { name: /Где удобно/ })
+  await expect(locationFilter).toContainText('В центре')
+  await expect(locationFilter).not.toContainText('3 км')
+  await expect(page.locator('.catalog-applied-filter')).toHaveCount(1)
+  await expect(page.locator('.catalog-applied-filter')).toHaveText('Центр×')
+})
+
 test('groups metro stations under expandable colored lines', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
   await page.getByRole('button', { name: /Где удобно/ }).click()

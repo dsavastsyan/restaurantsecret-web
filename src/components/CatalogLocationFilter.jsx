@@ -7,7 +7,10 @@ const MODES = [
   { id: 'center', label: 'В центре' },
 ]
 
-const RADII_KM = [1, 3, 5, 10]
+const RADIUS_OPTIONS = [
+  { value: null, label: 'Без ограничения' },
+  ...[1, 3, 5, 10].map((value) => ({ value, label: `${value} км` })),
+]
 
 export default function CatalogLocationFilter({
   mode,
@@ -258,15 +261,15 @@ export default function CatalogLocationFilter({
         <div className="catalog-location-filter__radius">
           <span className="catalog-location-filter__caption">Радиус</span>
           <div role="group" aria-label="Допустимый радиус">
-            {RADII_KM.map((value) => (
+            {RADIUS_OPTIONS.map(({ value, label }) => (
               <button
-                key={value}
+                key={value ?? 'unlimited'}
                 type="button"
                 className={radiusKm === value ? 'is-active' : ''}
                 aria-pressed={radiusKm === value}
                 onClick={() => onRadiusChange(value)}
               >
-                {value} км
+                {label}
               </button>
             ))}
           </div>
