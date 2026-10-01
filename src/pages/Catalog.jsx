@@ -60,6 +60,14 @@ const NUTRITION_PRESETS = [
   { key: 'fat', label: 'Жиров до 10 г', field: 'max', value: 10 },
 ]
 
+const getNutritionMenuKey = (city, slug) => `${city}:${slug}`
+
+const getNutritionMenuDishes = (payload) => {
+  if (Array.isArray(payload?.items)) return payload.items
+  if (Array.isArray(payload?.dishes)) return payload.dishes
+  return []
+}
+
 const CuisineIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path d="M7 3v8" />
@@ -152,6 +160,7 @@ export default function Catalog() {
   const [selectedMetro, setSelectedMetro] = useState([])
   const [selectedVenueTypes, setSelectedVenueTypes] = useState([])
   const [nutritionCriteria, setNutritionCriteria] = useState(EMPTY_NUTRITION_CRITERIA)
+  const [nutritionMenuData, setNutritionMenuData] = useState({})
   const [isNutritionCustomOpen, setIsNutritionCustomOpen] = useState(false)
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
@@ -171,6 +180,7 @@ export default function Catalog() {
   const [isPickingLocation, setIsPickingLocation] = useState(false)
   const [openFilter, setOpenFilter] = useState(null)
   const compactFiltersRef = useRef(null)
+  const nutritionMenuRequestsRef = useRef(new Set())
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
 
   const isNutritionPresetActive = (preset, criteria = nutritionCriteria) => {
@@ -425,25 +435,30 @@ export default function Catalog() {
     }).filter(Boolean)
   }, [rawData])
 
+  const allItemsWithNutrition = useMemo(() => allItems.map((item) => {
+    const menuData = item.slug ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, item.slug)] : null
+    return menuData?.status === 'ready' ? { ...item, dishes: menuData.dishes } : item
+  }), [allItems, nutritionMenuData, selectedCity.id])
+
   const searchItems = useMemo(() => {
     const restaurants = Array.isArray(crossCityResults?.restaurants) ? crossCityResults.restaurants : []
     return restaurants.map((result) => {
-      const catalogItem = allItems.find((item) => item.slug === result.slug)
+      const catalogItem = allItemsWithNutrition.find((item) => item.slug === result.slug)
       return {
         ...catalogItem,
         ...result,
         cuisine: normalizeCatalogCuisine(result.cuisine || catalogItem?.cuisine),
       }
     })
-  }, [allItems, crossCityResults?.restaurants])
+  }, [allItemsWithNutrition, crossCityResults?.restaurants])
 
   const mapSourceItems = useMemo(
     () => Array.isArray(rawMapData?.items) ? rawMapData.items : [],
     [rawMapData?.items],
   )
   const filterableItems = useMemo(
-    () => enrichCatalogItemsWithMapMetros(allItems, mapSourceItems),
-    [allItems, mapSourceItems],
+    () => enrichCatalogItemsWithMapMetros(allItemsWithNutrition, mapSourceItems),
+    [allItemsWithNutrition, mapSourceItems],
   )
 
   // The list uses the map's per-point metro coverage as well as the nearest
@@ -487,7 +502,7 @@ export default function Catalog() {
   }, [debouncedQuery, filterableItems, hasNutritionFilter, nutritionCriteria, searchItems, selectedCuisines, selectedMetro, selectedVenueTypes])
 
   const mapItemsBeforeLocation = useMemo(() => {
-    const enriched = enrichCatalogMapItems(mapSourceItems, allItems)
+    const enriched = enrichCatalogMapItems(mapSourceItems, allItemsWithNutrition)
 
     const filtered = filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
@@ -499,7 +514,7 @@ export default function Catalog() {
     return hasNutritionFilter
       ? filtered.filter((restaurant) => matchesCatalogNutritionCriteria(restaurant, nutritionCriteria))
       : filtered
-  }, [allItems, debouncedQuery, hasNutritionFilter, mapSourceItems, nutritionCriteria, selectedCuisines, selectedMetro, selectedVenueTypes])
+  }, [allItemsWithNutrition, debouncedQuery, hasNutritionFilter, mapSourceItems, nutritionCriteria, selectedCuisines, selectedMetro, selectedVenueTypes])
 
   const mapItems = useMemo(() => (
     isLocationFilterActive
@@ -535,6 +550,41 @@ export default function Catalog() {
     const start = pageWithinFetch * PAGE_SIZE
     return displayItems.slice(start, start + PAGE_SIZE)
   }, [catalogPagesPerFetch, currentPage, debouncedQuery, displayItems])
+
+  useEffect(() => {
+    if (!hasNutritionFilter) return
+
+    const candidates = visibleItems.filter((restaurant) => (
+      !restaurant.isChainCard
+      && restaurant.slug
+      && nutritionMenuData[getNutritionMenuKey(selectedCity.id, restaurant.slug)] == null
+      && !nutritionMenuRequestsRef.current.has(getNutritionMenuKey(selectedCity.id, restaurant.slug))
+    ))
+    if (!candidates.length) return
+
+    const requests = candidates.map((restaurant) => {
+      const key = getNutritionMenuKey(selectedCity.id, restaurant.slug)
+      nutritionMenuRequestsRef.current.add(key)
+      return api.menu(restaurant.slug, selectedCity.id)
+        .then((payload) => ({
+          key,
+          status: 'ready',
+          dishes: getNutritionMenuDishes(payload),
+        }))
+        .catch(() => ({ key, status: 'error', dishes: [] }))
+        .finally(() => nutritionMenuRequestsRef.current.delete(key))
+    })
+
+    Promise.all(requests).then((results) => {
+      setNutritionMenuData((current) => {
+        const next = { ...current }
+        results.forEach((result) => {
+          next[result.key] = result
+        })
+        return next
+      })
+    })
+  }, [hasNutritionFilter, nutritionMenuData, selectedCity.id, visibleItems])
 
   const catalogLoading = debouncedQuery ? searchLoading : loading
   const catalogError = debouncedQuery ? searchError : error
@@ -1379,6 +1429,9 @@ export default function Catalog() {
             const restaurantLinkUrl = normalizeRestaurantLinkUrl(r.instagramUrl)
             const nutritionStats = getCatalogNutritionStatsForCriteria(r, nutritionCriteria)
             const dishesCount = hasNutritionFilter ? nutritionStats.matching : nutritionStats.total
+            const nutritionMenuState = r.slug
+              ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, r.slug)]
+              : null
             const priceRange = formatRestaurantPriceRange(r)
             const googleRating = getRestaurantGoogleRating(r)
             const googlePlaceId = getGooglePlaceId(r)
@@ -1444,7 +1497,9 @@ export default function Catalog() {
                       <div className="catalog-card__label">
                         {hasNutritionFilter
                           ? dishesCount === null
-                            ? '— подходящих блюд'
+                            ? nutritionMenuState?.status === 'error'
+                              ? 'Не удалось загрузить блюда'
+                              : 'Загрузка блюд…'
                             : `${dishesCount} ${getRussianPluralWord(dishesCount, 'подходящее блюдо', 'подходящих блюда', 'подходящих блюд')}`
                           : `Блюда в меню: ${dishesCount} ${getRussianPluralWord(dishesCount, 'блюдо', 'блюда', 'блюд')}`}
                       </div>

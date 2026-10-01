@@ -262,9 +262,15 @@ test('shows the filtered restaurant count above the list', async ({ page }) => {
 test('filters restaurants by dish calories and shows only the matching dish count', async ({ page }) => {
   await page.route((url) => (
     isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
-  ), (route) => route.fulfill({
-    json: { items: [{ ...restaurant, chainSlug: null, chainName: null }], total: 1 },
-  }))
+  ), (route) => {
+    const { dishes, ...restaurantWithoutDishes } = restaurant
+    return route.fulfill({
+      json: { items: [{ ...restaurantWithoutDishes, chainSlug: null, chainName: null }], total: 1 },
+    })
+  })
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/coffee-test/menu')
+  ), (route) => route.fulfill({ json: { items: restaurant.dishes } }))
   await page.goto('/catalog/moskva/?view=list')
 
   await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
