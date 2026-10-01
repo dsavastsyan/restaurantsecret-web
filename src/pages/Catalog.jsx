@@ -31,11 +31,11 @@ import {
   normalizeCatalogCuisine,
 } from '@/lib/catalogFilters'
 import {
-  DEFAULT_CALORIE_RANGES,
   formatRestaurantPriceRange,
-  getCatalogNutritionStats,
+  getCatalogNutritionStatsForCriteria,
+  hasCatalogNutritionCriteria,
   getRestaurantGoogleRating,
-  matchesCatalogNutritionFilter,
+  matchesCatalogNutritionCriteria,
 } from '@/lib/catalogNutrition'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
 import '../catalog-compact.css'
@@ -48,6 +48,17 @@ const FETCH_LIMIT = 48;
 const CLIENT_LOCATION_FETCH_LIMIT = 2000;
 const PAGE_SIZE = 8;
 const EMPTY_METRO_DATA = { lines: [], stations: [] };
+const EMPTY_NUTRITION_CRITERIA = {
+  calories: { min: '', max: '' },
+  protein: { min: '', max: '' },
+  fat: { min: '', max: '' },
+  carbs: { min: '', max: '' },
+}
+const NUTRITION_PRESETS = [
+  { key: 'calories', label: 'До 400 ккал', field: 'max', value: 400 },
+  { key: 'protein', label: 'Белка от 25 г', field: 'min', value: 25 },
+  { key: 'fat', label: 'Жиров до 10 г', field: 'max', value: 10 },
+]
 
 const CuisineIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -140,7 +151,8 @@ export default function Catalog() {
   const [selectedCuisines, setSelectedCuisines] = useState([])
   const [selectedMetro, setSelectedMetro] = useState([])
   const [selectedVenueType, setSelectedVenueType] = useState('')
-  const [selectedNutritionRange, setSelectedNutritionRange] = useState('')
+  const [nutritionCriteria, setNutritionCriteria] = useState(EMPTY_NUTRITION_CRITERIA)
+  const [isNutritionCustomOpen, setIsNutritionCustomOpen] = useState(false)
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
@@ -160,6 +172,65 @@ export default function Catalog() {
   const [openFilter, setOpenFilter] = useState(null)
   const compactFiltersRef = useRef(null)
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
+
+  const isNutritionPresetActive = (preset, criteria = nutritionCriteria) => {
+    const current = criteria[preset.key] || {}
+    return String(current[preset.field] ?? '') === String(preset.value)
+      && (preset.field === 'max' ? !current.min : !current.max)
+  }
+
+  const toggleNutritionPreset = (preset) => {
+    setNutritionCriteria((current) => {
+      const next = {
+        ...current,
+        [preset.key]: { ...(current[preset.key] || {}) },
+      }
+      if (isNutritionPresetActive(preset, current)) {
+        next[preset.key][preset.field] = ''
+      } else {
+        next[preset.key][preset.field] = preset.value
+      }
+      return next
+    })
+  }
+
+  const updateNutritionCriteria = (field, bound, value) => {
+    setNutritionCriteria((current) => ({
+      ...current,
+      [field]: {
+        ...(current[field] || {}),
+        [bound]: value,
+      },
+    }))
+  }
+
+  const resetNutritionCriteria = () => {
+    setNutritionCriteria({
+      calories: { min: '', max: '' },
+      protein: { min: '', max: '' },
+      fat: { min: '', max: '' },
+      carbs: { min: '', max: '' },
+    })
+    setIsNutritionCustomOpen(false)
+  }
+
+  const resetLocationFilter = () => {
+    setLocationMode('metro')
+    setSelectedMetro([])
+    setRadiusKm(3)
+    setNearbyPoint(null)
+    setNearbyPointLabel('')
+    setAddressQuery('')
+    setAddressResults([])
+    setAddressError('')
+    setGeolocationError('')
+    setIsPickingLocation(false)
+  }
+
+  const resetPlaceFilter = () => {
+    setSelectedCuisines([])
+    setSelectedVenueType('')
+  }
 
   useEffect(() => {
     const closeOnOutsideClick = (event) => {
@@ -253,7 +324,7 @@ export default function Catalog() {
     setSelectedCuisines([])
     setSelectedMetro([])
     setSelectedVenueType('')
-    setSelectedNutritionRange('')
+    resetNutritionCriteria()
     setLocationMode('metro')
     setNearbyPoint(null)
     setNearbyPointLabel('')
@@ -311,13 +382,15 @@ export default function Catalog() {
     { enabled: Boolean(debouncedQuery) },
   )
   const usesClientMetroFilter = locationMode === 'metro' && selectedMetro.length > 0
-  const catalogFetchLimit = usesClientMetroFilter ? CLIENT_LOCATION_FETCH_LIMIT : FETCH_LIMIT
+  const hasNutritionFilter = hasCatalogNutritionCriteria(nutritionCriteria)
+  const usesClientFilteredCatalog = usesClientMetroFilter || hasNutritionFilter
+  const catalogFetchLimit = usesClientFilteredCatalog ? CLIENT_LOCATION_FETCH_LIMIT : FETCH_LIMIT
   const catalogPagesPerFetch = catalogFetchLimit / PAGE_SIZE
   // Text search is owned by /search. Keep the paginated catalog request
   // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueType}:${selectedMetro.join(',')}:${selectedNutritionRange}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueType}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
     () => api.restaurants({
       limit: catalogFetchLimit,
       offset: serverPage * catalogFetchLimit,
@@ -325,7 +398,7 @@ export default function Catalog() {
       cuisine: selectedCuisines,
       venue_type: selectedVenueType || undefined,
       metro: usesClientMetroFilter ? undefined : selectedMetro,
-      calorie_range: selectedNutritionRange || undefined,
+      calorie_range: undefined,
       near_lat: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lat) : undefined,
       near_lon: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lon) : undefined,
       radius_m: isLocationFilterActive && !usesClientMetroFilter ? radiusKm * 1000 : undefined,
@@ -407,10 +480,10 @@ export default function Catalog() {
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
     })
-    const availableRanges = Array.isArray(filters?.calorie_ranges) ? filters.calorie_ranges : DEFAULT_CALORIE_RANGES
-    const range = availableRanges.find((item) => String(item.key) === selectedNutritionRange)
-    return range ? filtered.filter((restaurant) => matchesCatalogNutritionFilter(restaurant, range)) : filtered
-  }, [debouncedQuery, filterableItems, filters?.calorie_ranges, searchItems, selectedCuisines, selectedMetro, selectedNutritionRange, selectedVenueType])
+    return hasNutritionFilter
+      ? filtered.filter((restaurant) => matchesCatalogNutritionCriteria(restaurant, nutritionCriteria))
+      : filtered
+  }, [debouncedQuery, filterableItems, hasNutritionFilter, nutritionCriteria, searchItems, selectedCuisines, selectedMetro, selectedVenueType])
 
   const mapItemsBeforeLocation = useMemo(() => {
     const enriched = enrichCatalogMapItems(mapSourceItems, allItems)
@@ -422,10 +495,10 @@ export default function Catalog() {
       venueType: selectedVenueType,
       matchesQuery: matchesSearchQuery,
     })
-    const availableRanges = Array.isArray(filters?.calorie_ranges) ? filters.calorie_ranges : DEFAULT_CALORIE_RANGES
-    const range = availableRanges.find((item) => String(item.key) === selectedNutritionRange)
-    return range ? filtered.filter((restaurant) => matchesCatalogNutritionFilter(restaurant, range)) : filtered
-  }, [allItems, debouncedQuery, filters?.calorie_ranges, mapSourceItems, selectedCuisines, selectedMetro, selectedNutritionRange, selectedVenueType])
+    return hasNutritionFilter
+      ? filtered.filter((restaurant) => matchesCatalogNutritionCriteria(restaurant, nutritionCriteria))
+      : filtered
+  }, [allItems, debouncedQuery, hasNutritionFilter, mapSourceItems, nutritionCriteria, selectedCuisines, selectedMetro, selectedVenueType])
 
   const mapItems = useMemo(() => (
     isLocationFilterActive
@@ -442,7 +515,7 @@ export default function Catalog() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedQuery, locationMode, nearbyPoint, radiusKm, selectedCuisines, selectedMetro, selectedNutritionRange, selectedVenueType])
+  }, [debouncedQuery, locationMode, nearbyPoint, nutritionCriteria, radiusKm, selectedCuisines, selectedMetro, selectedVenueType])
 
   // Physical branches remain reachable from their chain hub, but the catalog
   // itself presents one card per chain rather than exposing branch pages.
@@ -451,11 +524,9 @@ export default function Catalog() {
     [filteredItems],
   )
 
-  const resultCount = debouncedQuery
+  const resultCount = debouncedQuery || usesClientFilteredCatalog
     ? displayItems.length
-    : usesClientMetroFilter
-      ? displayItems.length
-      : Number(rawData?.total ?? displayItems.length)
+    : Number(rawData?.total ?? displayItems.length)
   const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE))
 
   const visibleItems = useMemo(() => {
@@ -503,19 +574,6 @@ export default function Catalog() {
     }))
   }, [filters?.venueTypes, filters?.venue_types])
 
-  const nutritionRanges = useMemo(() => {
-    const raw = filters?.calorie_ranges
-    if (!Array.isArray(raw) || !raw.length) return DEFAULT_CALORIE_RANGES
-    return raw.map((range) => ({
-      key: String(range.key),
-      label: String(range.label || range.name || range.key),
-      min: Number(range.min ?? 0),
-      max: Number(range.max ?? 5000),
-    }))
-  }, [filters?.calorie_ranges])
-
-  const selectedNutrition = nutritionRanges.find((range) => range.key === selectedNutritionRange) || null
-
   const selectedVenueTypeName = venueTypeOptions.find((option) => option.id === selectedVenueType)?.name
   const placeFilterCount = selectedCuisines.length + (selectedVenueType ? 1 : 0)
   const placeFilterSummary = [
@@ -531,7 +589,27 @@ export default function Catalog() {
     : locationMode === 'nearby'
       ? `${nearbyPointLabel || 'Рядом с точкой'} · ${radiusKm} км`
       : `В центре · ${radiusKm} км`
-  const nutritionFilterSummary = selectedNutrition?.label || 'КБЖУ блюд'
+  const nutritionFilterParts = [
+    ...NUTRITION_PRESETS
+      .filter((preset) => isNutritionPresetActive(preset))
+      .map((preset) => preset.label.toLocaleLowerCase('ru-RU')),
+    ...['calories', 'protein', 'fat', 'carbs']
+      .filter((field) => {
+        const value = nutritionCriteria[field] || {}
+        return (value.min !== '' || value.max !== '')
+          && !NUTRITION_PRESETS.some((preset) => preset.key === field && isNutritionPresetActive(preset))
+      })
+      .map((field) => {
+        const value = nutritionCriteria[field] || {}
+        const labels = { calories: 'ккал', protein: 'белок', fat: 'жиры', carbs: 'углеводы' }
+        const unit = labels[field]
+        if (value.min !== '' && value.max !== '') return `${value.min}–${value.max} ${unit}`
+        if (value.min !== '') return `${unit} от ${value.min} ${field === 'calories' ? '' : 'г'}`.trim()
+        return `до ${value.max} ${unit}`
+      }),
+  ]
+  const nutritionFilterSummary = nutritionFilterParts.join(' · ') || 'КБЖУ блюд'
+  const nutritionFilterCount = nutritionFilterParts.length
 
   const visibleMetroStations = useMemo(
     () => debouncedQuery
@@ -948,7 +1026,7 @@ export default function Catalog() {
                   <small>По блюдам</small>
                   <strong>{nutritionFilterSummary}</strong>
                 </span>
-                {selectedNutrition && <b aria-label="Фильтр КБЖУ применён">1</b>}
+                {nutritionFilterCount > 0 && <b aria-label={`Фильтров КБЖУ: ${nutritionFilterCount}`}>{nutritionFilterCount}</b>}
               </button>
             </div>
 
@@ -971,9 +1049,8 @@ export default function Catalog() {
               <div className="catalog-filter-popover__head">
                 <div>
                   <h2 id="catalog-location-popover-title">Где удобно?</h2>
-                  <p>Выберите ориентир и допустимый радиус</p>
                 </div>
-                <button type="button" onClick={() => setOpenFilter(null)} aria-label="Закрыть">×</button>
+                <button type="button" className="catalog-filter-popover__clear" onClick={resetLocationFilter}>Сбросить</button>
               </div>
               <CatalogLocationFilter
                   mode={locationMode}
@@ -1008,10 +1085,10 @@ export default function Catalog() {
             >
               <div className="catalog-filter-popover__head">
                 <div>
-                  <h2 id="catalog-place-popover-title">Кухня и тип заведения</h2>
-                  <p>Можно выбрать несколько кухонь</p>
+                  <h2 id="catalog-place-popover-title">Какое место?</h2>
+                  <p>Можно выбрать несколько кухонь и типов заведений.</p>
                 </div>
-                <button type="button" onClick={() => setOpenFilter(null)} aria-label="Закрыть">×</button>
+                <button type="button" className="catalog-filter-popover__clear" onClick={resetPlaceFilter}>Сбросить</button>
               </div>
               <div className="catalog-filter-popover__grid">
                 <div className="catalog-filter">
@@ -1053,29 +1130,73 @@ export default function Catalog() {
               <div className="catalog-filter-popover__head">
                 <div>
                   <h2 id="catalog-nutrition-popover-title">КБЖУ блюд</h2>
-                  <p>Покажем рестораны, где есть блюда в выбранном диапазоне калорий</p>
+                  <p>Покажем рестораны, где есть хотя бы одно подходящее блюдо.</p>
                 </div>
-                <button type="button" onClick={() => setOpenFilter(null)} aria-label="Закрыть">×</button>
-              </div>
-              <div className="catalog-nutrition-options" role="group" aria-label="Диапазон калорий">
                 <button
                   type="button"
-                  className={!selectedNutritionRange ? 'is-active' : ''}
-                  aria-pressed={!selectedNutritionRange}
-                  onClick={() => setSelectedNutritionRange('')}
+                  className="catalog-filter-popover__clear"
+                  onClick={resetNutritionCriteria}
                 >
-                  Все блюда
+                  Сбросить
                 </button>
-                {nutritionRanges.map((range) => (
-                  <button
-                    key={range.key}
-                    type="button"
-                    className={selectedNutritionRange === range.key ? 'is-active' : ''}
-                    aria-pressed={selectedNutritionRange === range.key}
-                    onClick={() => setSelectedNutritionRange(range.key)}
-                  >
-                    {range.label}
-                  </button>
+              </div>
+              <div className="catalog-nutrition-intro">Быстрые варианты</div>
+              <div className="catalog-nutrition-quick" role="group" aria-label="Быстрые варианты КБЖУ">
+                {NUTRITION_PRESETS.map((preset) => {
+                  const isActive = isNutritionPresetActive(preset)
+                  return (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      className={`catalog-nutrition-quick-card${isActive ? ' is-active' : ''}`}
+                      aria-pressed={isActive}
+                      onClick={() => toggleNutritionPreset(preset)}
+                    >
+                      <span>{preset.label}</span>
+                      <span className="catalog-nutrition-quick-card__tick" aria-hidden="true">✓</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <button
+                type="button"
+                className={`catalog-nutrition-custom-toggle${isNutritionCustomOpen ? ' is-open' : ''}`}
+                aria-expanded={isNutritionCustomOpen}
+                aria-controls="catalog-nutrition-custom-values"
+                onClick={() => setIsNutritionCustomOpen((open) => !open)}
+              >
+                <span>Задать свои значения</span><span aria-hidden="true">⌄</span>
+              </button>
+              <div
+                id="catalog-nutrition-custom-values"
+                className={`catalog-nutrition-custom-values${isNutritionCustomOpen ? ' is-open' : ''}`}
+              >
+                {[
+                  ['calories', 'Калории', 'ккал'],
+                  ['protein', 'Белки', 'г'],
+                  ['fat', 'Жиры', 'г'],
+                  ['carbs', 'Углеводы', 'г'],
+                ].map(([field, label, unit]) => (
+                  <div className="catalog-nutrition-input-row" key={field}>
+                    <label htmlFor={`catalog-nutrition-${field}-min`}>{label}</label>
+                    <input
+                      id={`catalog-nutrition-${field}-min`}
+                      type="number"
+                      min="0"
+                      placeholder="от"
+                      value={nutritionCriteria[field]?.min ?? ''}
+                      onChange={(event) => updateNutritionCriteria(field, 'min', event.target.value)}
+                    />
+                    <input
+                      id={`catalog-nutrition-${field}-max`}
+                      type="number"
+                      min="0"
+                      placeholder="до"
+                      value={nutritionCriteria[field]?.max ?? ''}
+                      onChange={(event) => updateNutritionCriteria(field, 'max', event.target.value)}
+                    />
+                    <span>{unit}</span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1186,8 +1307,8 @@ export default function Catalog() {
             }
 
             const restaurantLinkUrl = normalizeRestaurantLinkUrl(r.instagramUrl)
-            const nutritionStats = getCatalogNutritionStats(r, selectedNutrition)
-            const dishesCount = selectedNutrition ? nutritionStats.matching : nutritionStats.total
+            const nutritionStats = getCatalogNutritionStatsForCriteria(r, nutritionCriteria)
+            const dishesCount = hasNutritionFilter ? nutritionStats.matching : nutritionStats.total
             const priceRange = formatRestaurantPriceRange(r)
             const googleRating = getRestaurantGoogleRating(r)
             const googlePlaceId = getGooglePlaceId(r)
@@ -1251,7 +1372,7 @@ export default function Catalog() {
                     </div>
                     <div className="catalog-card__bottom">
                       <div className="catalog-card__label">
-                        {selectedNutrition
+                        {hasNutritionFilter
                           ? dishesCount === null
                             ? '— подходящих блюд'
                             : `${dishesCount} ${getRussianPluralWord(dishesCount, 'подходящее блюдо', 'подходящих блюда', 'подходящих блюд')}`

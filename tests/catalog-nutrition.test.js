@@ -5,7 +5,10 @@ import {
   DEFAULT_CALORIE_RANGES,
   formatRestaurantPriceRange,
   getCatalogNutritionStats,
+  getCatalogNutritionStatsForCriteria,
   getRestaurantGoogleRating,
+  hasCatalogNutritionCriteria,
+  matchesCatalogNutritionCriteria,
   matchesCatalogNutritionFilter,
 } from '../src/lib/catalogNutrition.js'
 
@@ -33,6 +36,27 @@ test('uses a backend-provided nutrition summary when dish details are not embedd
 
   assert.equal(getCatalogNutritionStats(restaurant, DEFAULT_CALORIE_RANGES[1]).matching, 20)
   assert.equal(matchesCatalogNutritionFilter(restaurant, DEFAULT_CALORIE_RANGES[0]), true)
+})
+
+test('matches multiple quick and custom nutrition criteria against one dish', () => {
+  const restaurant = {
+    dishesCount: 2,
+    dishes: [
+      { name: 'Суп', kcal: 220, protein: 28, fat: 8, carbs: 22 },
+      { name: 'Паста', kcal: 480, protein: 18, fat: 20, carbs: 54 },
+    ],
+  }
+  const criteria = {
+    calories: { min: '', max: 400 },
+    protein: { min: 25, max: '' },
+    fat: { min: '', max: 10 },
+    carbs: { min: '', max: '' },
+  }
+
+  assert.equal(hasCatalogNutritionCriteria(criteria), true)
+  assert.equal(matchesCatalogNutritionCriteria(restaurant, criteria), true)
+  assert.equal(getCatalogNutritionStatsForCriteria(restaurant, criteria).matching, 1)
+  assert.equal(matchesCatalogNutritionCriteria({ dishes: [{ kcal: 500, protein: 10 }] }, criteria), false)
 })
 
 test('keeps optional restaurant metadata absent instead of inventing values', () => {
