@@ -21,6 +21,11 @@ const restaurant = {
   lat: 55.7645,
   lon: 37.6055,
   dishesCount: 42,
+  dishes: [
+    { name: 'Суп', kcal: 220 },
+    { name: 'Паста', kcal: 480 },
+    { name: 'Десерт', kcal: 720 },
+  ],
   autoUpdated: true,
 }
 
@@ -93,6 +98,11 @@ test.beforeEach(async ({ page }) => {
       return route.fulfill({
         json: {
           cuisines: ['Европейская'],
+          calorie_ranges: [
+            { key: 'lt300', label: '< 300 kcal', min: 0, max: 299 },
+            { key: '300to600', label: '300–600 kcal', min: 300, max: 600 },
+            { key: 'gt600', label: '> 600 kcal', min: 601, max: 5000 },
+          ],
           venue_types: [
             { id: 'restaurant', name: 'Рестораны' },
             { id: 'cafe', name: 'Кафе' },
@@ -108,7 +118,8 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('opens on the map, shows a restaurant card and persists list view in the URL', async ({ page }) => {
+test('opens on the map, shows a restaurant card and persists mobile list view in the URL', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   const mapRuntimeErrors = []
   page.on('console', (message) => {
     if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
@@ -121,7 +132,6 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
 
   await page.goto('/catalog/moskva/')
 
-  await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
@@ -140,13 +150,13 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
   await expect(mapCard).toContainText('м Кузнецкий Мост (900м)')
   await expect(mapCard.getByRole('button', { name: 'Открыть меню' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Список', exact: true }).click()
+  await page.getByRole('button', { name: 'Показать список ресторанов' }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
   await expect(page.locator('.catalog-card')).toHaveCount(1)
   await expect(page.locator('.catalog-card__metro')).toHaveCount(0)
 
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Список', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Показать карту ресторанов' })).toBeVisible()
   await expect(page.locator('.catalog-grid')).toBeVisible()
 })
 
@@ -216,13 +226,13 @@ test('falls back to raster tiles when WebGL context is lost', async ({ page }) =
 test('filters both map and list by the primary venue type', async ({ page }) => {
   await page.goto('/catalog/moskva/')
 
-  await page.getByLabel('Тип заведения').selectOption('coffee_tea')
+  await page.getByRole('button', { name: /Что ищем/ }).click()
+  await page.getByLabel('Тип заведения', { exact: true }).selectOption('coffee_tea')
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
-  await page.getByLabel('Тип заведения').selectOption('restaurant')
+  await page.getByLabel('Тип заведения', { exact: true }).selectOption('restaurant')
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Список', exact: true }).click()
   await expect(page.locator('.catalog-card')).toHaveCount(0)
 })
 
@@ -232,8 +242,25 @@ test('shows the filtered restaurant count above the list', async ({ page }) => {
   const summary = page.locator('.catalog-results__summary')
   await expect(summary).toHaveText('Найдено: 1 ресторан')
 
-  await page.getByLabel('Тип заведения').selectOption('restaurant')
+  await page.getByRole('button', { name: /Что ищем/ }).click()
+  await page.getByLabel('Тип заведения', { exact: true }).selectOption('restaurant')
   await expect(summary).toHaveText('Найдено: 0 ресторанов')
+})
+
+test('filters restaurants by dish calories and shows only the matching dish count', async ({ page }) => {
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
+  ), (route) => route.fulfill({
+    json: { items: [{ ...restaurant, chainSlug: null, chainName: null }], total: 1 },
+  }))
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
+  await page.getByRole('button', { name: '< 300 kcal', exact: true }).click()
+
+  await expect(page.locator('.catalog-card')).toHaveCount(1)
+  await expect(page.locator('.catalog-card__label')).toHaveText('1 подходящее блюдо')
+  await expect(page.locator('.catalog-card__dish')).toHaveCount(0)
 })
 
 test('keeps the auto-update badge next to the restaurant name', async ({ page }) => {
@@ -277,6 +304,7 @@ test('keeps the auto-update badge next to the restaurant name', async ({ page })
 test('list includes restaurants whose map point is near the selected metro', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
 
+  await page.getByRole('button', { name: /Где удобно/ }).click()
   await page.getByRole('button', { name: 'Станции метро' }).click()
   await page.getByPlaceholder('Поиск станции...').fill('Лубянка')
   await page.getByRole('button', { name: 'Лубянка', exact: true }).click()
@@ -318,6 +346,7 @@ test('highlights only stations selected through a metro line', async ({ page }) 
   await page.goto('/catalog/moskva/')
 
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(3, { timeout: 15_000 })
+  await page.getByRole('button', { name: /Где удобно/ }).click()
   await page.getByRole('button', { name: 'Станции метро' }).click()
   await page.getByRole('button', { name: 'Тестовая линия', exact: true }).click()
 

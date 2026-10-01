@@ -54,8 +54,11 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // Moving past the landing page should fetch the catalog data.
   const catalogResponsePromise = waitForSuccessfulResponse(page, (response) => {
     const url = new URL(response.url())
+    const limit = Number(url.searchParams.get('limit'))
     return url.pathname.endsWith('/restaurants')
-      && url.searchParams.get('limit') === '1000'
+      && Number.isInteger(limit)
+      && limit > 0
+      && limit <= 48
       && response.request().method() === 'GET'
   })
 
@@ -71,8 +74,8 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // don't assume identity between the two, just that results exist.
   expect(catalogPayload?.items?.length).toBeGreaterThan(0)
 
-  await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
+  await expect(page.locator('.catalog-results')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
   await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
@@ -82,11 +85,10 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   if (await previewPersonaToggle.isVisible() && await previewPersonaToggle.getAttribute('aria-expanded') === 'true') {
     await previewPersonaToggle.click()
   }
-  await page.getByRole('button', { name: 'Список', exact: true }).click()
-  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
-
-  const cards = page.locator('.catalog-card')
-  const firstCardButton = cards.first().getByRole('button', { name: 'Открыть меню' })
+  const firstCardButton = page
+    .locator('.catalog-card:not(.catalog-card--chain)')
+    .first()
+    .getByRole('button', { name: 'Открыть меню' })
   await expect(firstCardButton).toBeVisible()
 
   // Opening a restaurant navigates straight into its menu (no blocking modal
