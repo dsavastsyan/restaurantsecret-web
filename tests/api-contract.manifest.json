@@ -89,6 +89,7 @@
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/google-place-network-reviews", "live": false },
   { "backend": "restaurantPortal", "method": "POST", "path": "/api/admin/google-place-network-reviews/{param}/decision", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/google-place-branch-reviews", "live": false },
+  { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/google-places-usage", "live": false },
   { "backend": "restaurantPortal", "method": "POST", "path": "/api/admin/google-place-branch-reviews/{param}/decision", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/outreach", "live": false },
   { "backend": "restaurantPortal", "method": "PATCH", "path": "/api/admin/outreach/{param}", "live": false },

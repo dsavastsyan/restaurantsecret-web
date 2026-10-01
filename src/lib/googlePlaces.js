@@ -69,6 +69,20 @@ export function getGoogleMapsApiKey() {
   return String(import.meta.env?.VITE_GOOGLE_MAPS_API_KEY || '').trim()
 }
 
+export function reportGooglePlacesUsage() {
+  if (typeof window === 'undefined' || typeof fetch !== 'function') return
+
+  const apiBase = String(import.meta.env?.VITE_RESTAURANT_API_BASE || 'https://tg.restaurantsecret.ru')
+    .replace(/\/+$/, '')
+  void fetch(`${apiBase}/api/telemetry/google-places`, {
+    method: 'POST',
+    credentials: 'omit',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sku: 'places_ui_kit_query' }),
+  }).catch(() => {})
+}
+
 export function loadGooglePlacesUiKit(apiKey = getGoogleMapsApiKey()) {
   if (!apiKey || typeof window === 'undefined' || typeof document === 'undefined') {
     return Promise.reject(new Error('Google Maps API key is not configured'))
