@@ -7,8 +7,10 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
 import './catalog-map.css'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
+import InstagramIcon from './InstagramIcon.jsx'
 import MetroStationsLayer from './map/MetroStationsLayer'
 import MetroStationsText from './MetroStationsText'
+import { normalizeInstagramUrl } from '@/lib/instagram'
 import { getCatalogMapPointKey, normalizeCatalogMetroStations } from '@/lib/catalogMapItems'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
@@ -205,6 +207,7 @@ export default function CatalogMap({
 }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
   const selectedKey = getCatalogMapPointKey(selectedRestaurant)
+  const selectedRestaurantInstagramUrl = normalizeInstagramUrl(selectedRestaurant?.instagramUrl)
 
   useEffect(() => {
     if (!selectedKey) return
@@ -304,7 +307,7 @@ export default function CatalogMap({
               <span>{selectedRestaurant.address || selectedRestaurant.metro}</span>
             </div>
           )}
-          <div className="catalog-map-card__actions">
+          <div className={`catalog-map-card__actions${selectedRestaurantInstagramUrl ? ' catalog-map-card__actions--with-instagram' : ''}`}>
             <button
               type="button"
               className={`catalog-map-card__favorite${isFavorite(selectedRestaurant.slug) ? ' is-active' : ''}`}
@@ -315,6 +318,19 @@ export default function CatalogMap({
                 <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3A5.9 5.9 0 0 1 12 5.09 5.9 5.9 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54Z" />
               </svg>
             </button>
+            {selectedRestaurantInstagramUrl && (
+              <a
+                className="catalog-map-card__instagram"
+                href={selectedRestaurantInstagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Открыть Instagram"
+                title="Instagram"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <InstagramIcon />
+              </a>
+            )}
             <button
               type="button"
               className="catalog-map-card__open"

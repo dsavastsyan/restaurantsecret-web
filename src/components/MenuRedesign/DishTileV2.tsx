@@ -176,7 +176,7 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
         )}
 
         <div className={`rsm2-nutrition ${hasDishAccess ? '' : 'rsm2-nutrition--teaser'}`}>
-          <MacroRing geometry={geometry} kcal={dish.kcal} size="tile" />
+          <MacroRing geometry={geometry} kcal={dish.kcal} size="tile" concealed={!hasDishAccess} />
           <div>
             <div className="rsm2-macrobar" aria-hidden="true">
               <span className="rsm2-macrobar__seg rsm2-macrobar__seg--protein" style={{ width: `${geometry.proteinPct}%` }} />
@@ -184,9 +184,9 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
               <span className="rsm2-macrobar__seg rsm2-macrobar__seg--carb" style={{ width: `${geometry.carbPct}%` }} />
             </div>
             <div className="rsm2-legend">
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--protein" />Б {formatNumeric(dish.protein)}г</span>
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--fat" />Ж {formatNumeric(dish.fat)}г</span>
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--carb" />У {formatNumeric(dish.carbs)}г</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--protein" />Б {hasDishAccess ? `${formatNumeric(dish.protein)}г` : '—'}</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--fat" />Ж {hasDishAccess ? `${formatNumeric(dish.fat)}г` : '—'}</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--carb" />У {hasDishAccess ? `${formatNumeric(dish.carbs)}г` : '—'}</span>
             </div>
           </div>
         </div>

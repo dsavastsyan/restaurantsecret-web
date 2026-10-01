@@ -12,6 +12,7 @@ import { analytics } from '@/services/analytics'
 import { getRussianPluralWord, getSearchQueryScore, matchesSearchQuery } from '@/lib/text'
 import { getLandingStats } from '@/lib/api'
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
+import InstagramIcon from '@/components/InstagramIcon.jsx'
 import MetroStationsText from '@/components/MetroStationsText.jsx'
 import GooglePlaceMedia from '@/components/GooglePlaceMedia.jsx'
 import { saveCatalogCity } from '@/lib/cityPreference'
@@ -43,6 +44,7 @@ import {
   serializeCatalogFilterState,
 } from '@/lib/catalogFilterParams'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
+import { normalizeInstagramUrl } from '@/lib/instagram'
 import '../catalog-compact.css'
 
 const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
@@ -76,17 +78,6 @@ const CuisineIcon = () => (
     <path d="M7 11v10" />
     <path d="M16 3v18" />
     <path d="M16 3c2.4 1.5 3.6 3.4 3.6 5.8 0 2.5-1.2 4.1-3.6 4.9" />
-  </svg>
-)
-
-const RestaurantWebIcon = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9.25" />
-    <path d="M3 12h18" />
-    <path d="M12 2.75c2.35 2.55 3.55 5.63 3.55 9.25s-1.2 6.7-3.55 9.25" />
-    <path d="M12 2.75C9.65 5.3 8.45 8.38 8.45 12s1.2 6.7 3.55 9.25" />
-    <path d="M5.35 6.05c1.72.83 3.93 1.25 6.65 1.25s4.93-.42 6.65-1.25" />
-    <path d="M5.35 17.95c1.72-.83 3.93-1.25 6.65-1.25s4.93.42 6.65 1.25" />
   </svg>
 )
 
@@ -125,21 +116,6 @@ const ScrollingRestaurantName = ({ name }) => {
       ) : name}
     </span>
   )
-}
-
-const normalizeRestaurantLinkUrl = (rawUrl) => {
-  if (!rawUrl) return null
-  const text = String(rawUrl).trim()
-  if (!text || text === '-' || text === '—') return null
-  const withProtocol = /^https?:\/\//i.test(text) ? text : `https://${text.replace(/^\/+/, '')}`
-
-  try {
-    const parsed = new URL(withProtocol)
-    if (!/^https?:$/i.test(parsed.protocol) || !parsed.hostname.includes('.')) return null
-    return parsed.toString()
-  } catch (_) {
-    return null
-  }
 }
 
 export default function Catalog() {
@@ -1468,7 +1444,7 @@ export default function Catalog() {
               )
             }
 
-            const restaurantLinkUrl = normalizeRestaurantLinkUrl(r.instagramUrl)
+            const restaurantLinkUrl = normalizeInstagramUrl(r.instagramUrl)
             const nutritionStats = getCatalogNutritionStatsForCriteria(r, nutritionCriteria)
             const dishesCount = hasNutritionFilter ? nutritionStats.matching : nutritionStats.total
             const nutritionMenuState = r.slug
@@ -1509,11 +1485,11 @@ export default function Catalog() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            aria-label="Ссылка ресторана"
-                            title="Ссылка ресторана"
-                            className="catalog-card__icon-btn catalog-card__icon-btn--web"
+                            aria-label="Открыть Instagram"
+                            title="Instagram"
+                            className="catalog-card__icon-btn catalog-card__icon-btn--instagram"
                           >
-                            <RestaurantWebIcon />
+                            <InstagramIcon />
                           </a>
                         )}
                         <button
