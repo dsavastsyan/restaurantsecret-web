@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Utensils } from 'lucide-react'
 import {
   getGoogleMapsApiKey,
   loadGooglePlacesUiKit,
@@ -81,7 +82,13 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
   return (
     <div className={`catalog-card__place-media${status === 'loaded' ? ' is-loaded' : ''}`}>
       <div ref={elementHostRef} className="catalog-card__place-media-element" />
-      {status !== 'loaded' && <div className="catalog-card__place-media-placeholder" aria-hidden="true" />}
+      {status !== 'loaded' && (
+        <div className="catalog-card__place-media-placeholder" aria-hidden="true">
+          <span className="catalog-card__place-media-placeholder-icon">
+            <Utensils size={32} strokeWidth={1.7} />
+          </span>
+        </div>
+      )}
     </div>
   )
 }

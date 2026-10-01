@@ -38,3 +38,8 @@ test('reports only successful Google Place Details loads to the usage counter', 
   assert.match(googlePlaceMedia, /reportGooglePlacesUsage\(\)/)
   assert.match(googlePlacesLoader, /\/api\/telemetry\/google-places/)
 })
+
+test('shows a food icon while the Google place photo is loading', () => {
+  assert.match(googlePlaceMedia, /Utensils/)
+  assert.match(googlePlaceMedia, /catalog-card__place-media-placeholder-icon/)
+})
