@@ -7,7 +7,10 @@ const MODES = [
   { id: 'center', label: 'В центре' },
 ]
 
-const RADII_KM = [1, 3, 5, 10]
+const RADIUS_OPTIONS = [
+  { value: null, label: 'Без ограничения' },
+  ...[1, 3, 5, 10].map((value) => ({ value, label: `${value} км` })),
+]
 
 export default function CatalogLocationFilter({
   mode,
@@ -32,27 +35,22 @@ export default function CatalogLocationFilter({
   isPickingOnMap,
 }) {
   const [metroSearch, setMetroSearch] = useState('')
+  const [expandedLineIds, setExpandedLineIds] = useState(() => new Set())
   const lineGroups = useMemo(
     () => buildMetroLineGroups(metroData.lines || [], metroData.stations || []),
     [metroData.lines, metroData.stations],
   )
-  const visibleStations = useMemo(() => {
+  const visibleLineGroups = useMemo(() => {
     const normalizedQuery = metroSearch.trim().toLocaleLowerCase('ru-RU')
-    const byName = new Map()
-
-    lineGroups.forEach((line) => {
-      line.stations.forEach((station) => {
-        if (normalizedQuery && !station.name_ru.toLocaleLowerCase('ru-RU').includes(normalizedQuery)) return
-        const current = byName.get(station.key)
-        if (current) {
-          if (!current.lineNames.includes(line.name_ru)) current.lineNames.push(line.name_ru)
-          return
-        }
-        byName.set(station.key, { ...station, lineNames: [line.name_ru] })
-      })
-    })
-
-    return Array.from(byName.values()).sort((a, b) => a.name_ru.localeCompare(b.name_ru, 'ru'))
+    return lineGroups
+      .map((line) => ({
+        ...line,
+        stations: line.stations.filter((station) => (
+          !normalizedQuery
+          || station.name_ru.toLocaleLowerCase('ru-RU').includes(normalizedQuery)
+        )),
+      }))
+      .filter((line) => line.stations.length > 0)
   }, [lineGroups, metroSearch])
   const selectedKeys = useMemo(
     () => new Set(selectedStationNames.map(normalizeMetroStationName).filter(Boolean)),
@@ -64,6 +62,15 @@ export default function CatalogLocationFilter({
     const next = selectedStationNames.filter((name) => normalizeMetroStationName(name) !== normalized)
     if (!selectedKeys.has(normalized)) next.push(stationName)
     onMetroChange(next.sort((a, b) => a.localeCompare(b, 'ru')))
+  }
+
+  const toggleLine = (lineId) => {
+    setExpandedLineIds((current) => {
+      const next = new Set(current)
+      if (next.has(lineId)) next.delete(lineId)
+      else next.add(lineId)
+      return next
+    })
   }
 
   return (
@@ -117,19 +124,44 @@ export default function CatalogLocationFilter({
               </div>
             )}
 
-            <div className="catalog-location-filter__stations" role="group" aria-label="Станции метро">
-              {visibleStations.length ? visibleStations.map((station) => {
-                const isSelected = selectedKeys.has(station.key)
+            <div className="catalog-location-filter__lines" role="group" aria-label="Ветки метро">
+              {visibleLineGroups.length ? visibleLineGroups.map((line) => {
+                const isExpanded = Boolean(metroSearch.trim()) || expandedLineIds.has(line.id)
                 return (
-                  <label className={`catalog-location-filter__station${isSelected ? ' is-selected' : ''}`} key={station.key}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleStation(station.name_ru)}
-                    />
-                    <span className="catalog-location-filter__station-name">{station.name_ru}</span>
-                    <span className="catalog-location-filter__station-line">{station.lineNames.join(' · ')}</span>
-                  </label>
+                  <div className="catalog-location-filter__line-group" key={line.id}>
+                    <button
+                      type="button"
+                      className={`catalog-location-filter__line-toggle${isExpanded ? ' is-expanded' : ''}`}
+                      aria-expanded={isExpanded}
+                      onClick={() => toggleLine(line.id)}
+                    >
+                      <span
+                        className="catalog-location-filter__line-color"
+                        style={{ backgroundColor: line.color }}
+                        aria-hidden="true"
+                      />
+                      <span className="catalog-location-filter__line-name">{line.name_ru}</span>
+                      <span className="catalog-location-filter__line-count">{line.stations.length}</span>
+                      <span className="catalog-location-filter__line-chevron" aria-hidden="true">⌄</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="catalog-location-filter__line-stations" role="group" aria-label={`Станции: ${line.name_ru}`}>
+                        {line.stations.map((station) => {
+                          const isSelected = selectedKeys.has(station.key)
+                          return (
+                            <label className={`catalog-location-filter__station${isSelected ? ' is-selected' : ''}`} key={`${line.id}:${station.key}`}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleStation(station.name_ru)}
+                              />
+                              <span className="catalog-location-filter__station-name">{station.name_ru}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               }) : (
                 <p className="catalog-location-filter__empty">Ничего не нашли</p>
@@ -229,15 +261,15 @@ export default function CatalogLocationFilter({
         <div className="catalog-location-filter__radius">
           <span className="catalog-location-filter__caption">Радиус</span>
           <div role="group" aria-label="Допустимый радиус">
-            {RADII_KM.map((value) => (
+            {RADIUS_OPTIONS.map(({ value, label }) => (
               <button
-                key={value}
+                key={value ?? 'unlimited'}
                 type="button"
                 className={radiusKm === value ? 'is-active' : ''}
                 aria-pressed={radiusKm === value}
                 onClick={() => onRadiusChange(value)}
               >
-                {value} км
+                {label}
               </button>
             ))}
           </div>
