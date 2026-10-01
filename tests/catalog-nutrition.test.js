@@ -38,6 +38,10 @@ test('uses a backend-provided nutrition summary when dish details are not embedd
 test('keeps optional restaurant metadata absent instead of inventing values', () => {
   assert.equal(formatRestaurantPriceRange({}), null)
   assert.equal(formatRestaurantPriceRange({ price_range: { min: 900, max: 1600 } }), '900–1600 ₽')
+  assert.equal(formatRestaurantPriceRange({ priceRange: {
+    startPrice: { currencyCode: 'RUB', units: '1000' },
+    endPrice: { currencyCode: 'RUB', units: '2000' },
+  } }), '1000–2000 ₽')
   assert.equal(getRestaurantGoogleRating({}), null)
   assert.equal(getRestaurantGoogleRating({ google_rating: 4.7 }), '4.7')
 })

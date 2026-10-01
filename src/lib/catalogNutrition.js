@@ -64,10 +64,12 @@ export function formatRestaurantPriceRange(restaurant) {
   const raw = restaurant?.priceRange ?? restaurant?.price_range ?? restaurant?.priceRangeRub ?? restaurant?.price_range_rub
   if (typeof raw === 'string' && raw.trim()) return raw.trim()
   if (raw && typeof raw === 'object') {
-    const min = Number(raw.min ?? raw.from)
-    const max = Number(raw.max ?? raw.to)
-    if (Number.isFinite(min) && Number.isFinite(max)) return `${min}–${max} ₽`
-    if (Number.isFinite(min)) return `от ${min} ₽`
+    const min = Number(raw.min ?? raw.from ?? raw.startPrice?.units ?? raw.start_price?.units)
+    const max = Number(raw.max ?? raw.to ?? raw.endPrice?.units ?? raw.end_price?.units)
+    const currency = raw.currency ?? raw.currencyCode ?? raw.startPrice?.currencyCode ?? raw.start_price?.currencyCode ?? 'RUB'
+    const currencyLabel = currency === 'RUB' ? '₽' : currency
+    if (Number.isFinite(min) && Number.isFinite(max)) return `${min}–${max} ${currencyLabel}`
+    if (Number.isFinite(min)) return `от ${min} ${currencyLabel}`
   }
   return null
 }
