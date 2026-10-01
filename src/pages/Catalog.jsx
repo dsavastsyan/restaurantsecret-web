@@ -160,7 +160,7 @@ export default function Catalog() {
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
 
   useEffect(() => {
-    const next = new URLSearchParams(searchParams)
+    const next = new URLSearchParams(window.location.search)
     serializeCatalogFilterState(next, {
       selectedCuisines,
       selectedVenueTypes,
@@ -172,10 +172,12 @@ export default function Catalog() {
       addressQuery,
       nutritionCriteria,
     })
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: true })
+    const nextSearch = next.toString()
+    if (nextSearch !== window.location.search.slice(1)) {
+      const suffix = nextSearch ? `?${nextSearch}` : ''
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${suffix}${window.location.hash}`)
     }
-  }, [addressQuery, locationMode, nearbyPoint, nearbyPointLabel, nutritionCriteria, radiusKm, searchParams, selectedCuisines, selectedMetro, selectedVenueTypes, setSearchParams])
+  }, [addressQuery, locationMode, nearbyPoint, nearbyPointLabel, nutritionCriteria, radiusKm, selectedCuisines, selectedMetro, selectedVenueTypes])
 
   const isNutritionPresetActive = (preset, criteria = nutritionCriteria) => {
     const current = criteria[preset.key] || {}
@@ -337,11 +339,11 @@ export default function Catalog() {
   }, [accessToken, navigate, query, searchParams, selectedCity.id])
 
   const changeViewMode = useCallback((nextMode) => {
-    const next = new URLSearchParams(searchParams)
+    const next = new URLSearchParams(window.location.search)
     if (nextMode === 'list') next.set('view', 'list'); else next.delete('view')
     setSearchParams(next, { replace: true })
     analytics.track('catalog_view_changed', { view: nextMode, selected_city: selectedCity.id })
-  }, [searchParams, selectedCity.id, setSearchParams])
+  }, [selectedCity.id, setSearchParams])
 
   // Ask the parent layout for access; show the paywall if the user is not
   // subscribed yet.
@@ -359,11 +361,11 @@ export default function Catalog() {
     if (!slug) return
     if (ensureAccess()) {
       analytics.track('restaurant_open', { slug, selected_city: selectedCity.id })
-      const menuParams = new URLSearchParams(searchParams)
+      const menuParams = new URLSearchParams(window.location.search)
       menuParams.set('city', selectedCity.id)
       navigate(`/restaurants/${slug}/menu/?${menuParams.toString()}`)
     }
-  }, [ensureAccess, navigate, searchParams, selectedCity.id])
+  }, [ensureAccess, navigate, selectedCity.id])
 
   // The hub just lists a chain's locations (no nutrition data of its own),
   // so — like the catalog itself — it isn't behind the paywall gate.
@@ -815,10 +817,10 @@ export default function Catalog() {
     setQuery(trimmedQuery)
     setDebouncedQuery(trimmedQuery)
     setCurrentPage(1)
-    const next = new URLSearchParams(searchParams)
+    const next = new URLSearchParams(window.location.search)
     if (trimmedQuery) next.set('q', trimmedQuery); else next.delete('q')
     setSearchParams(next, { replace: true })
-  }, [searchParams, setSearchParams])
+  }, [setSearchParams])
 
   const handleSubmit = useCallback((event) => {
     event.preventDefault()
