@@ -70,7 +70,13 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
     }
   }, [placeId, restaurantName])
 
-  if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') return null
+  if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') {
+    return (
+      <div className="catalog-card__place-media catalog-card__place-media--placeholder" aria-hidden="true">
+        <div className="catalog-card__place-media-placeholder" />
+      </div>
+    )
+  }
 
   return (
     <div className={`catalog-card__place-media${status === 'loaded' ? ' is-loaded' : ''}`}>
