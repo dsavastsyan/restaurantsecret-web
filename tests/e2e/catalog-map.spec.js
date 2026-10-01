@@ -397,6 +397,56 @@ test('nutrition presets, custom values and reset stay functional', async ({ page
   await expect(proteinMin).toHaveValue('')
 })
 
+test('keeps catalog nutrition filters on the restaurant menu and on return', async ({ page }) => {
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
+  ), (route) => {
+    const { dishes, ...restaurantWithoutDishes } = restaurant
+    return route.fulfill({
+      json: {
+        items: [{ ...restaurantWithoutDishes, chainSlug: null, chainName: null }],
+        total: 1,
+      },
+    })
+  })
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants/coffee-test/menu')
+  ), (route) => route.fulfill({
+    json: {
+      name: 'Кофемания Тестовая',
+      categories: [{
+        name: 'Основные блюда',
+        menuSection: 'food',
+        dishes: [
+          { id: 1, name: 'Белковый суп', menuSection: 'food', kcal: 220, protein: 30, fat: 8, carbs: 20 },
+          { id: 2, name: 'Паста', menuSection: 'food', kcal: 520, protein: 12, fat: 24, carbs: 60 },
+        ],
+      }],
+    },
+  }))
+
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
+  await page.getByRole('button', { name: 'До 400 ккал', exact: true }).click()
+  await page.getByRole('button', { name: 'Задать свои значения' }).click()
+  await page.locator('#catalog-nutrition-protein-min').fill('25')
+  await expect(page).toHaveURL(/\/catalog\/moskva\/\?[^#]*catalog_calories_max=400[^#]*catalog_protein_min=25/)
+  const catalogUrl = page.url()
+
+  await Promise.all([
+    page.waitForURL(/\/restaurants\/coffee-test\/menu\/?\?/),
+    page.locator('.catalog-card:not(.catalog-card--chain)').first().getByRole('button', { name: 'Открыть меню' }).click(),
+  ])
+  await expect(page.getByRole('button', { name: /Мало калорий/ })).toHaveClass(/is-on/)
+  await expect(page.getByRole('button', { name: /Много белка/ })).toHaveClass(/is-on/)
+  await expect(page.locator('.rsm2-grid.rsm2-desktop-only .rsm2-tile__cover-name')).toHaveText(['Белковый суп'])
+  await expect(page.getByText('Паста', { exact: true })).toHaveCount(0)
+
+  await page.goto(catalogUrl)
+  await expect(page.getByRole('button', { name: /По блюдам/ })).toContainText('до 400 ккал')
+  await expect(page.locator('.catalog-applied-filter')).toContainText(['До 400 ккал', 'Белок от 25 г'])
+})
+
 test('shows applied filter chips on mobile and removes individual choices', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/catalog/moskva/?view=list')

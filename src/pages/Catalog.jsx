@@ -37,6 +37,11 @@ import {
   getRestaurantGoogleRating,
   matchesCatalogNutritionCriteria,
 } from '@/lib/catalogNutrition'
+import {
+  createEmptyCatalogNutritionCriteria,
+  parseCatalogFilterState,
+  serializeCatalogFilterState,
+} from '@/lib/catalogFilterParams'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
 import '../catalog-compact.css'
 
@@ -48,12 +53,6 @@ const FETCH_LIMIT = 48;
 const CLIENT_LOCATION_FETCH_LIMIT = 2000;
 const PAGE_SIZE = 8;
 const EMPTY_METRO_DATA = { lines: [], stations: [] };
-const EMPTY_NUTRITION_CRITERIA = {
-  calories: { min: '', max: '' },
-  protein: { min: '', max: '' },
-  fat: { min: '', max: '' },
-  carbs: { min: '', max: '' },
-}
 const NUTRITION_PRESETS = [
   { key: 'calories', label: 'До 400 ккал', field: 'max', value: 400 },
   { key: 'protein', label: 'Белка от 25 г', field: 'min', value: 25 },
@@ -151,15 +150,16 @@ export default function Catalog() {
   const selectedCity = cities.find((item) => citySlug(item.id) === cityPath || item.id === cityPath)
     || cities.find((item) => item.id === localStorage.getItem('catalog_city'))
     || { id: 'Москва', name: 'Москва' }
+  const initialCatalogFilters = parseCatalogFilterState(searchParams)
 
   const { data: filters } = useSWRLite(`filters:${selectedCity.id}`, () => api.filters(selectedCity.id))
   const { data: metroResponse } = useSWRLite('metro', () => api.metro())
   const metroData = metroResponse || EMPTY_METRO_DATA
   const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
-  const [selectedCuisines, setSelectedCuisines] = useState([])
-  const [selectedMetro, setSelectedMetro] = useState([])
-  const [selectedVenueTypes, setSelectedVenueTypes] = useState([])
-  const [nutritionCriteria, setNutritionCriteria] = useState(EMPTY_NUTRITION_CRITERIA)
+  const [selectedCuisines, setSelectedCuisines] = useState(() => initialCatalogFilters.selectedCuisines)
+  const [selectedMetro, setSelectedMetro] = useState(() => initialCatalogFilters.selectedMetro)
+  const [selectedVenueTypes, setSelectedVenueTypes] = useState(() => initialCatalogFilters.selectedVenueTypes)
+  const [nutritionCriteria, setNutritionCriteria] = useState(() => initialCatalogFilters.nutritionCriteria)
   const [nutritionMenuData, setNutritionMenuData] = useState({})
   const [isNutritionCustomOpen, setIsNutritionCustomOpen] = useState(false)
   const [query, setQuery] = useState(searchParams.get('q') || '')
@@ -167,11 +167,11 @@ export default function Catalog() {
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [activeSearchSuggestionIndex, setActiveSearchSuggestionIndex] = useState(-1)
   const [currentPage, setCurrentPage] = useState(1)
-  const [locationMode, setLocationMode] = useState('metro')
-  const [radiusKm, setRadiusKm] = useState(3)
-  const [nearbyPoint, setNearbyPoint] = useState(null)
-  const [nearbyPointLabel, setNearbyPointLabel] = useState('')
-  const [addressQuery, setAddressQuery] = useState('')
+  const [locationMode, setLocationMode] = useState(() => initialCatalogFilters.locationMode)
+  const [radiusKm, setRadiusKm] = useState(() => initialCatalogFilters.radiusKm)
+  const [nearbyPoint, setNearbyPoint] = useState(() => initialCatalogFilters.nearbyPoint)
+  const [nearbyPointLabel, setNearbyPointLabel] = useState(() => initialCatalogFilters.nearbyPointLabel)
+  const [addressQuery, setAddressQuery] = useState(() => initialCatalogFilters.addressQuery)
   const [addressResults, setAddressResults] = useState([])
   const [addressLoading, setAddressLoading] = useState(false)
   const [addressError, setAddressError] = useState('')
@@ -182,6 +182,24 @@ export default function Catalog() {
   const compactFiltersRef = useRef(null)
   const nutritionMenuRequestsRef = useRef(new Set())
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    serializeCatalogFilterState(next, {
+      selectedCuisines,
+      selectedVenueTypes,
+      selectedMetro,
+      locationMode,
+      radiusKm,
+      nearbyPoint,
+      nearbyPointLabel,
+      addressQuery,
+      nutritionCriteria,
+    })
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [addressQuery, locationMode, nearbyPoint, nearbyPointLabel, nutritionCriteria, radiusKm, searchParams, selectedCuisines, selectedMetro, selectedVenueTypes, setSearchParams])
 
   const isNutritionPresetActive = (preset, criteria = nutritionCriteria) => {
     const current = criteria[preset.key] || {}
@@ -215,12 +233,7 @@ export default function Catalog() {
   }
 
   const resetNutritionCriteria = () => {
-    setNutritionCriteria({
-      calories: { min: '', max: '' },
-      protein: { min: '', max: '' },
-      fat: { min: '', max: '' },
-      carbs: { min: '', max: '' },
-    })
+    setNutritionCriteria(createEmptyCatalogNutritionCriteria())
     setIsNutritionCustomOpen(false)
   }
 
@@ -370,9 +383,11 @@ export default function Catalog() {
     if (!slug) return
     if (ensureAccess()) {
       analytics.track('restaurant_open', { slug, selected_city: selectedCity.id })
-      navigate(`/restaurants/${slug}/menu/?city=${encodeURIComponent(selectedCity.id)}`)
+      const menuParams = new URLSearchParams(searchParams)
+      menuParams.set('city', selectedCity.id)
+      navigate(`/restaurants/${slug}/menu/?${menuParams.toString()}`)
     }
-  }, [ensureAccess, navigate, selectedCity.id])
+  }, [ensureAccess, navigate, searchParams, selectedCity.id])
 
   // The hub just lists a chain's locations (no nutrition data of its own),
   // so — like the catalog itself — it isn't behind the paywall gate.

@@ -11,6 +11,7 @@ import {
   matchesCatalogNutritionCriteria,
   matchesCatalogNutritionFilter,
 } from '../src/lib/catalogNutrition.js'
+import { parseCatalogFilterState, serializeCatalogFilterState } from '../src/lib/catalogFilterParams.js'
 
 test('counts matching dishes in a calorie range without exposing dish cards', () => {
   const restaurant = {
@@ -57,6 +58,43 @@ test('matches multiple quick and custom nutrition criteria against one dish', ()
   assert.equal(matchesCatalogNutritionCriteria(restaurant, criteria), true)
   assert.equal(getCatalogNutritionStatsForCriteria(restaurant, criteria).matching, 1)
   assert.equal(matchesCatalogNutritionCriteria({ dishes: [{ kcal: 500, protein: 10 }] }, criteria), false)
+})
+
+test('round-trips catalog filters through the menu navigation URL', () => {
+  const params = new URLSearchParams('view=list')
+  serializeCatalogFilterState(params, {
+    selectedCuisines: ['Итальянская'],
+    selectedVenueTypes: ['restaurant'],
+    selectedMetro: ['Тверская'],
+    locationMode: 'nearby',
+    radiusKm: null,
+    nearbyPoint: { lat: 55.75, lon: 37.62 },
+    nearbyPointLabel: 'моё местоположение',
+    addressQuery: '',
+    nutritionCriteria: {
+      calories: { min: '', max: 400 },
+      protein: { min: 25, max: '' },
+      fat: { min: '', max: '' },
+      carbs: { min: '', max: 60 },
+    },
+  })
+
+  assert.deepEqual(parseCatalogFilterState(params), {
+    selectedCuisines: ['Итальянская'],
+    selectedVenueTypes: ['restaurant'],
+    selectedMetro: ['Тверская'],
+    locationMode: 'nearby',
+    radiusKm: null,
+    nearbyPoint: { lat: 55.75, lon: 37.62 },
+    nearbyPointLabel: 'моё местоположение',
+    addressQuery: '',
+    nutritionCriteria: {
+      calories: { min: '', max: '400' },
+      protein: { min: '25', max: '' },
+      fat: { min: '', max: '' },
+      carbs: { min: '', max: '60' },
+    },
+  })
 })
 
 test('keeps optional restaurant metadata absent instead of inventing values', () => {
