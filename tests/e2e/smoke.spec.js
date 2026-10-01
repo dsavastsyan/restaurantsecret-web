@@ -76,8 +76,10 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   if (await previewPersonaToggle.isVisible() && await previewPersonaToggle.getAttribute('aria-expanded') === 'true') {
     await previewPersonaToggle.click()
   }
-  const cards = page.locator('.catalog-card')
-  const firstCardButton = cards.first().getByRole('button', { name: 'Открыть меню' })
+  const firstCardButton = page
+    .locator('.catalog-card:not(.catalog-card--chain)')
+    .first()
+    .getByRole('button', { name: 'Открыть меню' })
   await expect(firstCardButton).toBeVisible()
 
   // Opening a restaurant navigates straight into its menu (no blocking modal
