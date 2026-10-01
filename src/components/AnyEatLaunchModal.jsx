@@ -1,21 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiGet, apiPost } from '@/lib/api'
-import { loadTurnstile } from '@/lib/turnstile'
-import { useAuth } from '@/store/auth'
+import { useAuth, selectSetToken } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import preview from '@/assets/anyeat-phone-left.png'
 import { Apple, BookText, Mail, Rocket, Utensils } from 'lucide-react'
 import './AnyEatLaunchModal.css'
 
 const CONSENT_VERSION = 'restaurantsecret-communications-2026-09-16'
-const PUBLIC_CONSENT_VERSION = 'anyeat-waitlist-2026-10-01'
-const PUBLIC_CONSENT_SOURCE = 'restaurantsecret.ru/anyeat-modal'
-// Same Cloudflare Turnstile widget already used by the anti-scraping gate on
-// restaurantsecret.ru (see RestaurantSecret/wrangler.toml, TURNSTILE_SITEKEY) —
-// one widget, reused here since this form also needs bot protection.
-const TURNSTILE_SITEKEY = '0x4AAAAAACJwMg9S_HNbAcRc'
 const YANDEX_METRIKA_COUNTER_ID = 108992733
+const RESEND_COOLDOWN = 60
 let launchModalRequested = false
 
 function trackGoal(name) {
@@ -31,6 +25,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   const previewMode = import.meta.env.DEV && new URLSearchParams(window.location.search).get('anyeatPreview') === '1'
   const previewOpened = useRef(false)
   const token = useAuth((state) => state.accessToken)
+  const setToken = useAuth(selectSetToken)
   const hasActiveSub = useSubscriptionStore((state) => state.hasActiveSub)
   const [open, setOpen] = useState(() => {
     const requested = launchModalRequested
@@ -41,13 +36,15 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   const [accountEmail, setAccountEmail] = useState('')
   const [consents, setConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
   const [knownConsents, setKnownConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
-  const [publicConsent, setPublicConsent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
-  const turnstileContainerRef = useRef(null)
-  const turnstileWidgetIdRef = useRef(null)
-  const [turnstileToken, setTurnstileToken] = useState('')
+  // Anonymous visitors go through the same email → OTP code → consent flow
+  // as regular registration (/login) — there is no account, and therefore
+  // no user_id to attach a consent record to, until this completes.
+  const [otpStep, setOtpStep] = useState('email') // 'email' | 'code'
+  const [code, setCode] = useState('')
+  const [resendTimer, setResendTimer] = useState(0)
 
   const segment = token && hasActiveSub ? 'active' : 'default'
 
@@ -65,8 +62,9 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return () => window.removeEventListener('rs:anyeat-launch-open', show)
   }, [embedded])
 
-  // Load the account's known email/consent for logged-in visitors so the
-  // form can prefill and skip questions it already has answers to.
+  // Load the account's known email/consent for logged-in visitors (including
+  // one who just completed the OTP step below) so the form can prefill and
+  // skip questions it already has answers to.
   useEffect(() => {
     if (!open || !token) return
     let active = true
@@ -90,37 +88,11 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return () => { active = false }
   }, [open, token])
 
-  // Anonymous visitors render the Turnstile widget inline in the form itself
-  // (not a second overlay on top of this one) — in managed mode it usually
-  // auto-verifies within a second with no visible challenge, and the token
-  // lands in state via the callback for submit to pick up.
   useEffect(() => {
-    if (!open || token || success) return
-    let active = true
-    let widgetId = null
-
-    loadTurnstile().then((turnstile) => {
-      if (!active || !turnstileContainerRef.current) return
-      widgetId = turnstile.render(turnstileContainerRef.current, {
-        sitekey: TURNSTILE_SITEKEY,
-        action: 'anyeat_waitlist',
-        theme: 'auto',
-        callback: (value) => setTurnstileToken(value),
-        'error-callback': () => setTurnstileToken(''),
-        'expired-callback': () => setTurnstileToken(''),
-      })
-      turnstileWidgetIdRef.current = widgetId
-    }).catch(() => { /* widget failed to load — submit stays disabled without a token */ })
-
-    return () => {
-      active = false
-      setTurnstileToken('')
-      if (widgetId != null) {
-        try { window.turnstile?.remove(widgetId) } catch { /* already gone */ }
-      }
-      turnstileWidgetIdRef.current = null
-    }
-  }, [open, token, success])
+    if (resendTimer <= 0) return
+    const id = setInterval(() => setResendTimer((value) => value - 1), 1000)
+    return () => clearInterval(id)
+  }, [resendTimer])
 
   useEffect(() => {
     if (!open) return
@@ -136,61 +108,82 @@ export default function AnyEatLaunchModal({ embedded = false }) {
 
   if (!open) return null
 
-  const canSubmit = token
-    ? /^\S+@\S+\.\S+$/.test(email.trim()) &&
-      consents.personal_data_advertising && consents.marketing_communications && !submitting
-    : /^\S+@\S+\.\S+$/.test(email.trim()) && publicConsent && Boolean(turnstileToken) && !submitting
-
-  const submitAccountLinked = async () => {
-    if (!accountEmail || email.trim().toLowerCase() !== accountEmail.toLowerCase()) {
-      setError('Укажите почту вашего аккаунта RestaurantSecret.')
-      return
+  const doRequestOtp = async () => {
+    if (!/^\S+@\S+\.\S+$/.test(email.trim()) || submitting) return
+    setSubmitting(true)
+    setError('')
+    try {
+      const res = await apiPost('/auth/request-otp', { email: email.trim() })
+      if (!res?.ok) throw new Error('request_otp_failed')
+      setOtpStep('code')
+      setResendTimer(RESEND_COOLDOWN)
+      trackGoal(`anyeat_modal_otp_requested_${segment}`)
+    } catch {
+      setError('Не удалось отправить код. Попробуйте ещё раз.')
+    } finally {
+      setSubmitting(false)
     }
-    await apiPost('/api/consent/communications', {
-      personal_data_advertising: true,
-      marketing_communications: true,
-      consent_version: CONSENT_VERSION,
-    }, token)
   }
 
-  const submitPublic = async () => {
-    // Gated by canSubmit, but the widget's token can still expire in the
-    // gap between becoming enabled and the click landing.
-    if (!turnstileToken) {
-      setError('Проверка безопасности ещё не завершена. Подождите секунду и попробуйте снова.')
-      return
-    }
-    await apiPost('/api/marketing-consent', {
-      email: email.trim().toLowerCase(),
-      status: 'granted',
-      consent_version: PUBLIC_CONSENT_VERSION,
-      source: PUBLIC_CONSENT_SOURCE,
-      turnstile_token: turnstileToken,
-    })
+  const requestOtp = (event) => {
+    event.preventDefault()
+    doRequestOtp()
   }
+
+  const verifyOtp = async (event) => {
+    event.preventDefault()
+    if (code.trim().length < 4 || submitting) return
+    setSubmitting(true)
+    setError('')
+    try {
+      const res = await apiPost('/auth/verify-otp', { email: email.trim(), code: code.trim() })
+      if (!res?.ok || !res?.access_token) throw new Error('verify_otp_failed')
+      setToken(res.access_token)
+      // The account consent form below (shared with already-logged-in
+      // visitors) takes over once `token` is set — nothing else to do here.
+    } catch {
+      setError('Неверный или истёкший код. Попробуйте ещё раз.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const resendOtp = () => {
+    if (resendTimer > 0 || submitting) return
+    doRequestOtp()
+  }
+
+  const backToEmailStep = () => {
+    if (submitting) return
+    setOtpStep('email')
+    setCode('')
+    setError('')
+    setResendTimer(0)
+  }
+
+  const canSubmit = /^\S+@\S+\.\S+$/.test(email.trim()) &&
+    consents.personal_data_advertising && consents.marketing_communications && !submitting
 
   const submit = async (event) => {
     event.preventDefault()
     if (!canSubmit) return
+    if (!accountEmail || email.trim().toLowerCase() !== accountEmail.toLowerCase()) {
+      setError('Укажите почту вашего аккаунта RestaurantSecret.')
+      return
+    }
     setSubmitting(true)
     setError('')
     try {
-      if (token) {
-        await submitAccountLinked()
-      } else {
-        await submitPublic()
-      }
+      await apiPost('/api/consent/communications', {
+        personal_data_advertising: true,
+        marketing_communications: true,
+        consent_version: CONSENT_VERSION,
+      }, token)
       setSuccess(true)
       trackGoal(`anyeat_modal_submit_${segment}`)
       window.dispatchEvent(new CustomEvent('rs:anyeat-launch-submitted'))
     } catch {
       setError('Не удалось сохранить заявку. Попробуйте ещё раз.')
-      // A Turnstile token is single-use — whether or not this attempt
-      // actually consumed it server-side, force a fresh one before retry.
-      if (!token && turnstileWidgetIdRef.current != null) {
-        try { window.turnstile?.reset(turnstileWidgetIdRef.current) } catch { /* widget already gone */ }
-        setTurnstileToken('')
-      }
     } finally {
       setSubmitting(false)
     }
@@ -227,25 +220,49 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             <div><span className="rs-anyeat__icon"><Apple size={19} /></span><strong>Продукты</strong><small>Сканируйте и ищите</small></div>
             <div><span className="rs-anyeat__icon"><BookText size={19} /></span><strong>Дневник</strong><small>Всё в одном месте</small></div>
           </div>
-          <form className="rs-anyeat__form" onSubmit={submit}>
-            <div className="rs-anyeat__formrow">
-              <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-              <button className="rs-anyeat__submit" type="submit" disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
-            </div>
-            {token ? (
-              (!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
+
+          {!token && otpStep === 'email' && (
+            <form className="rs-anyeat__form" onSubmit={requestOtp}>
+              <div className="rs-anyeat__formrow">
+                <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+                <button className="rs-anyeat__submit" type="submit" disabled={submitting || !/^\S+@\S+\.\S+$/.test(email.trim())}>{submitting ? 'Отправляем…' : 'Получить код →'}</button>
+              </div>
+              {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
+              <small className="rs-anyeat__fine">Пришлём код на почту, как при входе в аккаунт <span aria-hidden="true">♡</span></small>
+            </form>
+          )}
+
+          {!token && otpStep === 'code' && (
+            <form className="rs-anyeat__form" onSubmit={verifyOtp}>
+              <div className="rs-anyeat__formrow">
+                <label className="rs-anyeat__field" htmlFor="rs-anyeat-code"><Mail size={20} /><input id="rs-anyeat-code" type="text" inputMode="numeric" maxLength={6} placeholder="Код из письма" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').trim())} required /></label>
+                <button className="rs-anyeat__submit" type="submit" disabled={submitting || code.trim().length < 4}>{submitting ? 'Проверяем…' : 'Подтвердить'}</button>
+              </div>
+              {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
+              <div className="rs-anyeat__otp-actions">
+                <button type="button" className="rs-anyeat__link" onClick={backToEmailStep} disabled={submitting}>Назад к почте</button>
+                <button type="button" className="rs-anyeat__link" onClick={resendOtp} disabled={submitting || resendTimer > 0}>
+                  {resendTimer > 0 ? `Отправить код ещё раз — через ${resendTimer} сек` : 'Отправить код ещё раз'}
+                </button>
+              </div>
+              <small className="rs-anyeat__fine">Код пришёл с noreply@restaurantsecret.ru — проверьте папку «Спам» <span aria-hidden="true">♡</span></small>
+            </form>
+          )}
+
+          {token && (
+            <form className="rs-anyeat__form" onSubmit={submit}>
+              <div className="rs-anyeat__formrow">
+                <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+                <button className="rs-anyeat__submit" type="submit" disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
+              </div>
+              {(!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
                 {!knownConsents.personal_data_advertising && <label><input type="checkbox" checked={consents.personal_data_advertising} onChange={(event) => setConsents({ ...consents, personal_data_advertising: event.target.checked })} /><span>Даю согласие на <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> в целях отправки рекламных сообщений.</span></label>}
                 {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /><span>Соглашаюсь получать рассылку RestaurantSecret о запуске AnyEat и других предложениях.</span></label>}
-              </div>
-            ) : (
-              <div className="rs-anyeat__consents">
-                <label><input type="checkbox" checked={publicConsent} onChange={(event) => setPublicConsent(event.target.checked)} /><span>Даю согласие на <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> и согласен получить одно письмо о запуске AnyEat.</span></label>
-                <div className="rs-anyeat__turnstile" ref={turnstileContainerRef} />
-              </div>
-            )}
-            {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
-            <small className="rs-anyeat__fine">Обещаем писать только по важным поводам <span aria-hidden="true">♡</span></small>
-          </form>
+              </div>}
+              {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
+              <small className="rs-anyeat__fine">Обещаем писать только по важным поводам <span aria-hidden="true">♡</span></small>
+            </form>
+          )}
         </>}
       </section>
     </div>
