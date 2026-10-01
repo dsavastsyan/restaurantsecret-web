@@ -42,9 +42,11 @@ import '../catalog-compact.css'
 
 const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 
-// Fetch a large number to emulate "all" items since backend pagination seems flaky
-const FETCH_LIMIT = 1000;
+// Keep the first paint bounded. The API returns total/hasMore and the catalog
+// requests the next batch only when the user reaches it.
+const FETCH_LIMIT = 48;
 const PAGE_SIZE = 8;
+const PAGES_PER_FETCH = FETCH_LIMIT / PAGE_SIZE;
 const EMPTY_METRO_DATA = { lines: [], stations: [] };
 
 const CuisineIcon = () => (
@@ -303,26 +305,40 @@ export default function Catalog() {
     if (debouncedQuery) analytics.track('catalog_search', { selected_city: selectedCity.id, has_query: true })
   }, [debouncedQuery, selectedCity.id])
 
-  // Fetch ALL restaurants once (or as many as limit allows)
-  // We remove 'query' from here because we want to filter locally to ensure search works reliably
-  // We remove 'page' because we want to fetch everything upfront
+  const { data: crossCityResults, loading: searchLoading, error: searchError } = useSWRLite(
+    debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}` : null,
+    () => api.search(debouncedQuery, { city: selectedCity.id }),
+    { enabled: Boolean(debouncedQuery) },
+  )
+  const searchSlugs = useMemo(
+    () => (Array.isArray(crossCityResults?.restaurants) ? crossCityResults.restaurants : [])
+      .map((restaurant) => restaurant?.slug)
+      .filter(Boolean)
+      .slice(0, 45),
+    [crossCityResults?.restaurants],
+  )
+  const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / PAGES_PER_FETCH)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants-all:${selectedCity.id}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueType}:${selectedMetro.join(',')}:${selectedNutritionRange}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}:${searchSlugs.join(',')}`,
     () => api.restaurants({
-      limit: FETCH_LIMIT,
+      limit: debouncedQuery ? Math.max(FETCH_LIMIT, searchSlugs.length) : FETCH_LIMIT,
+      offset: serverPage * FETCH_LIMIT,
       city: selectedCity.id,
-    })
+      slug: debouncedQuery ? searchSlugs : undefined,
+      cuisine: selectedCuisines,
+      venue_type: selectedVenueType || undefined,
+      metro: selectedMetro,
+      calorie_range: selectedNutritionRange || undefined,
+      near_lat: isLocationFilterActive ? locationAnchorPoints.map((point) => point.lat) : undefined,
+      near_lon: isLocationFilterActive ? locationAnchorPoints.map((point) => point.lon) : undefined,
+      radius_m: isLocationFilterActive ? radiusKm * 1000 : undefined,
+    }),
+    { enabled: !debouncedQuery || searchSlugs.length > 0 },
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
     `restaurants-map:${selectedCity.id}`,
     () => api.restaurantMap({ city: selectedCity.id }),
   )
-  const { data: crossCityResults } = useSWRLite(
-    debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}` : null,
-    () => api.search(debouncedQuery, { city: selectedCity.id }),
-    { enabled: Boolean(debouncedQuery) },
-  )
-
   // Normalize data
   const allItems = useMemo(() => {
     if (!rawData) return []
@@ -339,6 +355,18 @@ export default function Catalog() {
     }).filter(Boolean)
   }, [rawData])
 
+  const searchItems = useMemo(() => {
+    const restaurants = Array.isArray(crossCityResults?.restaurants) ? crossCityResults.restaurants : []
+    return restaurants.map((result) => {
+      const catalogItem = allItems.find((item) => item.slug === result.slug)
+      return {
+        ...catalogItem,
+        ...result,
+        cuisine: normalizeCatalogCuisine(result.cuisine || catalogItem?.cuisine),
+      }
+    })
+  }, [allItems, crossCityResults?.restaurants])
+
   const mapSourceItems = useMemo(
     () => Array.isArray(rawMapData?.items) ? rawMapData.items : [],
     [rawMapData?.items],
@@ -352,10 +380,14 @@ export default function Catalog() {
   // station stored on each card, so switching views preserves the same set of
   // matching restaurants.
 
-  const searchSuggestions = useMemo(() => getChainSearchSuggestions(allItems, query, {
+  const searchSuggestions = useMemo(() => getChainSearchSuggestions(
+    debouncedQuery ? searchItems : allItems,
+    query,
+    {
     matchesQuery: matchesSearchQuery,
     getQueryScore: getSearchQueryScore,
-  }), [allItems, query])
+    },
+  ), [allItems, debouncedQuery, query, searchItems])
 
   const showSearchSuggestions = isSearchFocused && Boolean(query.trim()) && searchSuggestions.length > 0
 
@@ -365,12 +397,16 @@ export default function Catalog() {
     }
   }, [activeSearchSuggestionIndex, searchSuggestions.length])
 
-  // Filter items based on SEARCH and CUISINE
+  // Search results come from /search. The catalog endpoint has already applied
+  // the structural filters, while the local pass keeps location filtering and
+  // compatibility with older response shapes predictable.
   const catalogItemsBeforeLocation = useMemo(() => {
-    const filtered = filterCatalogRestaurants(filterableItems, {
+    const sourceItems = debouncedQuery ? searchItems : filterableItems
+    const filtered = filterCatalogRestaurants(sourceItems, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       venueType: selectedVenueType,
+      metro: selectedMetro,
       sortByRelevance: true,
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
@@ -378,7 +414,7 @@ export default function Catalog() {
     const availableRanges = Array.isArray(filters?.calorie_ranges) ? filters.calorie_ranges : DEFAULT_CALORIE_RANGES
     const range = availableRanges.find((item) => String(item.key) === selectedNutritionRange)
     return range ? filtered.filter((restaurant) => matchesCatalogNutritionFilter(restaurant, range)) : filtered
-  }, [debouncedQuery, filterableItems, filters?.calorie_ranges, selectedCuisines, selectedNutritionRange, selectedVenueType])
+  }, [debouncedQuery, filterableItems, filters?.calorie_ranges, searchItems, selectedCuisines, selectedMetro, selectedNutritionRange, selectedVenueType])
 
   const mapItemsBeforeLocation = useMemo(() => {
     const enriched = enrichCatalogMapItems(mapSourceItems, allItems)
@@ -386,13 +422,14 @@ export default function Catalog() {
     const filtered = filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
+      metro: selectedMetro,
       venueType: selectedVenueType,
       matchesQuery: matchesSearchQuery,
     })
     const availableRanges = Array.isArray(filters?.calorie_ranges) ? filters.calorie_ranges : DEFAULT_CALORIE_RANGES
     const range = availableRanges.find((item) => String(item.key) === selectedNutritionRange)
     return range ? filtered.filter((restaurant) => matchesCatalogNutritionFilter(restaurant, range)) : filtered
-  }, [allItems, debouncedQuery, filters?.calorie_ranges, mapSourceItems, selectedCuisines, selectedNutritionRange, selectedVenueType])
+  }, [allItems, debouncedQuery, filters?.calorie_ranges, mapSourceItems, selectedCuisines, selectedMetro, selectedNutritionRange, selectedVenueType])
 
   const mapItems = useMemo(() => (
     isLocationFilterActive
@@ -418,20 +455,26 @@ export default function Catalog() {
     [filteredItems],
   )
 
-  const totalPages = Math.max(1, Math.ceil(displayItems.length / PAGE_SIZE))
+  const resultCount = debouncedQuery
+    ? displayItems.length
+    : Number(rawData?.total ?? displayItems.length)
+  const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE))
 
   const visibleItems = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE
+    const pageWithinFetch = debouncedQuery ? currentPage - 1 : (currentPage - 1) % PAGES_PER_FETCH
+    const start = pageWithinFetch * PAGE_SIZE
     return displayItems.slice(start, start + PAGE_SIZE)
-  }, [currentPage, displayItems])
+  }, [currentPage, debouncedQuery, displayItems])
 
-  const isInitialLoading = loading && !allItems.length
+  const catalogLoading = debouncedQuery ? searchLoading : loading
+  const catalogError = debouncedQuery ? searchError : error
+  const isInitialLoading = catalogLoading && !(debouncedQuery ? crossCityResults : rawData)
 
   useEffect(() => {
-    if (!loading && !error && allItems.length === 0) {
+    if (!catalogLoading && !catalogError && !allItems.length && !debouncedQuery) {
       analytics.track('catalog_empty_city', { selected_city: selectedCity.id })
     }
-  }, [allItems.length, error, loading, selectedCity.id])
+  }, [allItems.length, catalogError, catalogLoading, debouncedQuery, selectedCity.id])
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -525,9 +568,14 @@ export default function Catalog() {
     ].filter(Boolean).join(' ')
   }, [getInitials])
 
-  const shownFrom = displayItems.length ? ((currentPage - 1) * PAGE_SIZE) + 1 : 0
-  const shownTo = Math.min(currentPage * PAGE_SIZE, displayItems.length)
-  const totalRestaurantCount = allItems.length || Number(rawData?.total ?? rawData?.count ?? 0)
+  const pageWithinFetch = debouncedQuery ? currentPage - 1 : (currentPage - 1) % PAGES_PER_FETCH
+  const shownFrom = visibleItems.length
+    ? (debouncedQuery ? pageWithinFetch * PAGE_SIZE : serverPage * FETCH_LIMIT + pageWithinFetch * PAGE_SIZE) + 1
+    : 0
+  const shownTo = shownFrom ? Math.min(shownFrom + visibleItems.length - 1, resultCount) : 0
+  const totalRestaurantCount = debouncedQuery
+    ? displayItems.length
+    : Number(rawData?.total ?? rawData?.count ?? allItems.length)
   const weeklyAdded = Number(landingStats?.weeklyAdded ?? 0)
   const cityGenitiveName = cityGenitive(selectedCity.name)
 
@@ -1064,14 +1112,14 @@ export default function Catalog() {
         </div>
         <section className="catalog-results">
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
-        {!isInitialLoading && !error && (
+        {!isInitialLoading && !catalogError && (
           <div className="catalog-results__summary" role="status" aria-live="polite">
             Найдено: <strong>{filteredItems.length.toLocaleString('ru-RU')}</strong>{' '}
             {getRussianPluralWord(filteredItems.length, 'ресторан', 'ресторана', 'ресторанов')}
           </div>
         )}
-        {error && <p className="err">Ошибка: {String(error.message || error)}</p>}
-        {!loading && !visibleItems.length && !error && (
+        {catalogError && <p className="err">Ошибка: {String(catalogError.message || catalogError)}</p>}
+        {!catalogLoading && !visibleItems.length && !catalogError && (
           crossCitySuggestions.length > 0 ? (
             <div className="catalog-empty" role="status">
               <div className="catalog-empty__icon" aria-hidden="true">
@@ -1221,7 +1269,7 @@ export default function Catalog() {
           })}
         </ul>
 
-        {!isInitialLoading && displayItems.length > 0 && (
+        {!isInitialLoading && resultCount > 0 && (
           <nav className="catalog-pagination" aria-label="Навигация по ресторанам">
             <button
               type="button"
@@ -1233,7 +1281,7 @@ export default function Catalog() {
               ‹
             </button>
             <span className="catalog-pagination__text">
-              Показано {shownFrom}–{shownTo} из {displayItems.length} {getRussianPluralWord(displayItems.length, 'ресторан', 'ресторана', 'ресторанов')}
+              Показано {shownFrom}–{shownTo} из {resultCount} {getRussianPluralWord(resultCount, 'ресторан', 'ресторана', 'ресторанов')}
             </span>
             <button
               type="button"
