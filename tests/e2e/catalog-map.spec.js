@@ -237,6 +237,16 @@ test('filters both map and list by the primary venue type', async ({ page }) => 
 })
 
 test('shows the filtered restaurant count above the list', async ({ page }) => {
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
+  ), (route) => {
+    const url = new URL(route.request().url())
+    if (url.searchParams.get('venue_type') === 'restaurant') {
+      return route.fulfill({ json: { items: [], total: 0 } })
+    }
+    return route.fallback()
+  })
+
   await page.goto('/catalog/moskva/?view=list')
 
   const summary = page.locator('.catalog-results__summary')
@@ -315,6 +325,7 @@ test('list includes restaurants whose map point is near the selected metro', asy
 
 test('suggests a matching chain and leaves only nearby metro markers after selection', async ({ page }) => {
   await page.goto('/catalog/moskva/')
+  await expect(page.locator('#rs-splash')).toHaveAttribute('data-state', 'hidden', { timeout: 10_000 })
 
   const search = page.getByRole('combobox', { name: 'Поиск по ресторанам' })
   await search.fill('Кофе')
@@ -343,6 +354,12 @@ test('finds the She chain by the Cyrillic query ши', async ({ page }) => {
 })
 
 test('highlights only stations selected through a metro line', async ({ page }) => {
+  const restaurantRequests = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (isCatalogApi(url) && url.pathname.endsWith('/restaurants')) restaurantRequests.push(url)
+  })
+
   await page.goto('/catalog/moskva/')
 
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(3, { timeout: 15_000 })
@@ -350,6 +367,11 @@ test('highlights only stations selected through a metro line', async ({ page }) 
   await page.getByRole('button', { name: 'Станции метро' }).click()
   await page.getByRole('button', { name: 'Тестовая линия', exact: true }).click()
 
+  await expect.poll(() => restaurantRequests.length).toBeGreaterThan(1)
+  const metroRequest = restaurantRequests.at(-1)
+  expect(metroRequest.searchParams.has('near_lat')).toBe(false)
+  expect(metroRequest.searchParams.has('near_lon')).toBe(false)
+  expect(metroRequest.toString().length).toBeLessThan(512)
   await expect(page.locator('.catalog-map-panel .rs-metro-marker.is-selected')).toHaveCount(1)
   await expect(page.locator('.catalog-map-panel .rs-metro-marker.is-muted')).toHaveCount(2)
 })

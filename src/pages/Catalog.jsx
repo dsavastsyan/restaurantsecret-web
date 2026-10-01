@@ -45,8 +45,8 @@ const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 // Keep the first paint bounded. The API returns total/hasMore and the catalog
 // requests the next batch only when the user reaches it.
 const FETCH_LIMIT = 48;
+const CLIENT_LOCATION_FETCH_LIMIT = 2000;
 const PAGE_SIZE = 8;
-const PAGES_PER_FETCH = FETCH_LIMIT / PAGE_SIZE;
 const EMPTY_METRO_DATA = { lines: [], stations: [] };
 
 const CuisineIcon = () => (
@@ -310,22 +310,25 @@ export default function Catalog() {
     () => api.search(debouncedQuery, { city: selectedCity.id }),
     { enabled: Boolean(debouncedQuery) },
   )
+  const usesClientMetroFilter = locationMode === 'metro' && selectedMetro.length > 0
+  const catalogFetchLimit = usesClientMetroFilter ? CLIENT_LOCATION_FETCH_LIMIT : FETCH_LIMIT
+  const catalogPagesPerFetch = catalogFetchLimit / PAGE_SIZE
   // Text search is owned by /search. Keep the paginated catalog request
   // independent so a long result set cannot turn into an oversized cache key.
-  const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / PAGES_PER_FETCH)
+  const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
     `restaurants:${selectedCity.id}:${serverPage}:${selectedCuisines.join(',')}:${selectedVenueType}:${selectedMetro.join(',')}:${selectedNutritionRange}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
     () => api.restaurants({
-      limit: FETCH_LIMIT,
-      offset: serverPage * FETCH_LIMIT,
+      limit: catalogFetchLimit,
+      offset: serverPage * catalogFetchLimit,
       city: selectedCity.id,
       cuisine: selectedCuisines,
       venue_type: selectedVenueType || undefined,
-      metro: selectedMetro,
+      metro: usesClientMetroFilter ? undefined : selectedMetro,
       calorie_range: selectedNutritionRange || undefined,
-      near_lat: isLocationFilterActive ? locationAnchorPoints.map((point) => point.lat) : undefined,
-      near_lon: isLocationFilterActive ? locationAnchorPoints.map((point) => point.lon) : undefined,
-      radius_m: isLocationFilterActive ? radiusKm * 1000 : undefined,
+      near_lat: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lat) : undefined,
+      near_lon: isLocationFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lon) : undefined,
+      radius_m: isLocationFilterActive && !usesClientMetroFilter ? radiusKm * 1000 : undefined,
     }),
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
@@ -450,14 +453,16 @@ export default function Catalog() {
 
   const resultCount = debouncedQuery
     ? displayItems.length
-    : Number(rawData?.total ?? displayItems.length)
+    : usesClientMetroFilter
+      ? displayItems.length
+      : Number(rawData?.total ?? displayItems.length)
   const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE))
 
   const visibleItems = useMemo(() => {
-    const pageWithinFetch = debouncedQuery ? currentPage - 1 : (currentPage - 1) % PAGES_PER_FETCH
+    const pageWithinFetch = debouncedQuery ? currentPage - 1 : (currentPage - 1) % catalogPagesPerFetch
     const start = pageWithinFetch * PAGE_SIZE
     return displayItems.slice(start, start + PAGE_SIZE)
-  }, [currentPage, debouncedQuery, displayItems])
+  }, [catalogPagesPerFetch, currentPage, debouncedQuery, displayItems])
 
   const catalogLoading = debouncedQuery ? searchLoading : loading
   const catalogError = debouncedQuery ? searchError : error
@@ -561,9 +566,9 @@ export default function Catalog() {
     ].filter(Boolean).join(' ')
   }, [getInitials])
 
-  const pageWithinFetch = debouncedQuery ? currentPage - 1 : (currentPage - 1) % PAGES_PER_FETCH
+  const pageWithinFetch = debouncedQuery ? currentPage - 1 : (currentPage - 1) % catalogPagesPerFetch
   const shownFrom = visibleItems.length
-    ? (debouncedQuery ? pageWithinFetch * PAGE_SIZE : serverPage * FETCH_LIMIT + pageWithinFetch * PAGE_SIZE) + 1
+    ? (debouncedQuery ? pageWithinFetch * PAGE_SIZE : serverPage * catalogFetchLimit + pageWithinFetch * PAGE_SIZE) + 1
     : 0
   const shownTo = shownFrom ? Math.min(shownFrom + visibleItems.length - 1, resultCount) : 0
   const totalRestaurantCount = debouncedQuery
@@ -864,6 +869,7 @@ export default function Catalog() {
                         aria-selected={index === activeSearchSuggestionIndex}
                         className={`catalog-search__suggestion${index === activeSearchSuggestionIndex ? ' is-active' : ''}`}
                         onMouseEnter={() => setActiveSearchSuggestionIndex(index)}
+                        onMouseDown={(event) => event.preventDefault()}
                         onClick={() => selectSearchSuggestion(suggestion)}
                       >
                         <span className="catalog-search__suggestion-mark" aria-hidden="true">
@@ -1095,7 +1101,7 @@ export default function Catalog() {
               zoom={selectedCity?.recommendedZoom}
               loading={mapLoading}
               error={mapError}
-              totalResults={filteredItems.length}
+              totalResults={resultCount}
               isFavorite={isFavorite}
               onToggleFavorite={handleToggleFavorite}
               onOpenRestaurant={openMenu}
@@ -1107,8 +1113,8 @@ export default function Catalog() {
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
         {!isInitialLoading && !catalogError && (
           <div className="catalog-results__summary" role="status" aria-live="polite">
-            Найдено: <strong>{filteredItems.length.toLocaleString('ru-RU')}</strong>{' '}
-            {getRussianPluralWord(filteredItems.length, 'ресторан', 'ресторана', 'ресторанов')}
+            Найдено: <strong>{resultCount.toLocaleString('ru-RU')}</strong>{' '}
+            {getRussianPluralWord(resultCount, 'ресторан', 'ресторана', 'ресторанов')}
           </div>
         )}
         {catalogError && <p className="err">Ошибка: {String(catalogError.message || catalogError)}</p>}
@@ -1187,10 +1193,8 @@ export default function Catalog() {
             const googlePlaceId = getGooglePlaceId(r)
             return (
               <li key={`${r.slug || r.name}-${i}`} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
-                <div className={`catalog-card__layout${googlePlaceId ? '' : ' catalog-card__layout--no-media'}`}>
-                  {googlePlaceId && (
-                    <GooglePlaceMedia key={googlePlaceId} placeId={googlePlaceId} restaurantName={r.name} />
-                  )}
+                <div className="catalog-card__layout">
+                  <GooglePlaceMedia key={googlePlaceId || r.slug || r.name} placeId={googlePlaceId} restaurantName={r.name} />
                   <div className="catalog-card__content">
                     <div className="catalog-card__top">
                       <div className="catalog-card__identity">

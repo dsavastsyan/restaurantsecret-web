@@ -745,9 +745,10 @@
 
 .catalog-search-line {
   display: grid;
-  grid-template-columns: minmax(150px, 0.34fr) minmax(0, 1fr) 112px;
+  grid-template-columns: minmax(0, 0.34fr) minmax(0, 1fr) minmax(96px, 112px);
   gap: 10px;
   align-items: center;
+  min-width: 0;
 }
 
 .catalog-city-filter {
@@ -817,6 +818,7 @@
 .catalog-page .catalog-search-line .catalog-search__field,
 .catalog-page .catalog-search-line .catalog-search__submit {
   grid-area: auto;
+  min-width: 0;
 }
 
 .catalog-page .catalog-search-line .catalog-search__input,
@@ -842,6 +844,59 @@
 .catalog-filter-popover--nutrition {
   right: 0;
   width: min(480px, calc(100vw - 64px));
+}
+
+@media (min-width: 761px) {
+  .catalog-filter-popover--nutrition {
+    right: auto;
+    left: 50%;
+    width: min(956px, calc(100vw - 64px));
+    padding: 40px;
+    transform: translateX(-50%);
+  }
+
+  .catalog-filter-popover--nutrition.is-open {
+    animation: catalog-filter-nutrition-in 180ms ease-out both;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-filter-popover__head {
+    margin-bottom: 34px;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-filter-popover__head h2 {
+    font-size: 42px;
+    line-height: 1.1;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-filter-popover__head p {
+    max-width: 740px;
+    margin-top: 14px;
+    font-size: 22px;
+    line-height: 1.45;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-filter-popover__head > button {
+    width: 64px;
+    height: 64px;
+    flex-basis: 64px;
+    font-size: 32px;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-nutrition-options {
+    gap: 20px;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-nutrition-options button {
+    min-height: 96px;
+    padding: 0 28px;
+    border-radius: 18px;
+    font-size: 25px;
+  }
+}
+
+@keyframes catalog-filter-nutrition-in {
+  from { opacity: 0; transform: translate(-50%, -5px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .catalog-nutrition-options {
@@ -984,7 +1039,7 @@
 
 @media (max-width: 900px) {
   .catalog-search-line {
-    grid-template-columns: minmax(145px, 0.38fr) minmax(0, 1fr) 104px;
+    grid-template-columns: minmax(0, 0.38fr) minmax(0, 1fr) minmax(96px, 104px);
   }
 
   .catalog-page .catalog-card__layout {
@@ -1029,12 +1084,49 @@
   }
 
   .catalog-page .catalog-compact-filters {
-    grid-template-columns: repeat(3, max-content);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    overflow: visible;
     margin-top: 7px;
+  }
+
+  .catalog-page .catalog-compact-filter {
+    width: 100%;
+    min-width: 0;
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .catalog-page .catalog-compact-filter > span {
+    min-width: 0;
+  }
+
+  .catalog-page .catalog-compact-filter strong {
+    display: block;
+    overflow: hidden;
+    max-width: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .catalog-filter-popover--nutrition {
     width: auto;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-filter-popover__head h2 {
+    font-size: 30px;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-filter-popover__head p {
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .catalog-filter-popover--nutrition .catalog-nutrition-options button {
+    min-height: 58px;
+    padding: 0 14px;
+    font-size: 18px;
   }
 
   .catalog-page .catalog-card__layout {
