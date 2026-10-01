@@ -61,7 +61,9 @@ function ReviewCard({ review, onDecide, working }) {
         <div>
           <small>{FIELD_LABELS[review.field] || review.field}</small>
           <h2>{review.restaurant_name}</h2>
-          <p>слаг {review.restaurant_slug} · id {review.restaurant_id}</p>
+          <p>
+            город {review.restaurant_city || 'не указан'} · слаг {review.restaurant_slug} · id {review.restaurant_id}
+          </p>
         </div>
         <span className={`admin-menu__badge admin-menu__badge--${review.status}`}>
           уверенность агента {formatConfidence(review.confidence)}
