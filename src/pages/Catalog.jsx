@@ -904,6 +904,7 @@ export default function Catalog() {
         const approximate = Number(coords.accuracy) > 500
         setNearbyPoint({ lat: coords.latitude, lon: coords.longitude })
         setNearbyPointLabel(approximate ? 'местоположение определено приблизительно' : 'моё местоположение')
+        setGeolocationError('')
         setGeolocationLoading(false)
         setIsPickingLocation(false)
         analytics.track('catalog_location_point_selected', {
@@ -916,7 +917,9 @@ export default function Catalog() {
         setGeolocationLoading(false)
         setGeolocationError('Не удалось определить местоположение. Введите адрес или выберите точку на карте.')
       },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+      // Не ограничиваем запрос коротким таймаутом: браузер может держать
+      // системное окно разрешения открытым дольше, чем длится обычный запрос.
+      { enableHighAccuracy: true, maximumAge: 60_000 },
     )
   }, [selectedCity.id])
 

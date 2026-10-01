@@ -169,6 +169,35 @@ test('keeps the wide catalog container on city routes', async ({ page }) => {
   await expect(catalogContainer).toHaveCSS('max-width', '1360px')
 })
 
+test('clears a previous geolocation error after a later successful location request', async ({ page }) => {
+  await page.addInitScript(() => {
+    let requestCount = 0
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success, failure) {
+          requestCount += 1
+          if (requestCount === 1) {
+            failure({ code: 1 })
+            return
+          }
+          success({ coords: { latitude: 55.751244, longitude: 37.618423, accuracy: 30 } })
+        },
+      },
+    })
+  })
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: /Рядом с точкой/ }).click()
+
+  await page.getByRole('button', { name: 'Выбрать' }).click()
+  await expect(page.getByText('Не удалось определить местоположение.', { exact: false })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Выбрать' }).click()
+  await expect(page.locator('.catalog-location-filter__status')).toHaveText('Выбрано: моё местоположение')
+  await expect(page.getByText('Не удалось определить местоположение.', { exact: false })).toHaveCount(0)
+})
+
 test('groups metro stations under expandable colored lines', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
   await page.getByRole('button', { name: /Где удобно/ }).click()
