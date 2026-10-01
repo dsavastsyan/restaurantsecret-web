@@ -22,6 +22,7 @@ const VENUE_TYPE_OPTIONS = [
   ['cafe', 'Кафе'],
   ['coffee_tea', 'Кофе и чай'],
   ['fast_food', 'Быстрая еда'],
+  ['bar', 'Бар'],
 ]
 
 function ReviewValueInput({ review, value, onChange }) {

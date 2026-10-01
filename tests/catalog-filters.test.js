@@ -54,7 +54,7 @@ test('filters by the primary venue type and ignores unknown API values', () => {
 
   assert.deepEqual(
     CATALOG_VENUE_TYPES.map((option) => option.name),
-    ['Рестораны', 'Кафе', 'Кофе и чай', 'Быстрая еда'],
+    ['Рестораны', 'Кафе', 'Кофе и чай', 'Быстрая еда', 'Бары'],
   )
   assert.equal(getCatalogRestaurantVenueType(restaurants[2]), '')
   assert.deepEqual(
