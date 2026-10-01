@@ -108,7 +108,8 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('opens on the map, shows a restaurant card and persists list view in the URL', async ({ page }) => {
+test('opens on the map, shows a restaurant card and persists mobile list view in the URL', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   const mapRuntimeErrors = []
   page.on('console', (message) => {
     if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
@@ -121,7 +122,6 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
 
   await page.goto('/catalog/moskva/')
 
-  await expect(page.getByRole('button', { name: 'Карта', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.catalog-map-panel')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
   await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
@@ -140,13 +140,13 @@ test('opens on the map, shows a restaurant card and persists list view in the UR
   await expect(mapCard).toContainText('м Кузнецкий Мост (900м)')
   await expect(mapCard.getByRole('button', { name: 'Открыть меню' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Список', exact: true }).click()
+  await page.getByRole('button', { name: 'Показать список ресторанов' }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list')
   await expect(page.locator('.catalog-card')).toHaveCount(1)
   await expect(page.locator('.catalog-card__metro')).toHaveCount(0)
 
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Список', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Показать карту ресторанов' })).toBeVisible()
   await expect(page.locator('.catalog-grid')).toBeVisible()
 })
 
@@ -216,13 +216,13 @@ test('falls back to raster tiles when WebGL context is lost', async ({ page }) =
 test('filters both map and list by the primary venue type', async ({ page }) => {
   await page.goto('/catalog/moskva/')
 
-  await page.getByLabel('Тип заведения').selectOption('coffee_tea')
+  await page.getByRole('button', { name: /Что ищем/ }).click()
+  await page.getByLabel('Тип заведения', { exact: true }).selectOption('coffee_tea')
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(1)
 
-  await page.getByLabel('Тип заведения').selectOption('restaurant')
+  await page.getByLabel('Тип заведения', { exact: true }).selectOption('restaurant')
   await expect(page.locator('.catalog-map-pin-wrapper')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Список', exact: true }).click()
   await expect(page.locator('.catalog-card')).toHaveCount(0)
 })
 
@@ -232,7 +232,8 @@ test('shows the filtered restaurant count above the list', async ({ page }) => {
   const summary = page.locator('.catalog-results__summary')
   await expect(summary).toHaveText('Найдено: 1 ресторан')
 
-  await page.getByLabel('Тип заведения').selectOption('restaurant')
+  await page.getByRole('button', { name: /Что ищем/ }).click()
+  await page.getByLabel('Тип заведения', { exact: true }).selectOption('restaurant')
   await expect(summary).toHaveText('Найдено: 0 ресторанов')
 })
 
@@ -277,6 +278,7 @@ test('keeps the auto-update badge next to the restaurant name', async ({ page })
 test('list includes restaurants whose map point is near the selected metro', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
 
+  await page.getByRole('button', { name: /Где удобно/ }).click()
   await page.getByRole('button', { name: 'Станции метро' }).click()
   await page.getByPlaceholder('Поиск станции...').fill('Лубянка')
   await page.getByRole('button', { name: 'Лубянка', exact: true }).click()
@@ -318,6 +320,7 @@ test('highlights only stations selected through a metro line', async ({ page }) 
   await page.goto('/catalog/moskva/')
 
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(3, { timeout: 15_000 })
+  await page.getByRole('button', { name: /Где удобно/ }).click()
   await page.getByRole('button', { name: 'Станции метро' }).click()
   await page.getByRole('button', { name: 'Тестовая линия', exact: true }).click()
 

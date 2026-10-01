@@ -137,7 +137,7 @@ export default function Catalog() {
   const [activeSearchSuggestionIndex, setActiveSearchSuggestionIndex] = useState(-1)
   const [currentPage, setCurrentPage] = useState(1)
   const [locationMode, setLocationMode] = useState('metro')
-  const [radiusKm, setRadiusKm] = useState(1)
+  const [radiusKm, setRadiusKm] = useState(3)
   const [nearbyPoint, setNearbyPoint] = useState(null)
   const [nearbyPointLabel, setNearbyPointLabel] = useState('')
   const [addressQuery, setAddressQuery] = useState('')
