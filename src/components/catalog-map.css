@@ -328,7 +328,12 @@
   gap: 10px;
 }
 
+.catalog-map-card__actions--with-instagram {
+  grid-template-columns: repeat(2, 46px) 1fr;
+}
+
 .catalog-map-card__favorite,
+.catalog-map-card__instagram,
 .catalog-map-card__open {
   min-height: 44px;
   border-radius: 999px;
@@ -342,6 +347,25 @@
   border: 1px solid rgba(109, 93, 70, 0.16);
   background: #fff;
   color: #6b645b;
+}
+
+.catalog-map-card__instagram {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(109, 93, 70, 0.16);
+  background: #fff;
+  color: #6b645b;
+  text-decoration: none;
+}
+
+.catalog-map-card__instagram:hover {
+  background: #faf8f3;
+  color: #37312a;
+}
+
+.catalog-map-card__instagram svg {
+  width: 21px;
+  height: 21px;
 }
 
 .catalog-map-card__favorite svg {
@@ -371,6 +395,7 @@
 }
 
 .catalog-map-card button:focus-visible,
+.catalog-map-card a:focus-visible,
 .catalog-map-panel__empty button:focus-visible,
 .catalog-map-panel__picker button:focus-visible {
   outline: 3px solid rgba(104, 134, 63, 0.36);
