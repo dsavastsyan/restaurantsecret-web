@@ -20,6 +20,7 @@ const FILTER_KEYS = [
 
 const NUTRITION_FIELDS = ['calories', 'protein', 'fat', 'carbs']
 const LOCATION_MODES = new Set(['metro', 'nearby', 'center'])
+export const DEFAULT_CATALOG_RADIUS_KM = 3
 
 export const createEmptyCatalogNutritionCriteria = () => ({
   calories: { min: '', max: '' },
@@ -51,7 +52,7 @@ export function parseCatalogFilterState(searchParams) {
     ? null
     : Number.isFinite(parsedRadius) && parsedRadius > 0
       ? parsedRadius
-      : 3
+      : DEFAULT_CATALOG_RADIUS_KM
   const lat = readFiniteCoordinate(searchParams.get('catalog_near_lat'))
   const lon = readFiniteCoordinate(searchParams.get('catalog_near_lon'))
 

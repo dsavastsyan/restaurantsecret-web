@@ -40,6 +40,7 @@ import {
 } from '@/lib/catalogNutrition'
 import {
   createEmptyCatalogNutritionCriteria,
+  DEFAULT_CATALOG_RADIUS_KM,
   parseCatalogFilterState,
   serializeCatalogFilterState,
 } from '@/lib/catalogFilterParams'
@@ -220,7 +221,7 @@ export default function Catalog() {
   const resetLocationFilter = () => {
     setLocationMode('metro')
     setSelectedMetro([])
-    setRadiusKm(3)
+    setRadiusKm(DEFAULT_CATALOG_RADIUS_KM)
     setNearbyPoint(null)
     setNearbyPointLabel('')
     setAddressQuery('')

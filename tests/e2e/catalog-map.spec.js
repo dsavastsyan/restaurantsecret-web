@@ -207,6 +207,7 @@ test('clears a previous geolocation error after a later successful location requ
 test('allows location filters without a radius limit', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await expect(page.getByRole('button', { name: '3 км', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: 'В центре', exact: true }).click()
   await page.getByRole('button', { name: 'Без ограничения', exact: true }).click()
 

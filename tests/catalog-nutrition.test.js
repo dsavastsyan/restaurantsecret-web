@@ -11,7 +11,11 @@ import {
   matchesCatalogNutritionCriteria,
   matchesCatalogNutritionFilter,
 } from '../src/lib/catalogNutrition.js'
-import { parseCatalogFilterState, serializeCatalogFilterState } from '../src/lib/catalogFilterParams.js'
+import {
+  DEFAULT_CATALOG_RADIUS_KM,
+  parseCatalogFilterState,
+  serializeCatalogFilterState,
+} from '../src/lib/catalogFilterParams.js'
 
 test('counts matching dishes in a calorie range without exposing dish cards', () => {
   const restaurant = {
@@ -95,6 +99,12 @@ test('round-trips catalog filters through the menu navigation URL', () => {
       carbs: { min: '', max: '60' },
     },
   })
+})
+
+test('defaults the catalog radius to 3 km until an explicit no-limit value is selected', () => {
+  assert.equal(DEFAULT_CATALOG_RADIUS_KM, 3)
+  assert.equal(parseCatalogFilterState(new URLSearchParams()).radiusKm, DEFAULT_CATALOG_RADIUS_KM)
+  assert.equal(parseCatalogFilterState(new URLSearchParams('catalog_radius=none')).radiusKm, null)
 })
 
 test('keeps optional restaurant metadata absent instead of inventing values', () => {
