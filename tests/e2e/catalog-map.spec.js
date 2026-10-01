@@ -397,6 +397,21 @@ test('nutrition presets, custom values and reset stay functional', async ({ page
   await expect(proteinMin).toHaveValue('')
 })
 
+test('updates filter URLs without reloading the catalog page', async ({ page }) => {
+  await page.goto('/catalog/moskva/?view=list')
+  let loadEvents = 0
+  page.on('load', () => { loadEvents += 1 })
+
+  await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
+  await page.getByRole('button', { name: 'До 400 ккал', exact: true }).click()
+  await page.getByRole('button', { name: 'Задать свои значения' }).click()
+  await page.locator('#catalog-nutrition-protein-min').fill('25')
+
+  await expect(page).toHaveURL(/catalog_calories_max=400/)
+  await expect(page).toHaveURL(/catalog_protein_min=25/)
+  expect(loadEvents).toBe(0)
+})
+
 test('keeps catalog nutrition filters on the restaurant menu and on return', async ({ page }) => {
   await page.route((url) => (
     isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
