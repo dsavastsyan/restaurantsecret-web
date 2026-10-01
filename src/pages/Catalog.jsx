@@ -30,6 +30,13 @@ import {
   filterCatalogRestaurants,
   normalizeCatalogCuisine,
 } from '@/lib/catalogFilters'
+import {
+  DEFAULT_CALORIE_RANGES,
+  formatRestaurantPriceRange,
+  getCatalogNutritionStats,
+  getRestaurantGoogleRating,
+  matchesCatalogNutritionFilter,
+} from '@/lib/catalogNutrition'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
 import '../catalog-compact.css'
 
@@ -131,6 +138,7 @@ export default function Catalog() {
   const [selectedCuisines, setSelectedCuisines] = useState([])
   const [selectedMetro, setSelectedMetro] = useState([])
   const [selectedVenueType, setSelectedVenueType] = useState('')
+  const [selectedNutritionRange, setSelectedNutritionRange] = useState('')
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
@@ -243,6 +251,7 @@ export default function Catalog() {
     setSelectedCuisines([])
     setSelectedMetro([])
     setSelectedVenueType('')
+    setSelectedNutritionRange('')
     setLocationMode('metro')
     setNearbyPoint(null)
     setNearbyPointLabel('')
@@ -358,7 +367,7 @@ export default function Catalog() {
 
   // Filter items based on SEARCH and CUISINE
   const catalogItemsBeforeLocation = useMemo(() => {
-    return filterCatalogRestaurants(filterableItems, {
+    const filtered = filterCatalogRestaurants(filterableItems, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       venueType: selectedVenueType,
@@ -366,18 +375,24 @@ export default function Catalog() {
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
     })
-  }, [debouncedQuery, filterableItems, selectedCuisines, selectedVenueType])
+    const availableRanges = Array.isArray(filters?.calorie_ranges) ? filters.calorie_ranges : DEFAULT_CALORIE_RANGES
+    const range = availableRanges.find((item) => String(item.key) === selectedNutritionRange)
+    return range ? filtered.filter((restaurant) => matchesCatalogNutritionFilter(restaurant, range)) : filtered
+  }, [debouncedQuery, filterableItems, filters?.calorie_ranges, selectedCuisines, selectedNutritionRange, selectedVenueType])
 
   const mapItemsBeforeLocation = useMemo(() => {
     const enriched = enrichCatalogMapItems(mapSourceItems, allItems)
 
-    return filterCatalogRestaurants(enriched, {
+    const filtered = filterCatalogRestaurants(enriched, {
       query: debouncedQuery,
       cuisines: selectedCuisines,
       venueType: selectedVenueType,
       matchesQuery: matchesSearchQuery,
     })
-  }, [allItems, debouncedQuery, mapSourceItems, selectedCuisines, selectedVenueType])
+    const availableRanges = Array.isArray(filters?.calorie_ranges) ? filters.calorie_ranges : DEFAULT_CALORIE_RANGES
+    const range = availableRanges.find((item) => String(item.key) === selectedNutritionRange)
+    return range ? filtered.filter((restaurant) => matchesCatalogNutritionFilter(restaurant, range)) : filtered
+  }, [allItems, debouncedQuery, filters?.calorie_ranges, mapSourceItems, selectedCuisines, selectedNutritionRange, selectedVenueType])
 
   const mapItems = useMemo(() => (
     isLocationFilterActive
@@ -394,7 +409,7 @@ export default function Catalog() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedQuery, locationMode, nearbyPoint, radiusKm, selectedCuisines, selectedMetro, selectedVenueType])
+  }, [debouncedQuery, locationMode, nearbyPoint, radiusKm, selectedCuisines, selectedMetro, selectedNutritionRange, selectedVenueType])
 
   // Physical branches remain reachable from their chain hub, but the catalog
   // itself presents one card per chain rather than exposing branch pages.
@@ -409,11 +424,6 @@ export default function Catalog() {
     const start = (currentPage - 1) * PAGE_SIZE
     return displayItems.slice(start, start + PAGE_SIZE)
   }, [currentPage, displayItems])
-
-  const firstPlaceMediaRestaurant = useMemo(() => {
-    if (currentPage !== 1) return null
-    return visibleItems.find((item) => !item.isChainCard && getGooglePlaceId(item)) || null
-  }, [currentPage, visibleItems])
 
   const isInitialLoading = loading && !allItems.length
 
@@ -452,6 +462,19 @@ export default function Catalog() {
     }))
   }, [filters?.venueTypes, filters?.venue_types])
 
+  const nutritionRanges = useMemo(() => {
+    const raw = filters?.calorie_ranges
+    if (!Array.isArray(raw) || !raw.length) return DEFAULT_CALORIE_RANGES
+    return raw.map((range) => ({
+      key: String(range.key),
+      label: String(range.label || range.name || range.key),
+      min: Number(range.min ?? 0),
+      max: Number(range.max ?? 5000),
+    }))
+  }, [filters?.calorie_ranges])
+
+  const selectedNutrition = nutritionRanges.find((range) => range.key === selectedNutritionRange) || null
+
   const selectedVenueTypeName = venueTypeOptions.find((option) => option.id === selectedVenueType)?.name
   const placeFilterCount = selectedCuisines.length + (selectedVenueType ? 1 : 0)
   const placeFilterSummary = [
@@ -467,6 +490,7 @@ export default function Catalog() {
     : locationMode === 'nearby'
       ? `${nearbyPointLabel || 'Рядом с точкой'} · ${radiusKm} км`
       : `В центре · ${radiusKm} км`
+  const nutritionFilterSummary = selectedNutrition?.label || 'КБЖУ блюд'
 
   const visibleMetroStations = useMemo(
     () => debouncedQuery
@@ -474,26 +498,6 @@ export default function Catalog() {
       : cityMetroData.stations,
     [cityMetroData.stations, debouncedQuery, mapItems],
   )
-
-  const extractDishes = useCallback((restaurant) => {
-    const candidates = [
-      restaurant?.dishes,
-      restaurant?.menu_preview,
-      restaurant?.popular_dishes,
-      restaurant?.topDishes,
-      restaurant?.top_dishes
-    ]
-
-    for (const list of candidates) {
-      if (Array.isArray(list) && list.length) {
-        return list
-          .map((item) => typeof item === 'string' ? item : item?.name)
-          .filter(Boolean)
-      }
-    }
-
-    return []
-  }, [])
 
   const getInitials = useCallback((name = '') => {
     const trimmed = String(name || '').trim()
@@ -741,6 +745,26 @@ export default function Catalog() {
       <section className="catalog-hero" aria-label="Поиск и фильтры ресторанов">
         <div className="catalog-hero__inner">
           <form className="catalog-search" onSubmit={handleSubmit} ref={compactFiltersRef}>
+            <div className="catalog-search-line">
+              <div className="catalog-city-filter">
+                <label htmlFor="catalog-city">Город</label>
+                <div className="catalog-city-filter__select-wrap">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
+                    <circle cx="12" cy="10" r="2.1" />
+                  </svg>
+                  <select id="catalog-city" value={selectedCity.id}
+                    onFocus={() => analytics.track('city_selector_open', { selected_city: selectedCity.id })}
+                    onChange={(event) => {
+                      const city = cities.find((item) => item.id === event.target.value)
+                      if (city) changeCity(city)
+                    }}>
+                    {cities.length ? cities.map((city) => (
+                      <option key={city.id} value={city.id}>{city.name}</option>
+                    )) : <option value="Москва">Москва</option>}
+                  </select>
+                </div>
+              </div>
             <label className="sr-only" htmlFor="restaurant-search">Поиск по ресторанам</label>
             <div
               className="catalog-search__field"
@@ -823,6 +847,7 @@ export default function Catalog() {
             >
               Найти
             </button>
+            </div>
 
             <div className="catalog-compact-filters">
               <button
@@ -855,6 +880,28 @@ export default function Catalog() {
                   <strong>{placeFilterSummary}</strong>
                 </span>
                 {placeFilterCount > 0 && <b aria-label={`Выбрано фильтров: ${placeFilterCount}`}>{placeFilterCount}</b>}
+              </button>
+
+              <button
+                type="button"
+                className={`catalog-compact-filter${openFilter === 'nutrition' ? ' is-open' : ''}`}
+                aria-expanded={openFilter === 'nutrition'}
+                aria-controls="catalog-nutrition-popover"
+                onClick={() => setOpenFilter((current) => current === 'nutrition' ? null : 'nutrition')}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M4 19V5M4 19h16" />
+                  <path d="m7 15 3-4 3 2 5-7" />
+                  <circle cx="7" cy="15" r="1" />
+                  <circle cx="10" cy="11" r="1" />
+                  <circle cx="13" cy="13" r="1" />
+                  <circle cx="18" cy="6" r="1" />
+                </svg>
+                <span>
+                  <small>По блюдам</small>
+                  <strong>{nutritionFilterSummary}</strong>
+                </span>
+                {selectedNutrition && <b aria-label="Фильтр КБЖУ применён">1</b>}
               </button>
             </div>
 
@@ -921,21 +968,6 @@ export default function Catalog() {
               </div>
               <div className="catalog-filter-popover__grid">
                 <div className="catalog-filter">
-                  <label className="catalog-filter__label" htmlFor="catalog-city">Город</label>
-                  <div className="catalog-filter__select-wrap">
-                    <select id="catalog-city" className="catalog-metro-select" value={selectedCity.id}
-                      onFocus={() => analytics.track('city_selector_open', { selected_city: selectedCity.id })}
-                      onChange={(event) => {
-                      const city = cities.find((item) => item.id === event.target.value)
-                      if (city) changeCity(city)
-                    }}>
-                      {cities.length ? cities.map((city) => (
-                        <option key={city.id} value={city.id}>{city.name}</option>
-                      )) : <option value="Москва">Москва</option>}
-                    </select>
-                  </div>
-                </div>
-                <div className="catalog-filter">
                   <label className="catalog-filter__label" htmlFor="catalog-venue-type">Тип заведения</label>
                   <div className="catalog-filter__select-wrap">
                     <select
@@ -961,6 +993,43 @@ export default function Catalog() {
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div
+              id="catalog-nutrition-popover"
+              className={`catalog-filter-popover catalog-filter-popover--nutrition${openFilter === 'nutrition' ? ' is-open' : ''}`}
+              role="dialog"
+              aria-labelledby="catalog-nutrition-popover-title"
+              aria-hidden={openFilter !== 'nutrition'}
+            >
+              <div className="catalog-filter-popover__head">
+                <div>
+                  <h2 id="catalog-nutrition-popover-title">КБЖУ блюд</h2>
+                  <p>Покажем рестораны, где есть блюда в выбранном диапазоне калорий</p>
+                </div>
+                <button type="button" onClick={() => setOpenFilter(null)} aria-label="Закрыть">×</button>
+              </div>
+              <div className="catalog-nutrition-options" role="group" aria-label="Диапазон калорий">
+                <button
+                  type="button"
+                  className={!selectedNutritionRange ? 'is-active' : ''}
+                  aria-pressed={!selectedNutritionRange}
+                  onClick={() => setSelectedNutritionRange('')}
+                >
+                  Все блюда
+                </button>
+                {nutritionRanges.map((range) => (
+                  <button
+                    key={range.key}
+                    type="button"
+                    className={selectedNutritionRange === range.key ? 'is-active' : ''}
+                    aria-pressed={selectedNutritionRange === range.key}
+                    onClick={() => setSelectedNutritionRange(range.key)}
+                  >
+                    {range.label}
+                  </button>
+                ))}
               </div>
             </div>
           </form>
@@ -1069,76 +1138,83 @@ export default function Catalog() {
               )
             }
 
-            const allDishes = extractDishes(r)
             const restaurantLinkUrl = normalizeRestaurantLinkUrl(r.instagramUrl)
-            const dishesCount = typeof r?.dishesCount === 'number'
-              ? r.dishesCount
-              : allDishes.length
-            const badgeText = getInitials(r?.name)
-            const googlePlaceId = r === firstPlaceMediaRestaurant ? getGooglePlaceId(r) : ''
+            const nutritionStats = getCatalogNutritionStats(r, selectedNutrition)
+            const dishesCount = selectedNutrition ? nutritionStats.matching : nutritionStats.total
+            const priceRange = formatRestaurantPriceRange(r)
+            const googleRating = getRestaurantGoogleRating(r)
+            const googlePlaceId = getGooglePlaceId(r)
             return (
               <li key={`${r.slug || r.name}-${i}`} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
-                {googlePlaceId && (
-                  <GooglePlaceMedia key={googlePlaceId} placeId={googlePlaceId} restaurantName={r.name} />
-                )}
-                <div className="catalog-card__top">
-                  <div className="catalog-card__identity">
-                    <div className={`${getBadgeClassName(r?.name)} catalog-card__badge--tone-${i % 4}`} aria-hidden="true">{badgeText}</div>
-                    <div className="catalog-card__copy">
-                      <h3 className="catalog-card__title">
-                        <ScrollingRestaurantName name={r.name} />
-                        {r?.autoUpdated && <AutoUpdatedBadge className="catalog-card__auto-updated" />}
-                      </h3>
-                      <div className="catalog-card__meta">
-                        {r?.cuisine && (
-                          <span className="catalog-card__meta-item">
-                            <CuisineIcon />
-                            {r.cuisine}
-                          </span>
-                        )}
+                <div className={`catalog-card__layout${googlePlaceId ? '' : ' catalog-card__layout--no-media'}`}>
+                  {googlePlaceId && (
+                    <GooglePlaceMedia key={googlePlaceId} placeId={googlePlaceId} restaurantName={r.name} />
+                  )}
+                  <div className="catalog-card__content">
+                    <div className="catalog-card__top">
+                      <div className="catalog-card__identity">
+                        <div className="catalog-card__copy">
+                          <h3 className="catalog-card__title">
+                            <ScrollingRestaurantName name={r.name} />
+                            {googleRating && <span className="catalog-card__rating" aria-label={`Рейтинг Google ${googleRating}`}>★ {googleRating}</span>}
+                            {r?.autoUpdated && <AutoUpdatedBadge className="catalog-card__auto-updated" />}
+                          </h3>
+                          <div className="catalog-card__meta">
+                            {r?.cuisine && (
+                              <span className="catalog-card__meta-item">
+                                <CuisineIcon />
+                                {r.cuisine}
+                              </span>
+                            )}
+                            {priceRange && <span className="catalog-card__meta-item">{priceRange}</span>}
+                          </div>
+                          <MetroStationsText restaurant={r} className="catalog-card__metro" />
+                        </div>
                       </div>
-                      <MetroStationsText restaurant={r} className="catalog-card__metro" />
+                      <div className="catalog-card__top-actions">
+                        {restaurantLinkUrl && (
+                          <a
+                            href={restaurantLinkUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Ссылка ресторана"
+                            title="Ссылка ресторана"
+                            className="catalog-card__icon-btn catalog-card__icon-btn--web"
+                          >
+                            <RestaurantWebIcon />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          className={`catalog-card__icon-btn catalog-card__fav-btn ${isFavorite(r.slug) ? 'is-active' : ''}`}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleToggleFavorite(r.slug, r.name)
+                          }}
+                          aria-label={isFavorite(r.slug) ? "Удалить из избранного" : "Добавить в избранное"}
+                        >
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.04L12 21.35Z"
+                              fill={isFavorite(r.slug) ? "#E11D48" : "none"}
+                              stroke={isFavorite(r.slug) ? "#E11D48" : "currentColor"}
+                              strokeWidth="2"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="catalog-card__bottom">
+                      <div className="catalog-card__label">
+                        {selectedNutrition
+                          ? dishesCount === null
+                            ? '— подходящих блюд'
+                            : `${dishesCount} ${getRussianPluralWord(dishesCount, 'подходящее блюдо', 'подходящих блюда', 'подходящих блюд')}`
+                          : `Блюда в меню: ${dishesCount} ${getRussianPluralWord(dishesCount, 'блюдо', 'блюда', 'блюд')}`}
+                      </div>
+                      <button type="button" className="btn btn--primary" onClick={() => openMenu(r.slug)}>Открыть меню</button>
                     </div>
                   </div>
-                  <div className="catalog-card__top-actions">
-                    {restaurantLinkUrl && (
-                      <a
-                        href={restaurantLinkUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label="Ссылка ресторана"
-                        title="Ссылка ресторана"
-                        className="catalog-card__icon-btn catalog-card__icon-btn--web"
-                      >
-                        <RestaurantWebIcon />
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      className={`catalog-card__icon-btn catalog-card__fav-btn ${isFavorite(r.slug) ? 'is-active' : ''}`}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        handleToggleFavorite(r.slug, r.name)
-                      }}
-                      aria-label={isFavorite(r.slug) ? "Удалить из избранного" : "Добавить в избранное"}
-                    >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.04L12 21.35Z"
-                          fill={isFavorite(r.slug) ? "#E11D48" : "none"}
-                          stroke={isFavorite(r.slug) ? "#E11D48" : "currentColor"}
-                          strokeWidth="2"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="catalog-card__bottom">
-                  <div className="catalog-card__label">
-                    Блюда в меню: {dishesCount} {getRussianPluralWord(dishesCount, 'блюдо', 'блюда', 'блюд')}
-                  </div>
-                  <button type="button" className="btn btn--primary" onClick={() => openMenu(r.slug)}>Открыть меню</button>
                 </div>
               </li>
             )

@@ -21,6 +21,11 @@ const restaurant = {
   lat: 55.7645,
   lon: 37.6055,
   dishesCount: 42,
+  dishes: [
+    { name: 'Суп', kcal: 220 },
+    { name: 'Паста', kcal: 480 },
+    { name: 'Десерт', kcal: 720 },
+  ],
   autoUpdated: true,
 }
 
@@ -93,6 +98,11 @@ test.beforeEach(async ({ page }) => {
       return route.fulfill({
         json: {
           cuisines: ['Европейская'],
+          calorie_ranges: [
+            { key: 'lt300', label: '< 300 kcal', min: 0, max: 299 },
+            { key: '300to600', label: '300–600 kcal', min: 300, max: 600 },
+            { key: 'gt600', label: '> 600 kcal', min: 601, max: 5000 },
+          ],
           venue_types: [
             { id: 'restaurant', name: 'Рестораны' },
             { id: 'cafe', name: 'Кафе' },
@@ -235,6 +245,22 @@ test('shows the filtered restaurant count above the list', async ({ page }) => {
   await page.getByRole('button', { name: /Что ищем/ }).click()
   await page.getByLabel('Тип заведения', { exact: true }).selectOption('restaurant')
   await expect(summary).toHaveText('Найдено: 0 ресторанов')
+})
+
+test('filters restaurants by dish calories and shows only the matching dish count', async ({ page }) => {
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
+  ), (route) => route.fulfill({
+    json: { items: [{ ...restaurant, chainSlug: null, chainName: null }], total: 1 },
+  }))
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
+  await page.getByRole('button', { name: '< 300 kcal', exact: true }).click()
+
+  await expect(page.locator('.catalog-card')).toHaveCount(1)
+  await expect(page.locator('.catalog-card__label')).toHaveText('1 подходящее блюдо')
+  await expect(page.locator('.catalog-card__dish')).toHaveCount(0)
 })
 
 test('keeps the auto-update badge next to the restaurant name', async ({ page }) => {
