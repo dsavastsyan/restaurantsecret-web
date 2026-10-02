@@ -28401,3 +28401,44 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
 .turnstile-overlay__panel p {
   margin: 0;
 }
+
+/* Keep the active plan summary compact on mobile. */
+@media (max-width: 899px) {
+  .account-subscription-v2__active-card {
+    position: relative;
+  }
+
+  .account-subscription-v2__active-content {
+    min-width: 0;
+    padding-top: 30px;
+  }
+
+  .account-subscription-v2__active-badges {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    margin: 0 !important;
+  }
+
+  .account-subscription-v2__active-plan-row {
+    align-items: baseline !important;
+    justify-content: flex-start !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+  }
+
+  .account-subscription-v2__active-title {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  .account-subscription-v2__active-price-column {
+    flex: 0 0 auto !important;
+  }
+
+  .account-subscription-v2__active-price {
+    margin: 0 0 7px !important;
+    white-space: nowrap !important;
+  }
+}
