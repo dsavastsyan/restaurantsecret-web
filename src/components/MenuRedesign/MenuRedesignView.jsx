@@ -322,9 +322,6 @@ export default function MenuRedesignView({
             <div className="rsm2-filtered-access" role="status" aria-live="polite">
               <span className="rsm2-filtered-access__count">{formatPositionCount(filteredDishCount)}</span>
               <h2 className="rsm2-filtered-access__title">Подходящие блюда найдены</h2>
-              <p className="rsm2-filtered-access__text">
-                Применённые фильтры показывают количество блюд. Оформите подписку, чтобы посмотреть их.
-              </p>
               {filteredDishCount > 0 && (
                 <button type="button" className="rsm2-filtered-access__cta" onClick={onViewFilteredDishes}>
                   Посмотреть бесплатно
