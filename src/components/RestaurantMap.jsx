@@ -30,20 +30,18 @@ L.Icon.Default.mergeOptions({
 
 const defaultCenter = [55.751244, 37.618423]
 const defaultZoom = 10
-const defaultMarkerIconUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png'
 const metroFilterRadiusM = 1200
 const earthRadiusM = 6371000
 
 const favoriteMarkerIcon = L.divIcon({
-  className: 'map-fav-marker-wrapper',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
+  className: 'map-favorite-marker-wrapper',
+  iconSize: [34, 34],
+  iconAnchor: [17, 30],
+  popupAnchor: [0, -28],
   html: `
-    <div class="map-fav-marker">
-      <img src="${defaultMarkerIconUrl}" alt="" />
-      <span class="map-fav-marker__heart" aria-hidden="true">❤</span>
-    </div>
+    <svg class="map-favorite-marker" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />
+    </svg>
   `,
 })
 
@@ -914,38 +912,21 @@ export default function RestaurantMap({
           height: 18px;
         }
 
-        .map-fav-marker-wrapper {
+        .map-favorite-marker-wrapper {
           background: transparent;
           border: 0;
         }
 
-        .map-fav-marker {
-          position: relative;
-          width: 25px;
-          height: 41px;
-        }
-
-        .map-fav-marker img {
-          width: 25px;
-          height: 41px;
+        .map-favorite-marker {
           display: block;
-        }
-
-        .map-fav-marker__heart {
-          position: absolute;
-          top: -6px;
-          right: -9px;
-          width: 16px;
-          height: 16px;
-          border-radius: 999px;
-          background: #fff;
-          color: #e11d48;
-          font-size: 10px;
-          font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 2px 7px rgba(15, 23, 42, 0.3);
+          width: 34px;
+          height: 34px;
+          overflow: visible;
+          fill: #e11d48;
+          stroke: #fff;
+          stroke-width: 1.65;
+          stroke-linejoin: round;
+          filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.36));
         }
 
         .restaurant-map-container.is-fullscreen {
