@@ -7,14 +7,39 @@ import {
 } from '@/lib/googlePlaces'
 
 const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey()
+const GOOGLE_PLACE_MEDIA_ROOT_MARGIN = '500px 0px'
 
 export default function GooglePlaceMedia({ placeId, restaurantName }) {
+  const mediaContainerRef = useRef(null)
   const elementHostRef = useRef(null)
   const detailsRef = useRef(null)
-  const [status, setStatus] = useState('loading')
+  const [shouldLoad, setShouldLoad] = useState(false)
+  const [status, setStatus] = useState('idle')
 
   useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY || !placeId) return undefined
+    if (!GOOGLE_MAPS_API_KEY || !placeId || shouldLoad) return undefined
+
+    const target = mediaContainerRef.current
+    if (!target || typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
+      setShouldLoad(true)
+      return undefined
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return
+        setShouldLoad(true)
+        observer.disconnect()
+      },
+      { rootMargin: GOOGLE_PLACE_MEDIA_ROOT_MARGIN },
+    )
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [placeId, shouldLoad])
+
+  useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY || !placeId || !shouldLoad) return undefined
 
     let isActive = true
     let details
@@ -79,7 +104,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
       if (detailsRef.current === details) detailsRef.current = null
       if (elementHostRef.current) elementHostRef.current.replaceChildren()
     }
-  }, [placeId])
+  }, [placeId, shouldLoad])
 
   useEffect(() => {
     if (detailsRef.current && restaurantName) {
@@ -89,7 +114,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
 
   if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') {
     return (
-      <div className="catalog-card__place-media catalog-card__place-media--placeholder" aria-hidden="true">
+      <div ref={mediaContainerRef} className="catalog-card__place-media catalog-card__place-media--placeholder" aria-hidden="true">
         <div className="catalog-card__place-media-placeholder">
           <span className="catalog-card__place-media-placeholder-icon">
             <Utensils size={32} strokeWidth={1.7} />
@@ -100,8 +125,8 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
   }
 
   return (
-    <div className={`catalog-card__place-media${status === 'loaded' ? ' is-loaded' : ''}`}>
-      <div ref={elementHostRef} className="catalog-card__place-media-element" />
+    <div ref={mediaContainerRef} className={`catalog-card__place-media${status === 'loaded' ? ' is-loaded' : ''}`}>
+      {shouldLoad && <div ref={elementHostRef} className="catalog-card__place-media-element" />}
       {status !== 'loaded' && (
         <div className="catalog-card__place-media-placeholder" aria-hidden="true">
           <span className="catalog-card__place-media-placeholder-icon">

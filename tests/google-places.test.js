@@ -55,6 +55,14 @@ test('shows a food icon in the permanent placeholder for cards without photos', 
   )
 })
 
+test('defers Google Place Details until a card is near the viewport', () => {
+  assert.match(googlePlaceMedia, /const \[shouldLoad, setShouldLoad\] = useState\(false\)/)
+  assert.match(googlePlaceMedia, /new IntersectionObserver\(/)
+  assert.match(googlePlaceMedia, /rootMargin: GOOGLE_PLACE_MEDIA_ROOT_MARGIN/)
+  assert.match(googlePlaceMedia, /if \(!GOOGLE_MAPS_API_KEY \|\| !placeId \|\| !shouldLoad\) return undefined/)
+  assert.match(googlePlaceMedia, /\{shouldLoad && <div ref=\{elementHostRef\}/)
+})
+
 test('renders media for every catalog card so cards without photos keep the same layout', () => {
   assert.doesNotMatch(catalogPage, /firstPlaceMediaRestaurant/)
   assert.match(catalogPage, /const googlePlaceId = getGooglePlaceId\(r\)/)
