@@ -207,6 +207,7 @@ test('clears a previous geolocation error after a later successful location requ
 test('allows location filters without a radius limit', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await expect(page.getByRole('button', { name: '3 км', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: 'В центре', exact: true }).click()
   await page.getByRole('button', { name: 'Без ограничения', exact: true }).click()
 
@@ -455,13 +456,24 @@ test('keeps catalog nutrition filters on the restaurant menu and on return', asy
   const catalogUrl = page.url()
 
   await Promise.all([
-    page.waitForURL(/\/restaurants\/coffee-test\/menu\/?\?/),
-    page.locator('.catalog-card:not(.catalog-card--chain)').first().getByRole('button', { name: 'Открыть меню' }).click(),
+    page.waitForURL(/\/login$/),
+    page.locator('.catalog-card:not(.catalog-card--chain)').first().getByRole('button', { name: 'Посмотреть подходящие блюда' }).click(),
   ])
+
+  const menuUrl = new URL('/restaurants/coffee-test/menu/', page.url())
+  menuUrl.search = new URL(catalogUrl).search
+  menuUrl.searchParams.set('city', 'Москва')
+  await page.goto(menuUrl.toString())
   await expect(page.getByRole('button', { name: /Мало калорий/ })).toHaveClass(/is-on/)
   await expect(page.getByRole('button', { name: /Много белка/ })).toHaveClass(/is-on/)
-  await expect(page.locator('.rsm2-grid.rsm2-desktop-only .rsm2-tile__cover-name')).toHaveText(['Белковый суп'])
-  await expect(page.getByText('Паста', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.rsm2-filtered-access')).toContainText('1 ПОЗИЦИЯ')
+  await expect(page.getByRole('button', { name: 'Посмотреть бесплатно' })).toBeVisible()
+  await expect(page.locator('.rsm2-grid')).toHaveCount(0)
+
+  await Promise.all([
+    page.waitForURL(/\/login$/),
+    page.getByRole('button', { name: 'Посмотреть бесплатно' }).click(),
+  ])
 
   await page.goto(catalogUrl)
   await expect(page.getByRole('button', { name: /По блюдам/ })).toContainText('до 400 ккал')

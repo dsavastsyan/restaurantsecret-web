@@ -32,7 +32,6 @@ import {
   normalizeCatalogCuisine,
 } from '@/lib/catalogFilters'
 import {
-  formatRestaurantPriceRange,
   getCatalogNutritionStatsForCriteria,
   hasCatalogNutritionCriteria,
   getRestaurantGoogleRating,
@@ -40,10 +39,13 @@ import {
 } from '@/lib/catalogNutrition'
 import {
   createEmptyCatalogNutritionCriteria,
+  DEFAULT_CATALOG_RADIUS_KM,
   parseCatalogFilterState,
   serializeCatalogFilterState,
 } from '@/lib/catalogFilterParams'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
+import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
+import { useSubscriptionStore } from '@/store/subscription'
 import { normalizeInstagramUrl } from '@/lib/instagram'
 import '../catalog-compact.css'
 
@@ -218,7 +220,7 @@ export default function Catalog() {
   const resetLocationFilter = () => {
     setLocationMode('metro')
     setSelectedMetro([])
-    setRadiusKm(3)
+    setRadiusKm(DEFAULT_CATALOG_RADIUS_KM)
     setNearbyPoint(null)
     setNearbyPointLabel('')
     setAddressQuery('')
@@ -281,6 +283,7 @@ export default function Catalog() {
   const { access, requireAccess, requestPaywall } = useOutletContext() || {}
 
   const accessToken = useAuth((state) => state.accessToken);
+  const hasActiveSubscription = useSubscriptionStore((state) => state.hasActiveSub)
   const { isFavorite, toggleFavorite, loadFavorites } = useFavoriteRestaurantsStore((state) => ({
     isFavorite: state.isFavorite,
     toggleFavorite: state.toggle,
@@ -423,6 +426,19 @@ export default function Catalog() {
     `restaurants-map:${selectedCity.id}`,
     () => api.restaurantMap({ city: selectedCity.id }),
   )
+
+  const openCatalogDishResults = useCallback((slug) => {
+    if (!slug) return
+    if (!hasNutritionFilter || hasActiveSubscription) {
+      openMenu(slug)
+      return
+    }
+
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    const checkoutLink = getSubscriptionCheckoutLink(accessToken, returnTo)
+    analytics.track('catalog_filtered_dishes_open', { slug, selected_city: selectedCity.id })
+    navigate(checkoutLink.to, { state: checkoutLink.state })
+  }, [accessToken, hasActiveSubscription, hasNutritionFilter, navigate, openMenu, selectedCity.id])
   // Normalize data
   const allItems = useMemo(() => {
     if (!rawData) return []
@@ -1365,7 +1381,7 @@ export default function Catalog() {
               totalResults={resultCount}
               isFavorite={isFavorite}
               onToggleFavorite={handleToggleFavorite}
-              onOpenRestaurant={openMenu}
+              onOpenRestaurant={openCatalogDishResults}
               onShowList={() => changeViewMode('list')}
             />
           </Suspense>
@@ -1452,7 +1468,6 @@ export default function Catalog() {
             const nutritionMenuState = r.slug
               ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, r.slug)]
               : null
-            const priceRange = formatRestaurantPriceRange(r)
             const googleRating = getRestaurantGoogleRating(r)
             const googlePlaceId = getGooglePlaceId(r)
             return (
@@ -1475,7 +1490,6 @@ export default function Catalog() {
                                 {r.cuisine}
                               </span>
                             )}
-                            {priceRange && <span className="catalog-card__meta-item">{priceRange}</span>}
                           </div>
                           <MetroStationsText restaurant={r} className="catalog-card__metro" />
                         </div>
@@ -1523,7 +1537,13 @@ export default function Catalog() {
                             : `${dishesCount} ${getRussianPluralWord(dishesCount, 'подходящее блюдо', 'подходящих блюда', 'подходящих блюд')}`
                           : `Блюда в меню: ${dishesCount} ${getRussianPluralWord(dishesCount, 'блюдо', 'блюда', 'блюд')}`}
                       </div>
-                      <button type="button" className="btn btn--primary" onClick={() => openMenu(r.slug)}>Открыть меню</button>
+                      <button
+                        type="button"
+                        className="btn btn--primary"
+                        onClick={() => openCatalogDishResults(r.slug)}
+                      >
+                        {hasNutritionFilter ? 'Посмотреть подходящие блюда' : 'Открыть меню'}
+                      </button>
                     </div>
                   </div>
                 </div>
