@@ -52,5 +52,6 @@ test('uses the Google Places UI Kit in the selected map card when a place ID exi
   assert.match(catalogMap, /selectedRestaurantGooglePlaceId/)
   assert.match(catalogMap, /className="catalog-map-card__place-media"/)
   assert.match(catalogMap, /mediaSize="small"/)
+  assert.match(catalogMap, /catalog-map-card__content/)
   assert.match(catalogMap, /catalog-map-card__mark/)
 })
