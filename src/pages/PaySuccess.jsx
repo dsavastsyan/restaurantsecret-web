@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { PD_API_BASE } from '@/config/api'
 import { useAuth } from '@/store/auth'
+import { analytics } from '@/services/analytics'
 
 const queryErrors = {
   no_id: 'Платёж не найден. Попробуйте оформить подписку ещё раз.',
@@ -40,8 +41,7 @@ export default function PaySuccess() {
   // 1. The user definitely completed payment to land on this page.
   // 2. refreshAccess is manual and isActive may be false due to webhook delay.
   useEffect(() => {
-    window.__loadYandexMetrika?.();
-    try { ym(108992733, 'reachGoal', 'payment_success'); } catch { /* ym not yet ready — queued */ }
+    analytics.reachGoal('payment_success');
   }, []);
 
   // Keep the local expiration date in sync with context updates.
@@ -100,13 +100,11 @@ export default function PaySuccess() {
         setMessage('Доступ подтверждён.')
 
         // Analytics — read plan stored before payment redirect
-        import('@/services/analytics').then(({ analytics }) => {
-          const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
-          sessionStorage.removeItem("rs_checkout_plan");
-          analytics.track("subscription_activated", { plan });
-          analytics.track("payment_success", { plan });
-          try { ym(108992733, 'reachGoal', 'payment_success'); } catch { /* ym not loaded */ }
-        });
+        const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
+        sessionStorage.removeItem("rs_checkout_plan");
+        analytics.track("subscription_activated", { plan });
+        analytics.track("payment_success", { plan });
+        analytics.reachGoal('payment_success');
       } else {
         setStatus('inactive')
         setExpiresAt(detail.expiresAt)

@@ -47,6 +47,42 @@
   animation: catalog-map-loading 1.35s linear infinite;
 }
 
+.catalog-map-panel__picker {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 710;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 9px 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 8px 24px rgba(50, 43, 34, 0.16);
+  color: #39342d;
+  font-size: 13px;
+  font-weight: 700;
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+.catalog-map-panel__picker button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 9px;
+  background: #e9e4dc;
+  color: #514a42;
+  font: inherit;
+  cursor: pointer;
+}
+
+.catalog-map-panel__map.is-picking-location,
+.catalog-map-panel__map.is-picking-location .leaflet-interactive {
+  cursor: crosshair;
+}
+
 @keyframes catalog-map-loading {
   to { background-position: -220% 0; }
 }
@@ -292,7 +328,12 @@
   gap: 10px;
 }
 
+.catalog-map-card__actions--with-instagram {
+  grid-template-columns: repeat(2, 46px) 1fr;
+}
+
 .catalog-map-card__favorite,
+.catalog-map-card__instagram,
 .catalog-map-card__open {
   min-height: 44px;
   border-radius: 999px;
@@ -306,6 +347,25 @@
   border: 1px solid rgba(109, 93, 70, 0.16);
   background: #fff;
   color: #6b645b;
+}
+
+.catalog-map-card__instagram {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(109, 93, 70, 0.16);
+  background: #fff;
+  color: #6b645b;
+  text-decoration: none;
+}
+
+.catalog-map-card__instagram:hover {
+  background: #faf8f3;
+  color: #37312a;
+}
+
+.catalog-map-card__instagram svg {
+  width: 21px;
+  height: 21px;
 }
 
 .catalog-map-card__favorite svg {
@@ -335,7 +395,9 @@
 }
 
 .catalog-map-card button:focus-visible,
-.catalog-map-panel__empty button:focus-visible {
+.catalog-map-card a:focus-visible,
+.catalog-map-panel__empty button:focus-visible,
+.catalog-map-panel__picker button:focus-visible {
   outline: 3px solid rgba(104, 134, 63, 0.36);
   outline-offset: 2px;
 }
@@ -350,6 +412,13 @@
   .catalog-map-panel__count {
     top: 12px;
     padding: 8px 12px;
+  }
+
+  .catalog-map-panel__picker {
+    top: 58px;
+    right: 12px;
+    left: 12px;
+    justify-content: space-between;
   }
 
   .catalog-map-card {

@@ -4,6 +4,8 @@ import test from 'node:test'
 import {
   enrichCatalogItemsWithMapMetros,
   enrichCatalogMapItems,
+  filterCatalogItemsByMapPoints,
+  filterCatalogMapItemsByRadius,
   getCatalogMapPointKey,
   getNearbyMetroStations,
   normalizeCatalogMetroStations,
@@ -127,4 +129,40 @@ test('keeps a restaurant metro by name even when its coordinates are missing', (
     getNearbyMetroStations(stations, [{ name: 'Филиал без координат', metro: 'Выхино' }]),
     [stations[1]],
   )
+})
+
+test('radius filtering uses every selected anchor and keeps map and list identities aligned', () => {
+  const mapItems = [
+    { id: 'location:1', restaurantId: 101, slug: 'near-first', lat: 55.751, lon: 37.618 },
+    { id: 'location:2', restaurantId: 202, slug: 'near-second', lat: 55.8, lon: 37.7 },
+    { id: 'location:3', restaurantId: 303, slug: 'far-away', lat: 59.93, lon: 30.33 },
+  ]
+  const anchors = [
+    { lat: 55.751244, lon: 37.618423 },
+    { lat: 55.8002, lon: 37.7002 },
+  ]
+  const filteredMapItems = filterCatalogMapItemsByRadius(mapItems, anchors, 1_000)
+  const listItems = [
+    { id: 101, slug: 'near-first' },
+    { id: 202, slug: 'near-second' },
+    { id: 303, slug: 'far-away' },
+  ]
+
+  assert.deepEqual(filteredMapItems, mapItems.slice(0, 2))
+  assert.deepEqual(filterCatalogItemsByMapPoints(listItems, filteredMapItems), listItems.slice(0, 2))
+})
+
+test('radius filtering stays inactive until a mode has an anchor point', () => {
+  const items = [{ id: 1, lat: 55.75, lon: 37.62 }]
+  assert.equal(filterCatalogMapItemsByRadius(items, [], 1_000), items)
+})
+
+test('list radius matching does not include a different branch with the same slug', () => {
+  const listItems = [
+    { id: 101, slug: 'shared-chain' },
+    { id: 202, slug: 'shared-chain' },
+  ]
+  const mapPoints = [{ restaurantId: 101, slug: 'shared-chain', lat: 55.75, lon: 37.62 }]
+
+  assert.deepEqual(filterCatalogItemsByMapPoints(listItems, mapPoints), [listItems[0]])
 })

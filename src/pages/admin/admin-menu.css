@@ -5,6 +5,87 @@
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Network-level Google Places review. One decision applies to every candidate
+   point in a card; branch linking remains a separate optional queue. */
+.admin-place-review { max-width: 1120px; margin: 0 auto; }
+.admin-place-review__page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.admin-place-review__page-header h1 { margin: 4px 0 8px; font-family: Georgia, serif; font-size: clamp(28px, 4vw, 42px); line-height: 1.05; text-wrap: balance; }
+.admin-place-review__page-header p { max-width: 700px; margin: 0; color: #66675f; }
+.admin-place-review__page-header > button { padding: 10px 14px; border: 1px solid #d8d4ca; border-radius: 10px; background: #fff; font-weight: 700; }
+.admin-place-review__usage { display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1fr); gap: 14px 24px; margin-bottom: 22px; padding: 18px 20px; border: 1px solid #d9dec9; border-radius: 16px; background: #f6f8ee; }
+.admin-place-review__usage-number { display: flex; align-items: baseline; gap: 8px; margin-top: 7px; color: #43582d; font-size: 32px; font-weight: 850; }
+.admin-place-review__usage-number span { color: #69705c; font-size: 13px; font-weight: 700; }
+.admin-place-review__usage-period { margin: 3px 0 0; color: #77776f; font-size: 12px; }
+.admin-place-review__usage-budget { display: grid; align-content: center; gap: 4px; }
+.admin-place-review__usage-budget strong { color: #43582d; font-size: 18px; }
+.admin-place-review__usage-budget.is-over-budget strong { color: #9a473a; }
+.admin-place-review__usage-budget span,
+.admin-place-review__usage-budget small { color: #69705c; font-size: 12px; }
+.admin-place-review__usage-budget progress { width: 100%; height: 9px; accent-color: #65734d; }
+.admin-place-review__usage-budget.is-over-budget progress { accent-color: #b45c4c; }
+.admin-place-review__usage-note { grid-column: 1 / -1; margin: 0; color: #77776f; font-size: 11px; line-height: 1.45; }
+.admin-place-review__eyebrow { margin: 0; color: #77845c; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.admin-place-review__mode-tabs,
+.admin-place-review__status-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-place-review__mode-tabs { padding: 5px; border-radius: 14px; background: #efeee8; }
+.admin-place-review__mode-tabs button,
+.admin-place-review__status-tabs button { padding: 10px 14px; border: 1px solid transparent; border-radius: 10px; color: #5d5e57; background: transparent; font-weight: 750; }
+.admin-place-review__mode-tabs button.active { color: #fff; background: #535f40; }
+.admin-place-review__status-tabs { margin: 14px 0 22px; }
+.admin-place-review__status-tabs button { display: inline-flex; align-items: center; gap: 8px; border-color: #d8d4ca; background: #fff; }
+.admin-place-review__status-tabs button strong { min-width: 24px; padding: 2px 6px; border-radius: 999px; color: #5d6545; background: #edf0df; font-size: 12px; }
+.admin-place-review__status-tabs button.active { color: #fff; border-color: #65734d; background: #65734d; }
+.admin-place-review__status-tabs button.active strong { color: #fff; background: rgba(255, 255, 255, .2); }
+.admin-place-review__list { display: grid; gap: 18px; margin-top: 20px; }
+.admin-place-review__card { content-visibility: auto; contain-intrinsic-size: 420px; padding: 20px; border: 1px solid #dcd7ca; border-radius: 18px; background: #fff; box-shadow: 0 8px 28px rgba(70, 67, 55, .06); }
+.admin-place-review__card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.admin-place-review__card-header h2 { margin: 5px 0 4px; font-size: 22px; line-height: 1.2; }
+.admin-place-review__card-header p:not(.admin-place-review__eyebrow) { margin: 0; color: #77776f; font-size: 13px; }
+.admin-place-review__card-header > a { flex: 0 0 auto; color: #53643a; font-weight: 750; }
+.admin-place-review__impact { flex: 0 0 auto; padding: 7px 10px; border-radius: 999px; color: #5f653f; background: #edf0df; font-size: 13px; }
+.admin-place-review__summary { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-top: 16px; }
+.admin-place-review__summary > div { display: grid; gap: 3px; min-width: 0; padding: 11px 12px; border-radius: 11px; background: #f6f5f0; }
+.admin-place-review__summary span { color: #85847b; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.admin-place-review__summary strong { overflow: hidden; text-overflow: ellipsis; font-size: 14px; white-space: nowrap; }
+.admin-place-review__aliases { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.admin-place-review__aliases span { padding: 5px 9px; border: 1px solid #d9dec9; border-radius: 999px; color: #5c633f; background: #f6f8ee; font-size: 12px; font-weight: 700; }
+.admin-place-review__candidates { margin-top: 14px; border-top: 1px solid #ece9e0; border-bottom: 1px solid #ece9e0; }
+.admin-place-review__candidates summary { padding: 12px 0; cursor: pointer; color: #57633f; font-weight: 750; }
+.admin-place-review__candidates ul { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
+.admin-place-review__candidates li { display: grid; gap: 2px; }
+.admin-place-review__candidates a { color: #43582d; font-weight: 700; }
+.admin-place-review__candidates small { color: #85847b; }
+.admin-place-review__attribution { margin: 0 0 12px; color: #77776f; font-size: 11px; font-weight: 700; }
+.admin-place-review__empty-evidence { margin: 14px 0 0; padding: 11px 12px; border-radius: 10px; color: #735616; background: #fff3d5; font-size: 13px; }
+.admin-place-review__alias-input { display: grid; gap: 6px; margin-top: 15px; color: #66675f; font-size: 13px; font-weight: 750; }
+.admin-place-review__alias-input input,
+.admin-place-review__alias-input select { width: 100%; padding: 11px 12px; border: 1px solid #d8d4ca; border-radius: 10px; color: #25261f; background: #fff; font: inherit; font-weight: 500; }
+.admin-place-review__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; margin-top: 16px; }
+.admin-place-review__actions button { padding: 10px 13px; border: 1px solid #d8d4ca; border-radius: 10px; color: #63645e; background: #fff; font-weight: 750; }
+.admin-place-review__actions button.is-secondary { color: #5b633f; border-color: #b9c29c; background: #f4f6ec; }
+.admin-place-review__actions button.is-primary { color: #fff; border-color: #65734d; background: #65734d; }
+.admin-place-review__actions button:disabled { cursor: not-allowed; opacity: .5; }
+.admin-place-review__mode-tabs button:not(:disabled):hover,
+.admin-place-review__status-tabs button:not(:disabled):hover,
+.admin-place-review__actions button:not(:disabled):hover,
+.admin-place-review__page-header > button:not(:disabled):hover { border-color: #7c8861; filter: brightness(.97); }
+.admin-place-review__mode-tabs button:focus-visible,
+.admin-place-review__status-tabs button:focus-visible,
+.admin-place-review__actions button:focus-visible,
+.admin-place-review__alias-input input:focus-visible,
+.admin-place-review__alias-input select:focus-visible { outline: 3px solid rgba(101, 115, 77, .3); outline-offset: 2px; }
+.admin-place-review__loading,
+.admin-place-review__empty { margin-top: 24px; padding: 22px; border: 1px dashed #cbc7bb; border-radius: 14px; color: #77776f; text-align: center; background: #faf9f5; }
+
+@media (max-width: 760px) {
+  .admin-place-review__page-header,
+  .admin-place-review__card-header { flex-direction: column; }
+  .admin-place-review__usage { grid-template-columns: 1fr; }
+  .admin-place-review__summary { grid-template-columns: 1fr; }
+  .admin-place-review__actions { justify-content: stretch; }
+  .admin-place-review__actions button { flex: 1 1 100%; }
+}
+
 /* Restaurant attribute reviews + row-level edit (admin-restaurant-review__*) */
 .admin-restaurant-review__card { padding: 18px 20px; border: 1px solid #dcd7ca; border-radius: 18px; background: #fff; }
 .admin-restaurant-review__card + .admin-restaurant-review__card { margin-top: 18px; }

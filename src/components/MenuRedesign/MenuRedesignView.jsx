@@ -37,6 +37,9 @@ export default function MenuRedesignView({
   dishes,
   filtered,
   groupedDishes,
+  filteredDishCount,
+  isFilteredResultsLocked,
+  onViewFilteredDishes,
   capturedAt,
   freeDishKeys,
   slug,
@@ -325,7 +328,17 @@ export default function MenuRedesignView({
         )}
 
         {!loading && !error && (
-          groupedDishes.length ? (
+          isFilteredResultsLocked ? (
+            <div className="rsm2-filtered-access" role="status" aria-live="polite">
+              <span className="rsm2-filtered-access__count">{formatPositionCount(filteredDishCount)}</span>
+              <h2 className="rsm2-filtered-access__title">Подходящие блюда найдены</h2>
+              {filteredDishCount > 0 && (
+                <button type="button" className="rsm2-filtered-access__cta" onClick={onViewFilteredDishes}>
+                  Посмотреть бесплатно
+                </button>
+              )}
+            </div>
+          ) : groupedDishes.length ? (
             groupedDishes.map((section) => (
               <div key={section.name}>
                 <div className="rsm2-section__head">

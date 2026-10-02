@@ -12,6 +12,8 @@ import {
   menuHasCompositions,
 } from '@/lib/ingredients'
 import { formatMenuCapturedAt } from '@/lib/dates'
+import { parseCatalogNutritionCriteria } from '@/lib/catalogFilterParams'
+import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { useDishCardStore } from '@/store/dishCard'
@@ -32,6 +34,35 @@ const createDefaultRange = () => ({
 // Excluding is the common case ("покажи всё без грибов"), so it is the default
 // mode; 'include' flips the filter into "только с этим ингредиентом".
 const createDefaultIngredientFilter = () => ({ mode: 'exclude', selected: [] })
+
+const CATALOG_TO_MENU_PRESETS = [
+  { key: 'lowKcal', field: 'calories', bound: 'max', value: 400 },
+  { key: 'highProtein', field: 'protein', bound: 'min', value: 25 },
+  { key: 'lowFat', field: 'fat', bound: 'max', value: 10 },
+]
+
+const createMenuFiltersFromCatalog = (searchParams) => {
+  const criteria = parseCatalogNutritionCriteria(searchParams)
+  const presets = createDefaultPresets()
+  const range = {
+    kcal: { ...criteria.calories },
+    protein: { ...criteria.protein },
+    fat: { ...criteria.fat },
+    carbs: { ...criteria.carbs },
+  }
+
+  CATALOG_TO_MENU_PRESETS.forEach(({ key, field, bound, value }) => {
+    const current = criteria[field] || {}
+    const oppositeBound = bound === 'min' ? 'max' : 'min'
+    if (current[oppositeBound] === '' && String(current[bound] ?? '') === String(value)) {
+      presets[key] = true
+      const menuField = field === 'calories' ? 'kcal' : field
+      range[menuField] = { min: '', max: '' }
+    }
+  })
+
+  return { presets, range }
+}
 
 // Russian numeral agreement: 1 блюдо / 2-4 блюда / 5+ блюд (11-14 always
 // take the "many" form regardless of the last digit, hence the % 100 check).
@@ -121,10 +152,16 @@ export default function Menu({
   const { slug: routeSlug } = useParams()
   const slug = previewRestaurantSlug || routeSlug
   const [routeSearchParams] = useSearchParams()
+  const routeFilterKey = routeSearchParams.toString()
+  const initialMenuFilters = useMemo(
+    () => createMenuFiltersFromCatalog(routeSearchParams),
+    [routeFilterKey],
+  )
   const city = routeSearchParams.get('city') || 'Москва'
   const navigate = useNavigate()
   const accessToken = useAuth((state) => state.accessToken)
-  const { fetchStatus } = useSubscriptionStore((state) => ({
+  const { hasActiveSub, fetchStatus } = useSubscriptionStore((state) => ({
+    hasActiveSub: state.hasActiveSub,
     fetchStatus: state.fetchStatus,
   }))
   const open = useDishCardStore((state) => state.open)
@@ -150,24 +187,25 @@ export default function Menu({
   const [selectedSection, setSelectedSection] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
-  const [presets, setPresets] = useState(createDefaultPresets)
-  const [range, setRange] = useState(createDefaultRange)
+  const [presets, setPresets] = useState(() => initialMenuFilters.presets)
+  const [range, setRange] = useState(() => initialMenuFilters.range)
   const [allCategoriesExpanded, setAllCategoriesExpanded] = useState(false)
   const [isIngredientFilterOpen, setIsIngredientFilterOpen] = useState(false)
   const [ingredientFilter, setIngredientFilter] = useState(createDefaultIngredientFilter)
 
-  // Reset filters whenever the restaurant slug changes.
+  // Reset menu-local filters when the restaurant or incoming catalog filters change.
   useEffect(() => {
     setQuery('')
     setSelectedSection('all')
     setSelectedCategory('all')
     setIsAdvancedFiltersOpen(false)
-    setPresets(createDefaultPresets())
-    setRange(createDefaultRange())
     setAllCategoriesExpanded(false)
     setIsIngredientFilterOpen(false)
     setIngredientFilter(createDefaultIngredientFilter())
-  }, [city, slug])
+    const nextMenuFilters = createMenuFiltersFromCatalog(routeSearchParams)
+    setPresets(nextMenuFilters.presets)
+    setRange(nextMenuFilters.range)
+  }, [city, routeFilterKey, slug])
 
   // Fetch the menu.
   useEffect(() => {
@@ -194,7 +232,7 @@ export default function Menu({
             const normalizedMenu = normalizeMenu(data)
             setMenu(normalizedMenu)
             analytics.track('restaurant_menu_open', { slug, name: normalizedMenu.name || slug })
-            try { ym(108992733, 'reachGoal', 'restaurant_view'); } catch { /* ym not loaded */ }
+            analytics.reachGoal('restaurant_view');
           }
         } catch (err) {
           if (!aborted) {
@@ -298,6 +336,19 @@ export default function Menu({
       return true
     })
   }, [dishes, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
+
+  const hasRestrictedMenuFilters = useMemo(() => {
+    const hasCustomRange = Object.values(range).some((bounds) => bounds.min !== '' || bounds.max !== '')
+    return Boolean(
+      query.trim()
+      || selectedCategory !== 'all'
+      || Object.values(presets).some(Boolean)
+      || hasCustomRange
+      || ingredientFilter.selected.length,
+    )
+  }, [ingredientFilter.selected.length, presets, query, range, selectedCategory])
+  const hasFullDishAccess = previewMode || hasActiveSub || hasQrMenuAccess(slug)
+  const isFilteredResultsLocked = hasRestrictedMenuFilters && !hasFullDishAccess
 
   // The ingredient control only makes sense when the restaurant actually filled
   // compositions in — many menus have none, and an empty picker is worse than
@@ -492,6 +543,12 @@ export default function Menu({
     await toggleFavoriteRestaurant(accessToken, slug)
   }
 
+  const handleViewFilteredDishes = () => {
+    const returnTo = window.location.pathname + window.location.search
+    const checkoutLink = getSubscriptionCheckoutLink(accessToken, returnTo)
+    navigate(checkoutLink.to, { state: checkoutLink.state })
+  }
+
   return (
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
@@ -499,6 +556,9 @@ export default function Menu({
       dishes={dishes}
       filtered={filtered}
       groupedDishes={groupedDishesSorted}
+      filteredDishCount={filtered.length}
+      isFilteredResultsLocked={isFilteredResultsLocked}
+      onViewFilteredDishes={handleViewFilteredDishes}
       capturedAt={capturedAt}
       freeDishKeys={freeDishKeys}
       slug={slug}

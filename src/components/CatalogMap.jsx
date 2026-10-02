@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AttributionControl, MapContainer, useMap } from 'react-leaflet'
+import { AttributionControl, Circle, MapContainer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
@@ -7,8 +7,10 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
 import './catalog-map.css'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
+import InstagramIcon from './InstagramIcon.jsx'
 import MetroStationsLayer from './map/MetroStationsLayer'
 import MetroStationsText from './MetroStationsText'
+import { normalizeInstagramUrl } from '@/lib/instagram'
 import { getCatalogMapPointKey, normalizeCatalogMetroStations } from '@/lib/catalogMapItems'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
@@ -81,16 +83,28 @@ function CatalogMapMarkers({ restaurants, selectedKey, onSelectRestaurant }) {
   return null
 }
 
-function CatalogMapViewport({ restaurants, focusPoints = [], center, zoom }) {
+function CatalogMapViewport({ restaurants, focusPoints = [], radiusMeters = 0, center, zoom }) {
   const map = useMap()
   const points = useMemo(
-    () => [
-      ...restaurants.map(getRestaurantPoint).filter(Boolean),
-      ...focusPoints
+    () => {
+      const anchors = focusPoints
         .map((point) => [Number(point?.lat), Number(point?.lon)])
-        .filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)),
-    ],
-    [focusPoints, restaurants],
+        .filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon))
+      const radiusBoundaryPoints = Number(radiusMeters) > 0
+        ? anchors.flatMap(([lat, lon]) => {
+            const bounds = L.latLng(lat, lon).toBounds(Number(radiusMeters) * 2)
+            const northEast = bounds.getNorthEast()
+            const southWest = bounds.getSouthWest()
+            return [[northEast.lat, northEast.lng], [southWest.lat, southWest.lng]]
+          })
+        : []
+      return [
+        ...restaurants.map(getRestaurantPoint).filter(Boolean),
+        ...anchors,
+        ...radiusBoundaryPoints,
+      ]
+    },
+    [focusPoints, radiusMeters, restaurants],
   )
   const pointsKey = points.map(([lat, lon]) => `${lat}:${lon}`).join('|')
   const centerLat = Number(center?.[0])
@@ -123,6 +137,47 @@ function CatalogMapViewport({ restaurants, focusPoints = [], center, zoom }) {
   return null
 }
 
+function CatalogRadiusLayer({ points = EMPTY_POINTS, radiusMeters = 0 }) {
+  if (!Number(radiusMeters)) return null
+
+  return points.map((point, index) => {
+    const lat = Number(point?.lat)
+    const lon = Number(point?.lon)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
+    return (
+      <Circle
+        key={`${lat}:${lon}:${index}`}
+        center={[lat, lon]}
+        radius={Number(radiusMeters)}
+        interactive={false}
+        pathOptions={{
+          color: '#66823f',
+          fillColor: '#8eaa63',
+          fillOpacity: 0.14,
+          opacity: 0.82,
+          weight: 2,
+        }}
+      />
+    )
+  })
+}
+
+function CatalogMapLocationPicker({ active, onPick }) {
+  const map = useMapEvents({
+    click(event) {
+      if (active) onPick({ lat: event.latlng.lat, lon: event.latlng.lng })
+    },
+  })
+
+  useEffect(() => {
+    const container = map.getContainer()
+    container.classList.toggle('is-picking-location', active)
+    return () => container.classList.remove('is-picking-location')
+  }, [active, map])
+
+  return null
+}
+
 const LocationIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path d="M12 21s7-5.4 7-12a7 7 0 1 0-14 0c0 6.6 7 12 7 12Z" />
@@ -135,6 +190,11 @@ export default function CatalogMap({
   metroStations = EMPTY_POINTS,
   selectedMetroStationNames = EMPTY_POINTS,
   focusPoints = EMPTY_POINTS,
+  radiusPoints = EMPTY_POINTS,
+  radiusMeters = 0,
+  isPickingLocation = false,
+  onPickLocation,
+  onCancelLocationPick,
   center,
   zoom,
   loading,
@@ -147,6 +207,7 @@ export default function CatalogMap({
 }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
   const selectedKey = getCatalogMapPointKey(selectedRestaurant)
+  const selectedRestaurantInstagramUrl = normalizeInstagramUrl(selectedRestaurant?.instagramUrl)
 
   useEffect(() => {
     if (!selectedKey) return
@@ -180,7 +241,15 @@ export default function CatalogMap({
         <CleanMapBaseLayer />
         <AttributionControl prefix={false} />
         <MetroStationsLayer stations={metroStations} selectedStationNames={selectedMetroStationNames} />
-        <CatalogMapViewport restaurants={restaurants} focusPoints={focusPoints} center={safeCenter} zoom={zoom} />
+        <CatalogRadiusLayer points={radiusPoints} radiusMeters={radiusMeters} />
+        <CatalogMapViewport
+          restaurants={restaurants}
+          focusPoints={focusPoints}
+          radiusMeters={radiusMeters}
+          center={safeCenter}
+          zoom={zoom}
+        />
+        <CatalogMapLocationPicker active={isPickingLocation} onPick={onPickLocation} />
         <CatalogMapMarkers
           restaurants={restaurants}
           selectedKey={selectedKey}
@@ -190,7 +259,14 @@ export default function CatalogMap({
 
       {loading && <div className="catalog-map-panel__loading" aria-hidden="true" />}
 
-      {(error || hasListResultsWithoutPoints || hasNoResults) && (
+      {isPickingLocation && (
+        <div className="catalog-map-panel__picker" role="status">
+          <span>Нажмите на удобную точку</span>
+          <button type="button" onClick={onCancelLocationPick}>Отменить</button>
+        </div>
+      )}
+
+      {!isPickingLocation && (error || hasListResultsWithoutPoints || hasNoResults) && (
         <div className="catalog-map-panel__empty" role="status">
           <strong>
             {error
@@ -231,7 +307,7 @@ export default function CatalogMap({
               <span>{selectedRestaurant.address || selectedRestaurant.metro}</span>
             </div>
           )}
-          <div className="catalog-map-card__actions">
+          <div className={`catalog-map-card__actions${selectedRestaurantInstagramUrl ? ' catalog-map-card__actions--with-instagram' : ''}`}>
             <button
               type="button"
               className={`catalog-map-card__favorite${isFavorite(selectedRestaurant.slug) ? ' is-active' : ''}`}
@@ -242,6 +318,19 @@ export default function CatalogMap({
                 <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3A5.9 5.9 0 0 1 12 5.09 5.9 5.9 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54Z" />
               </svg>
             </button>
+            {selectedRestaurantInstagramUrl && (
+              <a
+                className="catalog-map-card__instagram"
+                href={selectedRestaurantInstagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Открыть Instagram"
+                title="Instagram"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <InstagramIcon />
+              </a>
+            )}
             <button
               type="button"
               className="catalog-map-card__open"

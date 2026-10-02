@@ -11,6 +11,12 @@ Production Pages variables are not changed. Preview deployments set
 `VITE_DEPLOY_ENV=preview`, disable production analytics, return `X-Robots-Tag:
 noindex`, and show a persistent `STAGING` panel.
 
+The catalog's experimental Places UI Kit media requires the repository secret
+`GOOGLE_MAPS_API_KEY`. The workflow exposes it to Vite as
+`VITE_GOOGLE_MAPS_API_KEY`; the browser key must be restricted by website referrer and
+to the Maps JavaScript API. If the secret is absent, the catalog keeps the original
+card without the Google media region.
+
 ## Persona check
 
 Use the panel to activate each state:
