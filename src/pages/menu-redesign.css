@@ -436,6 +436,144 @@ body[data-rs-menu-v2] main {
   color: var(--rsm2-muted-4);
 }
 
+/* ---------- Contextual menu guide ---------- */
+
+.rsm2-guide {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  flex: 1 1 100%;
+  width: min(560px, 100%);
+  margin: 3px 0 1px;
+  padding: 14px 16px 14px 14px;
+  border: 1px solid var(--rsm2-border-hover-2);
+  border-left: 3px solid var(--rsm2-accent);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f5eddd 0%, #fffaf1 100%);
+  box-shadow: 0 7px 16px rgba(119, 98, 61, 0.1);
+  color: var(--rsm2-ink);
+  animation: rsm2-guide-in 0.24s ease both;
+}
+
+.rsm2-guide::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 30px;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid var(--rsm2-border-hover-2);
+  border-left: 1px solid var(--rsm2-border-hover-2);
+  background: #f5eddd;
+  transform: rotate(45deg);
+}
+
+.rsm2-guide--dish {
+  align-self: flex-start;
+  width: min(560px, 100%);
+  margin: -24px 0 -18px;
+}
+
+.rsm2-guide--dish::before {
+  top: auto;
+  bottom: -7px;
+  transform: rotate(225deg);
+}
+
+.rsm2-guide__mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: var(--rsm2-accent);
+  color: #fffdfb;
+  font: 700 16px/1 Inter, sans-serif;
+}
+
+.rsm2-guide__copy {
+  min-width: 0;
+}
+
+.rsm2-guide__meta {
+  margin-bottom: 3px;
+  color: var(--rsm2-muted-2);
+  font: 700 10px/1.2 Inter, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rsm2-guide__title {
+  margin: 0;
+  font: 400 20px/1.1 "DM Serif Display", Georgia, serif;
+}
+
+.rsm2-guide__text {
+  max-width: 430px;
+  margin: 4px 0 0;
+  color: var(--rsm2-text-2);
+  font: 500 12.5px/1.45 Inter, sans-serif;
+}
+
+.rsm2-guide__dismiss {
+  align-self: center;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--rsm2-muted-2);
+  cursor: pointer;
+  font: 700 11.5px/1 Inter, sans-serif;
+  white-space: nowrap;
+}
+
+.rsm2-guide__dismiss:hover {
+  color: var(--rsm2-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rsm2-guide__dismiss:focus-visible {
+  outline: 2px solid var(--rsm2-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.rsm2-chips.is-guide-target,
+.rsm2-grid.is-guide-target {
+  position: relative;
+}
+
+.rsm2-chips.is-guide-target::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 1px dashed rgba(117, 132, 90, 0.65);
+  border-radius: 15px;
+  pointer-events: none;
+}
+
+.rsm2-grid.is-guide-target::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 1px dashed rgba(117, 132, 90, 0.5);
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+@keyframes rsm2-guide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Both disclosures live on one row and never wrap apart from each other. */
 .rsm2-disclosures {
   display: flex;
@@ -1297,6 +1435,28 @@ body[data-rs-menu-v2] main {
 
   .rsm2-grid {
     grid-template-columns: 1fr;
+  }
+
+  .rsm2-guide {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 13px 14px 13px 12px;
+  }
+
+  .rsm2-guide__dismiss {
+    grid-column: 2;
+    justify-self: start;
+    padding: 2px 0 0;
+  }
+
+  .rsm2-guide--dish {
+    margin: -8px 0 -6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rsm2-guide {
+    animation: none;
   }
 }
 
