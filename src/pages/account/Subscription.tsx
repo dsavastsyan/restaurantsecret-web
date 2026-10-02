@@ -1102,8 +1102,6 @@ export default function AccountSubscription() {
                               <span>{activePlanPrice}</span>
                               {activePlanPeriod && <small>{activePlanPeriod}</small>}
                             </p>
-
-                            {renderActiveSubscriptionAction("desktop")}
                           </div>
                         </div>
 
@@ -1126,6 +1124,7 @@ export default function AccountSubscription() {
                           </p>
                         </div>
 
+                        {renderActiveSubscriptionAction("desktop")}
                         {renderActiveSubscriptionAction("mobile")}
                       </div>
                     </div>
