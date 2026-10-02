@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   CATALOG_VENUE_TYPES,
   filterCatalogRestaurants,
+  getCatalogCuisineFilterValues,
   getCatalogRestaurantVenueType,
   getCatalogRestaurantMetroNames,
   normalizeCatalogCuisine,
@@ -11,6 +12,41 @@ import {
 
 test('normalizes catalog cuisines and replaces NaN with the fallback label', () => {
   assert.equal(normalizeCatalogCuisine('грузинская, ГРУЗИНСКАЯ, nan'), 'Грузинская, Другое')
+})
+
+test('collapses punctuation variants and fast food aliases into one cuisine', () => {
+  assert.equal(
+    normalizeCatalogCuisine('Итальянская, итальянская), быстрое питание, Хот-доги, Бургерная'),
+    'Итальянская, Фастфуд',
+  )
+  assert.deepEqual(getCatalogCuisineFilterValues(['Фастфуд']), [
+    'Фастфуд',
+    'Быстрое питание',
+    'Фаст-фуд',
+    'Фаст фуд',
+    'Быстрая еда',
+    'Хот-доги',
+    'Хотдоги',
+    'Бургер',
+  ])
+  assert.deepEqual(
+    getCatalogCuisineFilterValues(['Фастфуд', 'Итальянская']).slice(0, 2),
+    ['Фастфуд', 'Итальянская'],
+  )
+})
+
+test('matches legacy fast food cuisine values through the canonical label', () => {
+  const restaurants = [
+    { name: 'Сэндвичи', cuisine: 'Быстрое питание / сэндвичи' },
+    { name: 'Хотдоги', cuisine: 'Хотдоги' },
+    { name: 'Бургеры', cuisine: 'Бургерная' },
+    { name: 'Пицца', cuisine: 'Итальянская' },
+  ]
+
+  assert.deepEqual(
+    filterCatalogRestaurants(restaurants, { cuisines: ['Фастфуд'] }),
+    restaurants.slice(0, 3),
+  )
 })
 
 test('uses the same query, cuisine and metro filters for map and list results', () => {

@@ -1,16 +1,78 @@
+const FAST_FOOD_QUERY_VALUES = [
+  'Фастфуд',
+  'Быстрое питание',
+  'Фаст-фуд',
+  'Фаст фуд',
+  'Быстрая еда',
+  'Хот-доги',
+  'Хотдоги',
+  'Бургер',
+]
+
+const FAST_FOOD_ALIASES = new Set([
+  'фастфуд',
+  'фастфудсэндвичи',
+  'фастфудсандвичи',
+  'быстроепитание',
+  'быстроепитаниесэндвичи',
+  'быстроепитаниесандвичи',
+  'быстраяеда',
+  'хотдог',
+  'хотдоги',
+  'бургер',
+  'бургеры',
+  'бургерная',
+  'сэндвич',
+  'сэндвичи',
+  'fastfood',
+  'fastfoodsandwiches',
+  'quickservice',
+  'streetfood',
+])
+
+function cuisineKey(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/g, 'е')
+    .replace(/[\s\p{Pd}_/\\()[\]{}.,;:!?]+/gu, '')
+}
+
+function normalizeCuisinePart(value) {
+  const part = String(value || '')
+    .trim()
+    .replace(/^[\s()[\]{}.,;:!?]+|[\s()[\]{}.,;:!?]+$/gu, '')
+  if (!part) return ''
+  if (cuisineKey(part) === 'nan') return 'Другое'
+  if (FAST_FOOD_ALIASES.has(cuisineKey(part))) return 'Фастфуд'
+  return part.charAt(0).toLocaleUpperCase('ru-RU') + part.slice(1).toLocaleLowerCase('ru-RU')
+}
+
 export function normalizeCatalogCuisine(value) {
   if (!value) return ''
 
   const normalized = String(value)
     .split(',')
-    .map((part) => part.trim())
+    .map(normalizeCuisinePart)
     .filter(Boolean)
-    .map((part) => {
-      if (part.toLowerCase() === 'nan') return 'Другое'
-      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
-    })
 
   return Array.from(new Set(normalized)).join(', ')
+}
+
+export function getCatalogCuisineFilterValues(values = []) {
+  const selected = Array.isArray(values) ? values : [values]
+  const normalized = selected
+    .flatMap((value) => normalizeCatalogCuisine(value).split(', '))
+    .filter(Boolean)
+
+  const aliases = normalized.flatMap((cuisine) => (
+    cuisine === 'Фастфуд' ? FAST_FOOD_QUERY_VALUES : []
+  ))
+
+  // Keep every selected canonical value before the compatibility aliases. The
+  // backend bounds repeated query values, so multi-selects must not lose a
+  // second selected cuisine just because FastFood has legacy spellings.
+  return Array.from(new Set([...normalized, ...aliases]))
 }
 
 export const CATALOG_VENUE_TYPES = [
@@ -59,7 +121,8 @@ export function filterCatalogRestaurants(
 ) {
   const normalizedQuery = String(query).trim()
   const normalizedCuisines = cuisines
-    .map((cuisine) => String(cuisine || '').trim().toLowerCase())
+    .flatMap((cuisine) => normalizeCatalogCuisine(cuisine).split(', '))
+    .map((cuisine) => cuisine.trim().toLowerCase())
     .filter(Boolean)
   const normalizedMetro = (Array.isArray(metro) ? metro : [metro])
     .map((station) => String(station || '').trim().toLowerCase())
@@ -69,7 +132,7 @@ export function filterCatalogRestaurants(
     .filter(Boolean)
 
   const matches = items.filter((item) => {
-    const itemCuisines = String(item?.cuisine || '')
+    const itemCuisines = normalizeCatalogCuisine(item?.cuisine)
       .toLowerCase()
       .split(',')
       .map((cuisine) => cuisine.trim())
