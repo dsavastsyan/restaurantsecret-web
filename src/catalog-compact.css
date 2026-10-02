@@ -1517,10 +1517,6 @@
   min-height: 236px;
 }
 
-.catalog-page .catalog-card__layout--no-media {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .catalog-page .catalog-card__content {
   display: flex;
   min-width: 0;
