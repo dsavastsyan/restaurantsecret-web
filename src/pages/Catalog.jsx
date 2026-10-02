@@ -33,7 +33,6 @@ import {
   normalizeCatalogCuisine,
 } from '@/lib/catalogFilters'
 import {
-  formatRestaurantPriceRange,
   getCatalogNutritionStatsForCriteria,
   hasCatalogNutritionCriteria,
   getRestaurantGoogleRating,
@@ -41,10 +40,13 @@ import {
 } from '@/lib/catalogNutrition'
 import {
   createEmptyCatalogNutritionCriteria,
+  DEFAULT_CATALOG_RADIUS_KM,
   parseCatalogFilterState,
   serializeCatalogFilterState,
 } from '@/lib/catalogFilterParams'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
+import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
+import { useSubscriptionStore } from '@/store/subscription'
 import { normalizeInstagramUrl } from '@/lib/instagram'
 import '../catalog-compact.css'
 
@@ -219,9 +221,9 @@ export default function Catalog() {
   }
 
   const resetLocationFilter = () => {
-    setLocationMode('metro')
+    setLocationMode(null)
     setSelectedMetro([])
-    setRadiusKm(3)
+    setRadiusKm(null)
     setNearbyPoint(null)
     setNearbyPointLabel('')
     setAddressQuery('')
@@ -276,7 +278,8 @@ export default function Catalog() {
   const locationAnchorPoints = useMemo(() => {
     if (locationMode === 'metro') return selectedMetroPoints
     if (locationMode === 'nearby') return nearbyPoint ? [nearbyPoint] : []
-    return citySearchCenter ? [citySearchCenter] : []
+    if (locationMode === 'center') return citySearchCenter ? [citySearchCenter] : []
+    return []
   }, [citySearchCenter, locationMode, nearbyPoint, selectedMetroPoints])
   const isRadiusFilterActive = locationAnchorPoints.length > 0 && radiusKm != null
 
@@ -284,6 +287,7 @@ export default function Catalog() {
   const { access, requireAccess, requestPaywall } = useOutletContext() || {}
 
   const accessToken = useAuth((state) => state.accessToken);
+  const hasActiveSubscription = useSubscriptionStore((state) => state.hasActiveSub)
   const { isFavorite, toggleFavorite, loadFavorites } = useFavoriteRestaurantsStore((state) => ({
     isFavorite: state.isFavorite,
     toggleFavorite: state.toggle,
@@ -426,6 +430,19 @@ export default function Catalog() {
     `restaurants-map:${selectedCity.id}`,
     () => api.restaurantMap({ city: selectedCity.id }),
   )
+
+  const openCatalogDishResults = useCallback((slug) => {
+    if (!slug) return
+    if (!hasNutritionFilter || hasActiveSubscription) {
+      openMenu(slug)
+      return
+    }
+
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    const checkoutLink = getSubscriptionCheckoutLink(accessToken, returnTo)
+    analytics.track('catalog_filtered_dishes_open', { slug, selected_city: selectedCity.id })
+    navigate(checkoutLink.to, { state: checkoutLink.state })
+  }, [accessToken, hasActiveSubscription, hasNutritionFilter, navigate, openMenu, selectedCity.id])
   // Normalize data
   const allItems = useMemo(() => {
     if (!rawData) return []
@@ -663,12 +680,17 @@ export default function Catalog() {
         ? `${selectedVenueTypeNames.length} типа`
         : null,
   ].filter(Boolean).join(' · ') || 'Любое место'
-  const radiusSummary = radiusKm == null ? '' : ` · ${radiusKm} км`
-  const locationFilterSummary = locationMode === 'metro'
-    ? `${selectedMetro.length === 1 ? selectedMetro[0] : selectedMetro.length > 1 ? `${selectedMetro.length} метро` : 'У метро'}${radiusSummary}`
-    : locationMode === 'nearby'
-      ? `${nearbyPointLabel || 'Рядом с точкой'}${radiusSummary}`
-      : `В центре${radiusSummary}`
+  const hasLocationSelection = locationMode === 'center'
+    || (locationMode === 'metro' && selectedMetro.length > 0)
+    || (locationMode === 'nearby' && Boolean(nearbyPoint))
+  const radiusSummary = hasLocationSelection && radiusKm != null ? ` · ${radiusKm} км` : ''
+  const locationFilterSummary = !hasLocationSelection
+    ? 'Любое место'
+    : locationMode === 'metro'
+      ? `${selectedMetro.length === 1 ? selectedMetro[0] : `${selectedMetro.length} метро`}${radiusSummary}`
+      : locationMode === 'nearby'
+        ? `${nearbyPointLabel || 'Рядом с точкой'}${radiusSummary}`
+        : `В центре${radiusSummary}`
   const nutritionFilterParts = [
     ...NUTRITION_PRESETS
       .filter((preset) => isNutritionPresetActive(preset))
@@ -707,8 +729,8 @@ export default function Catalog() {
         : locationMode === 'center'
           ? [{ key: 'location:center', label: 'Центр', onRemove: resetLocationFilter }]
           : []),
-    ...((radiusKm != null && (selectedMetro.length || (locationMode !== 'metro' && (nearbyPoint || locationMode === 'center'))))
-      ? [{ key: 'location:radius', label: `до ${radiusKm} км`, onRemove: () => setRadiusKm(null) }]
+    ...((radiusKm != null && hasLocationSelection)
+      ? [{ key: 'location:radius', label: `до ${radiusKm} км`, onRemove: resetLocationFilter }]
       : []),
     ...selectedCuisines.map((cuisine) => ({
       key: `cuisine:${cuisine}`,
@@ -874,6 +896,9 @@ export default function Catalog() {
   }, [applySearchQuery])
 
   const handleLocationModeChange = useCallback((nextMode) => {
+    if (locationMode == null && radiusKm == null) {
+      setRadiusKm(DEFAULT_CATALOG_RADIUS_KM)
+    }
     setLocationMode(nextMode)
     setIsPickingLocation(false)
     setCurrentPage(1)
@@ -881,7 +906,7 @@ export default function Catalog() {
       mode: nextMode,
       selected_city: selectedCity.id,
     })
-  }, [selectedCity.id])
+  }, [locationMode, radiusKm, selectedCity.id])
 
   const handleRadiusChange = useCallback((value) => {
     setRadiusKm(value)
@@ -1364,7 +1389,7 @@ export default function Catalog() {
               totalResults={resultCount}
               isFavorite={isFavorite}
               onToggleFavorite={handleToggleFavorite}
-              onOpenRestaurant={openMenu}
+              onOpenRestaurant={openCatalogDishResults}
               onShowList={() => changeViewMode('list')}
             />
           </Suspense>
@@ -1451,7 +1476,6 @@ export default function Catalog() {
             const nutritionMenuState = r.slug
               ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, r.slug)]
               : null
-            const priceRange = formatRestaurantPriceRange(r)
             const googleRating = getRestaurantGoogleRating(r)
             const googlePlaceId = getGooglePlaceId(r)
             return (
@@ -1474,7 +1498,6 @@ export default function Catalog() {
                                 {r.cuisine}
                               </span>
                             )}
-                            {priceRange && <span className="catalog-card__meta-item">{priceRange}</span>}
                           </div>
                           <MetroStationsText restaurant={r} className="catalog-card__metro" />
                         </div>
@@ -1522,7 +1545,13 @@ export default function Catalog() {
                             : `${dishesCount} ${getRussianPluralWord(dishesCount, 'подходящее блюдо', 'подходящих блюда', 'подходящих блюд')}`
                           : `Блюда в меню: ${dishesCount} ${getRussianPluralWord(dishesCount, 'блюдо', 'блюда', 'блюд')}`}
                       </div>
-                      <button type="button" className="btn btn--primary" onClick={() => openMenu(r.slug)}>Открыть меню</button>
+                      <button
+                        type="button"
+                        className="btn btn--primary"
+                        onClick={() => openCatalogDishResults(r.slug)}
+                      >
+                        {hasNutritionFilter ? 'Посмотреть подходящие блюда' : 'Открыть меню'}
+                      </button>
                     </div>
                   </div>
                 </div>

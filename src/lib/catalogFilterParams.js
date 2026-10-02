@@ -20,6 +20,8 @@ const FILTER_KEYS = [
 
 const NUTRITION_FIELDS = ['calories', 'protein', 'fat', 'carbs']
 const LOCATION_MODES = new Set(['metro', 'nearby', 'center'])
+const NO_LOCATION_MODE = 'none'
+export const DEFAULT_CATALOG_RADIUS_KM = 3
 
 export const createEmptyCatalogNutritionCriteria = () => ({
   calories: { min: '', max: '' },
@@ -29,6 +31,7 @@ export const createEmptyCatalogNutritionCriteria = () => ({
 })
 
 const readFiniteCoordinate = (value) => {
+  if (value == null || String(value).trim() === '') return null
   const number = Number(value)
   return Number.isFinite(number) ? number : null
 }
@@ -45,13 +48,19 @@ export function parseCatalogNutritionCriteria(searchParams) {
 }
 
 export function parseCatalogFilterState(searchParams) {
+  const rawLocationMode = searchParams.get('catalog_location')
+  const locationMode = rawLocationMode === NO_LOCATION_MODE
+    ? null
+    : LOCATION_MODES.has(rawLocationMode)
+      ? rawLocationMode
+      : 'center'
   const rawRadius = searchParams.get('catalog_radius')
-  const parsedRadius = rawRadius === 'none' ? null : Number(rawRadius)
-  const radiusKm = rawRadius === 'none'
+  const parsedRadius = Number(rawRadius)
+  const radiusKm = locationMode == null
     ? null
     : Number.isFinite(parsedRadius) && parsedRadius > 0
       ? parsedRadius
-      : 3
+      : DEFAULT_CATALOG_RADIUS_KM
   const lat = readFiniteCoordinate(searchParams.get('catalog_near_lat'))
   const lon = readFiniteCoordinate(searchParams.get('catalog_near_lon'))
 
@@ -59,9 +68,7 @@ export function parseCatalogFilterState(searchParams) {
     selectedCuisines: searchParams.getAll('catalog_cuisine'),
     selectedVenueTypes: searchParams.getAll('catalog_venue'),
     selectedMetro: searchParams.getAll('catalog_metro'),
-    locationMode: LOCATION_MODES.has(searchParams.get('catalog_location'))
-      ? searchParams.get('catalog_location')
-      : 'metro',
+    locationMode,
     radiusKm,
     nearbyPoint: lat != null && lon != null ? { lat, lon } : null,
     nearbyPointLabel: searchParams.get('catalog_near_label') || '',
@@ -71,8 +78,11 @@ export function parseCatalogFilterState(searchParams) {
 }
 
 const hasLocationSelection = ({ locationMode, selectedMetro, nearbyPoint }) => (
-  selectedMetro.length > 0
-  || (locationMode !== 'metro' && (nearbyPoint || locationMode === 'center'))
+  locationMode === 'metro'
+    ? selectedMetro.length > 0
+    : locationMode === 'nearby'
+      ? Boolean(nearbyPoint)
+      : locationMode === 'center'
 )
 
 export function serializeCatalogFilterState(searchParams, state) {
@@ -90,13 +100,23 @@ export function serializeCatalogFilterState(searchParams, state) {
 
   if (hasLocationSelection(state)) {
     searchParams.set('catalog_location', state.locationMode)
-    searchParams.set('catalog_radius', state.radiusKm == null ? 'none' : String(state.radiusKm))
-    if (state.nearbyPoint) {
+    const radiusKm = Number(state.radiusKm)
+    searchParams.set(
+      'catalog_radius',
+      Number.isFinite(radiusKm) && radiusKm > 0 ? String(radiusKm) : String(DEFAULT_CATALOG_RADIUS_KM),
+    )
+    if (state.locationMode === 'nearby' && state.nearbyPoint) {
       searchParams.set('catalog_near_lat', String(state.nearbyPoint.lat))
       searchParams.set('catalog_near_lon', String(state.nearbyPoint.lon))
     }
-    if (state.nearbyPointLabel) searchParams.set('catalog_near_label', state.nearbyPointLabel)
-    if (state.addressQuery) searchParams.set('catalog_near_query', state.addressQuery)
+    if (state.locationMode === 'nearby' && state.nearbyPointLabel) {
+      searchParams.set('catalog_near_label', state.nearbyPointLabel)
+    }
+    if (state.locationMode === 'nearby' && state.addressQuery) {
+      searchParams.set('catalog_near_query', state.addressQuery)
+    }
+  } else {
+    searchParams.set('catalog_location', NO_LOCATION_MODE)
   }
 
   NUTRITION_FIELDS.forEach((field) => {

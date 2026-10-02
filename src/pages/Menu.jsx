@@ -13,6 +13,7 @@ import {
 } from '@/lib/ingredients'
 import { formatMenuCapturedAt } from '@/lib/dates'
 import { parseCatalogNutritionCriteria } from '@/lib/catalogFilterParams'
+import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { useDishCardStore } from '@/store/dishCard'
@@ -123,7 +124,8 @@ export default function Menu({
   const city = routeSearchParams.get('city') || 'Москва'
   const navigate = useNavigate()
   const accessToken = useAuth((state) => state.accessToken)
-  const { fetchStatus } = useSubscriptionStore((state) => ({
+  const { hasActiveSub, fetchStatus } = useSubscriptionStore((state) => ({
+    hasActiveSub: state.hasActiveSub,
     fetchStatus: state.fetchStatus,
   }))
   const open = useDishCardStore((state) => state.open)
@@ -298,6 +300,19 @@ export default function Menu({
       return true
     })
   }, [dishes, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
+
+  const hasRestrictedMenuFilters = useMemo(() => {
+    const hasCustomRange = Object.values(range).some((bounds) => bounds.min !== '' || bounds.max !== '')
+    return Boolean(
+      query.trim()
+      || selectedCategory !== 'all'
+      || Object.values(presets).some(Boolean)
+      || hasCustomRange
+      || ingredientFilter.selected.length,
+    )
+  }, [ingredientFilter.selected.length, presets, query, range, selectedCategory])
+  const hasFullDishAccess = previewMode || hasActiveSub || hasQrMenuAccess(slug)
+  const isFilteredResultsLocked = hasRestrictedMenuFilters && !hasFullDishAccess
 
   // The ingredient control only makes sense when the restaurant actually filled
   // compositions in — many menus have none, and an empty picker is worse than
@@ -492,6 +507,12 @@ export default function Menu({
     await toggleFavoriteRestaurant(accessToken, slug)
   }
 
+  const handleViewFilteredDishes = () => {
+    const returnTo = window.location.pathname + window.location.search
+    const checkoutLink = getSubscriptionCheckoutLink(accessToken, returnTo)
+    navigate(checkoutLink.to, { state: checkoutLink.state })
+  }
+
   return (
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
@@ -499,6 +520,9 @@ export default function Menu({
       dishes={dishes}
       filtered={filtered}
       groupedDishes={groupedDishesSorted}
+      filteredDishCount={filtered.length}
+      isFilteredResultsLocked={isFilteredResultsLocked}
+      onViewFilteredDishes={handleViewFilteredDishes}
       capturedAt={capturedAt}
       freeDishKeys={freeDishKeys}
       slug={slug}
