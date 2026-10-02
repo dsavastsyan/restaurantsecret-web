@@ -598,14 +598,6 @@ export default function Catalog() {
     return displayItems.slice(start, start + PAGE_SIZE)
   }, [catalogPagesPerFetch, currentPage, debouncedQuery, displayItems])
 
-  // Keep the Google UI Kit preview intentionally bounded: one place per catalog page.
-  // The catalog already keeps the map/list panes mounted, so switching views does not
-  // recreate this element while the current Catalog screen remains alive.
-  const firstPlaceMediaRestaurant = useMemo(
-    () => visibleItems.find((restaurant) => !restaurant.isChainCard && getGooglePlaceId(restaurant)) || null,
-    [visibleItems],
-  )
-
   useEffect(() => {
     if (!hasNutritionFilter) return
 
@@ -1539,11 +1531,11 @@ export default function Catalog() {
               ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, r.slug)]
               : null
             const googleRating = getRestaurantGoogleRating(r)
-            const googlePlaceId = r === firstPlaceMediaRestaurant ? getGooglePlaceId(r) : ''
+            const googlePlaceId = getGooglePlaceId(r)
             return (
               <li key={r.slug || r.id || r.name} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
-                <div className={`catalog-card__layout${googlePlaceId ? '' : ' catalog-card__layout--no-media'}`}>
-                  {googlePlaceId && <GooglePlaceMedia placeId={googlePlaceId} restaurantName={r.name} />}
+                <div className="catalog-card__layout">
+                  <GooglePlaceMedia key={googlePlaceId || r.slug || r.name} placeId={googlePlaceId} restaurantName={r.name} />
                   <div className="catalog-card__content">
                     <div className="catalog-card__top">
                       <div className="catalog-card__identity">
