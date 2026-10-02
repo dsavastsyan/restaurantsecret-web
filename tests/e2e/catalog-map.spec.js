@@ -204,26 +204,34 @@ test('clears a previous geolocation error after a later successful location requ
   await expect(page.getByText('Не удалось определить местоположение.', { exact: false })).toHaveCount(0)
 })
 
-test('allows location filters without a radius limit', async ({ page }) => {
+test('defaults to the center with a 3 km radius and can clear the location filter', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
-  await page.getByRole('button', { name: /Где удобно/ }).click()
-  await expect(page.getByRole('button', { name: '3 км', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'В центре', exact: true }).click()
-  await page.getByRole('button', { name: 'Без ограничения', exact: true }).click()
-
-  await expect(page.getByRole('button', { name: 'Без ограничения', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await page.keyboard.press('Escape')
-
   const locationFilter = page.getByRole('button', { name: /Где удобно/ })
   await expect(locationFilter).toContainText('В центре')
+  await expect(locationFilter).toContainText('3 км')
+
+  await locationFilter.click()
+  await expect(page.getByRole('button', { name: 'В центре', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: '3 км', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Без ограничения', exact: true })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Сбросить', exact: true }).click()
+  await expect(page.getByText('Место не выбрано.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Допустимый радиус' })).toHaveCount(0)
+  await expect.poll(() => new URL(page.url()).searchParams.get('catalog_location')).toBe('none')
+  await expect.poll(() => new URL(page.url()).searchParams.get('catalog_radius')).toBeNull()
+
+  await page.keyboard.press('Escape')
+
+  await expect(locationFilter).toContainText('Любое место')
   await expect(locationFilter).not.toContainText('3 км')
-  await expect(page.locator('.catalog-applied-filter')).toHaveCount(1)
-  await expect(page.locator('.catalog-applied-filter')).toHaveText('Центр×')
+  await expect(page.locator('.catalog-applied-filter')).toHaveCount(0)
 })
 
 test('groups metro stations under expandable colored lines', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
 
   const line = page.getByRole('button', { name: /Тестовая линия/ })
   await expect(line).toHaveAttribute('aria-expanded', 'false')
@@ -487,7 +495,8 @@ test('shows applied filter chips on mobile and removes individual choices', asyn
   await page.getByRole('button', { name: /Любое место/ }).click()
   await page.getByRole('button', { name: 'Ресторан', exact: true }).click()
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: /У метро/ }).click()
+  await page.locator('.catalog-compact-filter').filter({ hasText: 'Где удобно?' }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
   await page.getByRole('button', { name: /Тестовая линия/ }).click()
   await page.getByRole('checkbox', { name: 'Тверская' }).check()
   await page.keyboard.press('Escape')
@@ -565,6 +574,7 @@ test('list includes restaurants whose map point is near the selected metro', asy
   await page.goto('/catalog/moskva/?view=list')
 
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
   await page.getByPlaceholder('Найти станцию метро').fill('Лубянка')
   await page.getByRole('checkbox', { name: 'Лубянка' }).check()
 
@@ -601,6 +611,7 @@ test('metro radius includes nearby restaurants without matching station metadata
 
   await page.goto('/catalog/moskva/?view=list')
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
   await page.getByPlaceholder('Найти станцию метро').fill('Лубянка')
   await page.getByRole('checkbox', { name: 'Лубянка' }).check()
 
@@ -649,6 +660,7 @@ test('highlights only stations selected through the metro filter', async ({ page
 
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(3, { timeout: 15_000 })
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
   await page.getByPlaceholder('Найти станцию метро').fill('Тверская')
   await page.getByRole('checkbox', { name: 'Тверская' }).check()
 
