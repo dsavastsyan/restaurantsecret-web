@@ -16,6 +16,7 @@ const FILTER_KEYS = [
   'catalog_fat_max',
   'catalog_carbs_min',
   'catalog_carbs_max',
+  'catalog_sort',
 ]
 
 const NUTRITION_FIELDS = ['calories', 'protein', 'fat', 'carbs']
@@ -74,6 +75,7 @@ export function parseCatalogFilterState(searchParams) {
     nearbyPointLabel: searchParams.get('catalog_near_label') || '',
     addressQuery: searchParams.get('catalog_near_query') || '',
     nutritionCriteria: parseCatalogNutritionCriteria(searchParams),
+    sort: searchParams.get('catalog_sort') || 'name',
   }
 }
 
@@ -124,6 +126,8 @@ export function serializeCatalogFilterState(searchParams, state) {
     if (value.min !== '' && value.min != null) searchParams.set(`catalog_${field}_min`, String(value.min))
     if (value.max !== '' && value.max != null) searchParams.set(`catalog_${field}_max`, String(value.max))
   })
+
+  if (state.sort && state.sort !== 'name') searchParams.set('catalog_sort', String(state.sort))
 
   return searchParams
 }

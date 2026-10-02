@@ -459,8 +459,7 @@ export default function AccountSubscription() {
       analytics.track("checkout_started", { plan, source_page: "subscription_management" });
       // Force Metrika to load now (it's normally lazy) so the goal is sent
       // before we redirect away from this page.
-      window.__loadYandexMetrika?.();
-      try { ym(108992733, 'reachGoal', 'checkout_started'); } catch { /* ym not loaded */ }
+      analytics.reachGoal('checkout_started');
 
       try {
         const body: any = { plan: apiPlan, autopay_consent: true };
@@ -522,8 +521,7 @@ export default function AccountSubscription() {
         source_page: "subscription_management",
         method: "intro_trial_attach",
       });
-      window.__loadYandexMetrika?.();
-      try { ym(108992733, 'reachGoal', 'checkout_started'); } catch { /* ym not loaded */ }
+      analytics.reachGoal('checkout_started');
 
       try {
         const attachRes = await attachPaymentMethod(accessToken, {

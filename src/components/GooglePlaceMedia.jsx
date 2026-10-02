@@ -10,6 +10,7 @@ const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey()
 
 export default function GooglePlaceMedia({ placeId, restaurantName, className = 'catalog-card__place-media', mediaSize = 'large', mediaOnly = false }) {
   const elementHostRef = useRef(null)
+  const detailsRef = useRef(null)
   const [status, setStatus] = useState('loading')
   const placeholderClassName = className === 'catalog-card__place-media'
     ? 'catalog-card__place-media-placeholder'
@@ -44,6 +45,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
       clearTimeout(timeoutId)
       details?.removeEventListener('gmp-load', handleLoad)
       details?.removeEventListener('gmp-error', handleError)
+      if (detailsRef.current === details) detailsRef.current = null
       elementHostRef.current?.replaceChildren()
       setStatus('error')
     }
@@ -56,6 +58,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
         details = document.createElement(mediaOnly ? 'gmp-place-details' : 'gmp-place-details-compact')
         if (!mediaOnly) details.setAttribute('orientation', 'vertical')
         details.setAttribute('aria-label', `Фотография ресторана ${restaurantName} из Google`)
+        detailsRef.current = details
         details.addEventListener('gmp-load', handleLoad)
         details.addEventListener('gmp-error', handleError)
 
@@ -82,9 +85,16 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
       clearTimeout(timeoutId)
       details?.removeEventListener('gmp-load', handleLoad)
       details?.removeEventListener('gmp-error', handleError)
+      if (detailsRef.current === details) detailsRef.current = null
       if (elementHostRef.current) elementHostRef.current.replaceChildren()
     }
-  }, [mediaOnly, mediaSize, placeId, restaurantName])
+  }, [mediaOnly, mediaSize, placeId])
+
+  useEffect(() => {
+    if (detailsRef.current && restaurantName) {
+      detailsRef.current.setAttribute('aria-label', `Фотография ресторана ${restaurantName} из Google`)
+    }
+  }, [restaurantName])
 
   if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') {
     return (

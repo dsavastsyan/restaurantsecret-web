@@ -75,6 +75,7 @@ test('round-trips catalog filters through the menu navigation URL', () => {
     nearbyPoint: { lat: 55.75, lon: 37.62 },
     nearbyPointLabel: 'моё местоположение',
     addressQuery: '',
+    sort: 'rating',
     nutritionCriteria: {
       calories: { min: '', max: 400 },
       protein: { min: 25, max: '' },
@@ -92,6 +93,7 @@ test('round-trips catalog filters through the menu navigation URL', () => {
     nearbyPoint: { lat: 55.75, lon: 37.62 },
     nearbyPointLabel: 'моё местоположение',
     addressQuery: '',
+    sort: 'rating',
     nutritionCriteria: {
       calories: { min: '', max: '400' },
       protein: { min: '25', max: '' },
@@ -114,6 +116,7 @@ test('defaults to the center with a 3 km radius and persists an empty location f
       nearbyPoint: null,
       nearbyPointLabel: '',
       addressQuery: '',
+      sort: 'name',
       nutritionCriteria: {
         calories: { min: '', max: '' },
         protein: { min: '', max: '' },
@@ -150,6 +153,7 @@ test('defaults to the center with a 3 km radius and persists an empty location f
       nearbyPoint: null,
       nearbyPointLabel: '',
       addressQuery: '',
+      sort: 'name',
       nutritionCriteria: {
         calories: { min: '', max: '' },
         protein: { min: '', max: '' },
