@@ -55,7 +55,9 @@ test('shows a food icon while the Google place photo is loading', () => {
   assert.match(googlePlaceMedia, /Utensils/)
   assert.match(googlePlaceMedia, /catalog-card__place-media-placeholder-icon/)
   assert.match(googlePlaceMedia, /mediaOnly = false/)
-  assert.match(googlePlaceMedia, /gmp-advanced-place-details'/)
+  assert.match(googlePlaceMedia, /desktopOnly = false/)
+  assert.match(googlePlaceMedia, /gmp-advanced-place-details-compact'/)
+  assert.match(googlePlaceMedia, /gmp-place-photo'/)
   assert.match(googlePlacesLoader, /v: 'beta'/)
 })
 
@@ -71,4 +73,5 @@ test('uses the Google Places UI Kit in the selected map card when a place ID exi
 
 test('uses the media-only Google Place UI Kit for the desktop catalog card', () => {
   assert.match(catalogPage, /<GooglePlaceMedia[\s\S]*?mediaOnly/)
+  assert.match(catalogPage, /<GooglePlaceMedia[\s\S]*?desktopOnly/)
 })

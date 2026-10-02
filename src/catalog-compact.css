@@ -1551,11 +1551,15 @@
 
 .catalog-page .catalog-card__layout > .catalog-card__place-media-element,
 .catalog-page .catalog-card__layout > .catalog-card__place-media .catalog-card__place-media-element,
-.catalog-page .catalog-card__layout > .catalog-card__place-media gmp-advanced-place-details {
+.catalog-page .catalog-card__layout > .catalog-card__place-media gmp-advanced-place-details-compact,
+.catalog-page .catalog-card__layout > .catalog-card__place-media gmp-advanced-place-details,
+.catalog-page .catalog-card__layout > .catalog-card__place-media gmp-place-details-compact {
   height: 100%;
 }
 
-.catalog-page .catalog-card__layout > .catalog-card__place-media gmp-advanced-place-details {
+.catalog-page .catalog-card__layout > .catalog-card__place-media gmp-advanced-place-details,
+.catalog-page .catalog-card__layout > .catalog-card__place-media gmp-advanced-place-details-compact,
+.catalog-page .catalog-card__layout > .catalog-card__place-media gmp-place-details-compact {
   min-height: 236px;
 }
 

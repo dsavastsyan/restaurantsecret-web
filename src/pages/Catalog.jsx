@@ -1546,6 +1546,7 @@ export default function Catalog() {
                   {googlePlaceId && (
                     <GooglePlaceMedia
                       mediaOnly
+                      desktopOnly
                       placeId={googlePlaceId}
                       restaurantName={r.name}
                     />

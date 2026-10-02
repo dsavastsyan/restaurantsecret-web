@@ -8,10 +8,14 @@ import {
 
 const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey()
 
-export default function GooglePlaceMedia({ placeId, restaurantName, className = 'catalog-card__place-media', mediaSize = 'large', mediaOnly = false }) {
+export default function GooglePlaceMedia({ placeId, restaurantName, className = 'catalog-card__place-media', mediaSize = 'large', mediaOnly = false, desktopOnly = false }) {
   const elementHostRef = useRef(null)
   const detailsRef = useRef(null)
   const [status, setStatus] = useState('loading')
+  const [isDesktop, setIsDesktop] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 901px)').matches
+  ))
+  const shouldUseMediaOnly = mediaOnly && (!desktopOnly || isDesktop)
   const placeholderClassName = className === 'catalog-card__place-media'
     ? 'catalog-card__place-media-placeholder'
     : `${className}-placeholder`
@@ -21,6 +25,17 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
   const placeholderIconClassName = className === 'catalog-card__place-media'
     ? 'catalog-card__place-media-placeholder-icon'
     : `${className}-placeholder-icon`
+
+  useEffect(() => {
+    if (!desktopOnly || typeof window === 'undefined') return undefined
+
+    const mediaQuery = window.matchMedia('(min-width: 901px)')
+    const handleChange = (event) => setIsDesktop(event.matches)
+    setIsDesktop(mediaQuery.matches)
+    mediaQuery.addEventListener('change', handleChange)
+
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [desktopOnly])
 
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY || !placeId) return undefined
@@ -55,8 +70,8 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
         const host = elementHostRef.current
         if (!isActive || !host) return
 
-        details = document.createElement(mediaOnly ? 'gmp-advanced-place-details' : 'gmp-place-details-compact')
-        if (!mediaOnly) details.setAttribute('orientation', 'vertical')
+        details = document.createElement(shouldUseMediaOnly ? 'gmp-advanced-place-details-compact' : 'gmp-place-details-compact')
+        details.setAttribute('orientation', 'vertical')
         details.setAttribute('aria-label', `Фотография ресторана ${restaurantName} из Google`)
         detailsRef.current = details
         details.addEventListener('gmp-load', handleLoad)
@@ -73,8 +88,9 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
         attribution.setAttribute('light-scheme-color', 'gray')
         attribution.setAttribute('dark-scheme-color', 'white')
 
-        if (mediaOnly) {
-          details.append(request, media, attribution)
+        if (shouldUseMediaOnly) {
+          const photo = document.createElement('gmp-place-photo')
+          details.append(request, photo, attribution)
         } else {
           content.append(media, attribution)
           details.append(request, content)
@@ -92,7 +108,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
       if (detailsRef.current === details) detailsRef.current = null
       if (elementHostRef.current) elementHostRef.current.replaceChildren()
     }
-  }, [mediaOnly, mediaSize, placeId])
+  }, [mediaSize, placeId, shouldUseMediaOnly])
 
   useEffect(() => {
     if (detailsRef.current && restaurantName) {
