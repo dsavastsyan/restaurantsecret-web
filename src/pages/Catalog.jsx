@@ -44,6 +44,12 @@ import {
   parseCatalogFilterState,
   serializeCatalogFilterState,
 } from '@/lib/catalogFilterParams'
+import {
+  CATALOG_SORT_OPTIONS,
+  DEFAULT_CATALOG_SORT,
+  normalizeCatalogSort,
+  sortCatalogItems,
+} from '@/lib/catalogSort'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
 import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
 import { useSubscriptionStore } from '@/store/subscription'
@@ -156,6 +162,7 @@ export default function Catalog() {
   const [addressResults, setAddressResults] = useState([])
   const [addressLoading, setAddressLoading] = useState(false)
   const [addressError, setAddressError] = useState('')
+  const [sort, setSort] = useState(() => normalizeCatalogSort(initialCatalogFilters.sort))
   const [geolocationLoading, setGeolocationLoading] = useState(false)
   const [geolocationError, setGeolocationError] = useState('')
   const [isPickingLocation, setIsPickingLocation] = useState(false)
@@ -176,13 +183,14 @@ export default function Catalog() {
       nearbyPointLabel,
       addressQuery,
       nutritionCriteria,
+      sort,
     })
     const nextSearch = next.toString()
     if (nextSearch !== window.location.search.slice(1)) {
       const suffix = nextSearch ? `?${nextSearch}` : ''
       window.history.replaceState(window.history.state, '', `${window.location.pathname}${suffix}${window.location.hash}`)
     }
-  }, [addressQuery, locationMode, nearbyPoint, nearbyPointLabel, nutritionCriteria, radiusKm, selectedCuisines, selectedMetro, selectedVenueTypes])
+  }, [addressQuery, locationMode, nearbyPoint, nearbyPointLabel, nutritionCriteria, radiusKm, selectedCuisines, selectedMetro, selectedVenueTypes, sort])
 
   const isNutritionPresetActive = (preset, criteria = nutritionCriteria) => {
     const current = criteria[preset.key] || {}
@@ -404,15 +412,16 @@ export default function Catalog() {
   ), [locationMode, radiusKm, selectedMetro, selectedMetroPoints])
   const usesClientVenueFilter = selectedVenueTypes.length > 1
   const hasNutritionFilter = hasCatalogNutritionCriteria(nutritionCriteria)
+  const usesClientSortedCatalog = sort !== DEFAULT_CATALOG_SORT
   const loadsCuisinePopularity = openFilter === 'place' && !debouncedQuery
-  const usesClientFilteredCatalog = usesClientMetroFilter || usesClientVenueFilter || hasNutritionFilter || loadsCuisinePopularity
+  const usesClientFilteredCatalog = usesClientMetroFilter || usesClientVenueFilter || hasNutritionFilter || loadsCuisinePopularity || usesClientSortedCatalog
   const catalogFetchLimit = usesClientFilteredCatalog ? CLIENT_LOCATION_FETCH_LIMIT : FETCH_LIMIT
   const catalogPagesPerFetch = catalogFetchLimit / PAGE_SIZE
   // Text search is owned by /search. Keep the paginated catalog request
   // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${sort}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
     () => api.restaurants({
       limit: catalogFetchLimit,
       offset: serverPage * catalogFetchLimit,
@@ -424,6 +433,15 @@ export default function Catalog() {
       near_lat: isRadiusFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lat) : undefined,
       near_lon: isRadiusFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lon) : undefined,
       radius_m: isRadiusFilterActive && !usesClientMetroFilter ? radiusKm * 1000 : undefined,
+      sort,
+      nutrition_calories_min: nutritionCriteria.calories?.min || undefined,
+      nutrition_calories_max: nutritionCriteria.calories?.max || undefined,
+      nutrition_protein_min: nutritionCriteria.protein?.min || undefined,
+      nutrition_protein_max: nutritionCriteria.protein?.max || undefined,
+      nutrition_fat_min: nutritionCriteria.fat?.min || undefined,
+      nutrition_fat_max: nutritionCriteria.fat?.max || undefined,
+      nutrition_carbs_min: nutritionCriteria.carbs?.min || undefined,
+      nutrition_carbs_max: nutritionCriteria.carbs?.max || undefined,
     }),
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
@@ -516,14 +534,19 @@ export default function Catalog() {
       cuisines: selectedCuisines,
       venueType: selectedVenueTypes,
       metro: metroFilterForCatalog,
-      sortByRelevance: true,
+      sortByRelevance: sort === DEFAULT_CATALOG_SORT,
       matchesQuery: matchesSearchQuery,
       getQueryScore: getSearchQueryScore,
     })
-    return hasNutritionFilter
+    const nutritionFiltered = hasNutritionFilter
       ? filtered.filter((restaurant) => matchesCatalogNutritionCriteria(restaurant, nutritionCriteria))
       : filtered
-  }, [debouncedQuery, filterableItems, hasNutritionFilter, metroFilterForCatalog, nutritionCriteria, searchItems, selectedCuisines, selectedVenueTypes])
+    return sortCatalogItems(
+      nutritionFiltered,
+      sort,
+      (restaurant) => getCatalogNutritionStatsForCriteria(restaurant, nutritionCriteria).matching,
+    )
+  }, [debouncedQuery, filterableItems, hasNutritionFilter, metroFilterForCatalog, nutritionCriteria, searchItems, selectedCuisines, selectedVenueTypes, sort])
 
   const mapItemsBeforeLocation = useMemo(() => {
     const enriched = enrichCatalogMapItems(mapSourceItems, allItemsWithNutrition)
@@ -555,7 +578,7 @@ export default function Catalog() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedQuery, locationMode, nearbyPoint, nutritionCriteria, radiusKm, selectedCuisines, selectedMetro, selectedVenueTypes])
+  }, [debouncedQuery, locationMode, nearbyPoint, nutritionCriteria, radiusKm, selectedCuisines, selectedMetro, selectedVenueTypes, sort])
 
   // Physical branches remain reachable from their chain hub, but the catalog
   // itself presents one card per chain rather than exposing branch pages.
@@ -894,6 +917,12 @@ export default function Catalog() {
     applySearchQuery('')
     setActiveSearchSuggestionIndex(-1)
   }, [applySearchQuery])
+
+  const handleSortChange = useCallback((event) => {
+    const nextSort = normalizeCatalogSort(event.target.value)
+    setSort(nextSort)
+    analytics.track('catalog_sort_changed', { sort: nextSort, selected_city: selectedCity.id })
+  }, [selectedCity.id])
 
   const handleLocationModeChange = useCallback((nextMode) => {
     if (locationMode == null && radiusKm == null) {
@@ -1413,8 +1442,18 @@ export default function Catalog() {
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
         {!isInitialLoading && !catalogError && (
           <div className="catalog-results__summary" role="status" aria-live="polite">
-            Найдено: <strong>{resultCount.toLocaleString('ru-RU')}</strong>{' '}
-            {getRussianPluralWord(resultCount, 'ресторан', 'ресторана', 'ресторанов')}
+            <span>
+              Найдено: <strong>{resultCount.toLocaleString('ru-RU')}</strong>{' '}
+              {getRussianPluralWord(resultCount, 'ресторан', 'ресторана', 'ресторанов')}
+            </span>
+            <label className="catalog-sort-control">
+              <span>Сортировать</span>
+              <select value={sort} onChange={handleSortChange} aria-label="Сортировка ресторанов">
+                {CATALOG_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
           </div>
         )}
         {catalogError && <p className="err">Ошибка: {String(catalogError.message || catalogError)}</p>}

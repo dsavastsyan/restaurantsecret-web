@@ -374,6 +374,10 @@
 }
 
 .catalog-page .catalog-results__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 0 2px;
   color: #81786c;
   font-size: 15px;
@@ -384,6 +388,32 @@
   font-family: "DM Serif Display", "Playfair Display", Georgia, serif;
   font-size: 25px;
   font-weight: 400;
+}
+
+.catalog-sort-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--catalog-compact-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.catalog-sort-control select {
+  min-height: 36px;
+  max-width: 250px;
+  padding: 0 30px 0 11px;
+  border: 1px solid var(--catalog-compact-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--catalog-compact-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.catalog-sort-control select:focus-visible {
+  outline: 2px solid var(--catalog-compact-sage);
+  outline-offset: 2px;
 }
 
 .catalog-page .catalog-grid {
@@ -696,6 +726,19 @@
 
   .catalog-page .catalog-results__summary {
     margin-top: 4px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .catalog-sort-control {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .catalog-sort-control select {
+    flex: 1;
+    max-width: none;
   }
 
   .catalog-page .catalog-card {

@@ -43,6 +43,10 @@ export function getCatalogNutritionStatsForCriteria(restaurant, criteria = {}) {
   const entries = getNutritionCriteriaEntries(criteria)
 
   if (!entries.length) return { total, matching: total, hasData: dishes.length > 0 || total > 0 }
+  const backendMatching = Number(restaurant?.matchingDishesCount)
+  if (!dishes.length && Number.isFinite(backendMatching)) {
+    return { total, matching: backendMatching, hasData: true }
+  }
   if (!dishes.length) return { total, matching: null, hasData: false }
 
   return {
