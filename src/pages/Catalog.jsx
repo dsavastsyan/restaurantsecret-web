@@ -32,7 +32,6 @@ import {
   normalizeCatalogCuisine,
 } from '@/lib/catalogFilters'
 import {
-  formatRestaurantPriceRange,
   getCatalogNutritionStatsForCriteria,
   hasCatalogNutritionCriteria,
   getRestaurantGoogleRating,
@@ -1469,7 +1468,6 @@ export default function Catalog() {
             const nutritionMenuState = r.slug
               ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, r.slug)]
               : null
-            const priceRange = formatRestaurantPriceRange(r)
             const googleRating = getRestaurantGoogleRating(r)
             const googlePlaceId = getGooglePlaceId(r)
             return (
@@ -1492,7 +1490,6 @@ export default function Catalog() {
                                 {r.cuisine}
                               </span>
                             )}
-                            {priceRange && <span className="catalog-card__meta-item">{priceRange}</span>}
                           </div>
                           <MetroStationsText restaurant={r} className="catalog-card__metro" />
                         </div>
