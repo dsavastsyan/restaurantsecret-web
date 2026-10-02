@@ -288,14 +288,18 @@
 }
 
 .catalog-map-card__place-media-element gmp-advanced-place-details-compact {
+  position: relative;
+  left: 50%;
   display: block;
-  width: 100%;
+  width: 180px;
+  min-width: 180px;
   height: 100%;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   color-scheme: light;
+  transform: translateX(-50%);
   visibility: hidden;
 }
 
