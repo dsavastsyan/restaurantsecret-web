@@ -8,7 +8,7 @@ import {
 
 const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey()
 
-export default function GooglePlaceMedia({ placeId, restaurantName, className = 'catalog-card__place-media', mediaSize = 'large' }) {
+export default function GooglePlaceMedia({ placeId, restaurantName, className = 'catalog-card__place-media', mediaSize = 'large', mediaOnly = false }) {
   const elementHostRef = useRef(null)
   const [status, setStatus] = useState('loading')
   const placeholderClassName = className === 'catalog-card__place-media'
@@ -53,8 +53,8 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
         const host = elementHostRef.current
         if (!isActive || !host) return
 
-        details = document.createElement('gmp-place-details-compact')
-        details.setAttribute('orientation', 'vertical')
+        details = document.createElement(mediaOnly ? 'gmp-place-details' : 'gmp-place-details-compact')
+        if (!mediaOnly) details.setAttribute('orientation', 'vertical')
         details.setAttribute('aria-label', `Фотография ресторана ${restaurantName} из Google`)
         details.addEventListener('gmp-load', handleLoad)
         details.addEventListener('gmp-error', handleError)
@@ -84,7 +84,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
       details?.removeEventListener('gmp-error', handleError)
       if (elementHostRef.current) elementHostRef.current.replaceChildren()
     }
-  }, [mediaSize, placeId, restaurantName])
+  }, [mediaOnly, mediaSize, placeId, restaurantName])
 
   if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') {
     return (

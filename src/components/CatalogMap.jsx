@@ -297,6 +297,7 @@ export default function CatalogMap({
             {selectedRestaurantGooglePlaceId ? (
               <GooglePlaceMedia
                 className="catalog-map-card__place-media"
+                mediaOnly
                 mediaSize="small"
                 placeId={selectedRestaurantGooglePlaceId}
                 restaurantName={selectedRestaurant.name}
@@ -322,38 +323,38 @@ export default function CatalogMap({
                 <span>{selectedRestaurant.address || selectedRestaurant.metro}</span>
               </div>
             )}
-            <div className={`catalog-map-card__actions${selectedRestaurantInstagramUrl ? ' catalog-map-card__actions--with-instagram' : ''}`}>
-              <button
-                type="button"
-                className={`catalog-map-card__favorite${isFavorite(selectedRestaurant.slug) ? ' is-active' : ''}`}
-                aria-label={isFavorite(selectedRestaurant.slug) ? 'Удалить из избранного' : 'Добавить в избранное'}
-                onClick={() => onToggleFavorite(selectedRestaurant.slug, selectedRestaurant.name)}
+          </div>
+          <div className={`catalog-map-card__actions${selectedRestaurantInstagramUrl ? ' catalog-map-card__actions--with-instagram' : ''}`}>
+            <button
+              type="button"
+              className={`catalog-map-card__favorite${isFavorite(selectedRestaurant.slug) ? ' is-active' : ''}`}
+              aria-label={isFavorite(selectedRestaurant.slug) ? 'Удалить из избранного' : 'Добавить в избранное'}
+              onClick={() => onToggleFavorite(selectedRestaurant.slug, selectedRestaurant.name)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3A5.9 5.9 0 0 1 12 5.09 5.9 5.9 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54Z" />
+              </svg>
+            </button>
+            {selectedRestaurantInstagramUrl && (
+              <a
+                className="catalog-map-card__instagram"
+                href={selectedRestaurantInstagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Открыть Instagram"
+                title="Instagram"
+                onClick={(event) => event.stopPropagation()}
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3A5.9 5.9 0 0 1 12 5.09 5.9 5.9 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54Z" />
-                </svg>
-              </button>
-              {selectedRestaurantInstagramUrl && (
-                <a
-                  className="catalog-map-card__instagram"
-                  href={selectedRestaurantInstagramUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Открыть Instagram"
-                  title="Instagram"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <InstagramIcon />
-                </a>
-              )}
-              <button
-                type="button"
-                className="catalog-map-card__open"
-                onClick={() => onOpenRestaurant(selectedRestaurant.slug)}
-              >
-                Открыть меню
-              </button>
-            </div>
+                <InstagramIcon />
+              </a>
+            )}
+            <button
+              type="button"
+              className="catalog-map-card__open"
+              onClick={() => onOpenRestaurant(selectedRestaurant.slug)}
+            >
+              Открыть меню
+            </button>
           </div>
         </article>
       )}

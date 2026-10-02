@@ -287,14 +287,19 @@
   height: 100%;
 }
 
-.catalog-map-card__place-media-element gmp-place-details-compact {
+.catalog-map-card__place-media-element gmp-place-details {
   display: block;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color-scheme: light;
   visibility: hidden;
 }
 
-.catalog-map-card__place-media.is-loaded gmp-place-details-compact {
+.catalog-map-card__place-media.is-loaded gmp-place-details {
   visibility: visible;
 }
 
@@ -325,14 +330,13 @@
 }
 
 .catalog-map-card h2 {
-  overflow: hidden;
+  overflow: visible;
   margin: 0;
   font-family: "Playfair Display", "DM Serif Display", Georgia, serif;
   font-size: 23px;
   font-weight: 600;
   line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .catalog-map-card__heading p {
@@ -352,18 +356,17 @@
 }
 
 .catalog-map-card__metro .metro-stations__list {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .catalog-map-card__location {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 7px;
   min-width: 0;
   color: #6f695f;
   font-size: 13px;
+  line-height: 1.35;
 }
 
 .catalog-map-card__location svg {
@@ -376,12 +379,11 @@
 }
 
 .catalog-map-card__location span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .catalog-map-card__actions {
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: 46px 1fr;
   gap: 10px;
