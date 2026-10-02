@@ -504,6 +504,21 @@ test('shows applied filter chips on mobile and removes individual choices', asyn
   await expect(chips).toHaveCount(3)
 })
 
+test('closes the mobile filter sheet with the apply action', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: /Любое место/ }).click()
+  await expect(page.getByRole('button', { name: 'Применить', exact: true })).toBeVisible()
+
+  const sheet = page.locator('#catalog-place-popover')
+  await expect(sheet).toBeVisible()
+  await page.getByRole('button', { name: 'Применить', exact: true }).click()
+
+  await expect(sheet).toBeHidden()
+  await expect(page.getByRole('combobox', { name: 'Поиск по ресторанам' })).toBeVisible()
+})
+
 test('keeps the auto-update badge next to the restaurant name', async ({ page }) => {
   await page.route((url) => (
     isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
