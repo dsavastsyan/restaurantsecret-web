@@ -1,35 +1,3 @@
-const FAST_FOOD_QUERY_VALUES = [
-  'Фастфуд',
-  'Быстрое питание',
-  'Фаст-фуд',
-  'Фаст фуд',
-  'Быстрая еда',
-  'Хот-доги',
-  'Хотдоги',
-  'Бургер',
-]
-
-const FAST_FOOD_ALIASES = new Set([
-  'фастфуд',
-  'фастфудсэндвичи',
-  'фастфудсандвичи',
-  'быстроепитание',
-  'быстроепитаниесэндвичи',
-  'быстроепитаниесандвичи',
-  'быстраяеда',
-  'хотдог',
-  'хотдоги',
-  'бургер',
-  'бургеры',
-  'бургерная',
-  'сэндвич',
-  'сэндвичи',
-  'fastfood',
-  'fastfoodsandwiches',
-  'quickservice',
-  'streetfood',
-])
-
 function cuisineKey(value) {
   return String(value || '')
     .normalize('NFKC')
@@ -38,25 +6,93 @@ function cuisineKey(value) {
     .replace(/[\s\p{Pd}_/\\()[\]{}.,;:!?]+/gu, '')
 }
 
-function normalizeCuisinePart(value) {
-  const part = String(value || '')
-    .trim()
-    .replace(/^[\s()[\]{}.,;:!?]+|[\s()[\]{}.,;:!?]+$/gu, '')
-  if (!part) return ''
-  if (cuisineKey(part) === 'nan') return 'Другое'
-  if (FAST_FOOD_ALIASES.has(cuisineKey(part))) return 'Фастфуд'
-  return part.charAt(0).toLocaleUpperCase('ru-RU') + part.slice(1).toLocaleLowerCase('ru-RU')
+const CANONICAL_CUISINES = [
+  'Абхазская', 'Азербайджанская', 'Американская', 'Аргентинская', 'Армянская',
+  'Азиатская', 'Авторская', 'Балканская', 'Барбекю', 'Белорусская', 'Бельгийская',
+  'Ближневосточная', 'Бургерная', 'Веганская', 'Вегетарианская', 'Вьетнамская',
+  'Восточная', 'Гавайская', 'Гастробар', 'Греческая', 'Грузинская', 'Дагестанская',
+  'Деревенская', 'Домашняя', 'Европейская', 'Еврейская', 'Завтраки',
+  'Здоровое питание', 'Израильская', 'Индийская', 'Интернациональная', 'Испанская',
+  'Итальянская', 'Кавказская', 'Карибская', 'Китайская', 'Кондитерская', 'Корейская',
+  'Кофейня', 'Крымская', 'Латиноамериканская', 'Мексиканская', 'Мясная', 'Никкей',
+  'Паназиатская', 'Пекарня', 'Пельменная', 'Перуанская', 'Пивная', 'Пицца',
+  'Португальская', 'Русская', 'Рыбная', 'Салат-бар', 'Сибирская', 'Смешанная',
+  'Средиземноморская', 'Стейк-хаус', 'Стритфуд', 'Суши', 'Тайваньская', 'Тайская',
+  'Татарская', 'Турецкая', 'Узбекская', 'Украинская', 'Фастфуд', 'Французская',
+  'Чешская', 'Японская',
+]
+
+const CANONICAL_BY_KEY = new Map(CANONICAL_CUISINES.map((label) => [cuisineKey(label), label]))
+const RAW_CUISINE_ALIASES = {
+  'быстрое питание': ['Фастфуд'],
+  'быстрая еда': ['Фастфуд'],
+  'выпечка': ['Пекарня'],
+  'кофеспот': ['Кофейня'],
+  'международная': ['Интернациональная'],
+  'морепродукты': ['Рыбная'],
+  'морская': ['Рыбная'],
+  'пиццерия': ['Пицца'],
+  'правильное питание': ['Здоровое питание'],
+  'рыбный': ['Рыбная'],
+  'фаст фуд': ['Фастфуд'],
+  'фаст-фуд': ['Фастфуд'],
+  'фастфуд': ['Фастфуд'],
+  'хот дог': ['Фастфуд'],
+  'хот-дог': ['Фастфуд'],
+  'хотдоги': ['Фастфуд'],
+  'бургеры': ['Фастфуд'],
+  'бургер': ['Фастфуд'],
+  'бургерная': ['Фастфуд'],
+  'сэндвичи': ['Фастфуд'],
+  'сэндвич': ['Фастфуд'],
+  'авторская азиатская': ['Авторская', 'Азиатская'],
+  'авторская европейская': ['Авторская', 'Европейская'],
+  'авторская мясная': ['Авторская', 'Мясная'],
+  'диетический фастфуд': ['Здоровое питание', 'Фастфуд'],
+  'здоровый фастфуд': ['Здоровое питание', 'Фастфуд'],
+  'домашняя итальянская': ['Домашняя', 'Итальянская'],
+  'испано-португальская': ['Испанская', 'Португальская'],
+  'итальянская деревенская': ['Деревенская', 'Итальянская'],
+  'итальянская кофейня': ['Итальянская', 'Кофейня'],
+  'кофейня с завтраками': ['Завтраки', 'Кофейня'],
+  'мультикультурная': ['Смешанная'],
+  'рыбно-морская': ['Рыбная'],
+  'русско-французская': ['Русская', 'Французская'],
+  'универсальная': ['Смешанная'],
+  'веганские суши': ['Веганская', 'Суши'],
+}
+const ALIASES_BY_KEY = new Map(
+  Object.entries(RAW_CUISINE_ALIASES).map(([label, values]) => [cuisineKey(label), values]),
+)
+
+function rawCuisineParts(value) {
+  return String(value || '')
+    .split(/\s*[,;/]\s*|\s+и\s+/iu)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function normalizeCuisineValues(value) {
+  const normalized = []
+  for (const part of rawCuisineParts(value)) {
+    const key = cuisineKey(part)
+    if (key === 'nan') {
+      normalized.push('Другое')
+      continue
+    }
+    const labels = ALIASES_BY_KEY.get(key)
+      || (CANONICAL_BY_KEY.has(key) ? [CANONICAL_BY_KEY.get(key)] : [
+        part.charAt(0).toLocaleUpperCase('ru-RU') + part.slice(1).toLocaleLowerCase('ru-RU'),
+      ])
+    normalized.push(...labels)
+  }
+  return Array.from(new Set(normalized.filter(Boolean)))
 }
 
 export function normalizeCatalogCuisine(value) {
   if (!value) return ''
 
-  const normalized = String(value)
-    .split(',')
-    .map(normalizeCuisinePart)
-    .filter(Boolean)
-
-  return Array.from(new Set(normalized)).join(', ')
+  return normalizeCuisineValues(value).join(', ')
 }
 
 export function getCatalogCuisineFilterValues(values = []) {
@@ -65,14 +101,8 @@ export function getCatalogCuisineFilterValues(values = []) {
     .flatMap((value) => normalizeCatalogCuisine(value).split(', '))
     .filter(Boolean)
 
-  const aliases = normalized.flatMap((cuisine) => (
-    cuisine === 'Фастфуд' ? FAST_FOOD_QUERY_VALUES : []
-  ))
-
-  // Keep every selected canonical value before the compatibility aliases. The
-  // backend bounds repeated query values, so multi-selects must not lose a
-  // second selected cuisine just because FastFood has legacy spellings.
-  return Array.from(new Set([...normalized, ...aliases]))
+  // The backend expands canonical values to legacy spellings for old rows.
+  return Array.from(new Set(normalized))
 }
 
 export const CATALOG_VENUE_TYPES = [

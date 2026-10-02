@@ -19,16 +19,7 @@ test('collapses punctuation variants and fast food aliases into one cuisine', ()
     normalizeCatalogCuisine('Итальянская, итальянская), быстрое питание, Хот-доги, Бургерная'),
     'Итальянская, Фастфуд',
   )
-  assert.deepEqual(getCatalogCuisineFilterValues(['Фастфуд']), [
-    'Фастфуд',
-    'Быстрое питание',
-    'Фаст-фуд',
-    'Фаст фуд',
-    'Быстрая еда',
-    'Хот-доги',
-    'Хотдоги',
-    'Бургер',
-  ])
+  assert.deepEqual(getCatalogCuisineFilterValues(['Фастфуд']), ['Фастфуд'])
   assert.deepEqual(
     getCatalogCuisineFilterValues(['Фастфуд', 'Итальянская']).slice(0, 2),
     ['Фастфуд', 'Итальянская'],
