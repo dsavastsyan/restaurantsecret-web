@@ -1543,7 +1543,13 @@ export default function Catalog() {
             return (
               <li key={r.slug || r.id || r.name} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
                 <div className={`catalog-card__layout${googlePlaceId ? '' : ' catalog-card__layout--no-media'}`}>
-                  {googlePlaceId && <GooglePlaceMedia placeId={googlePlaceId} restaurantName={r.name} />}
+                  {googlePlaceId && (
+                    <GooglePlaceMedia
+                      mediaOnly
+                      placeId={googlePlaceId}
+                      restaurantName={r.name}
+                    />
+                  )}
                   <div className="catalog-card__content">
                     <div className="catalog-card__top">
                       <div className="catalog-card__identity">

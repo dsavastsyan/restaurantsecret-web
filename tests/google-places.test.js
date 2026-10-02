@@ -20,6 +20,10 @@ const googlePlacesLoader = await readFile(
   new URL('../src/lib/googlePlaces.js', import.meta.url),
   'utf8',
 )
+const catalogPage = await readFile(
+  new URL('../src/pages/Catalog.jsx', import.meta.url),
+  'utf8',
+)
 
 test('reads a Google Place ID from the catalog API contract', () => {
   assert.equal(
@@ -51,7 +55,8 @@ test('shows a food icon while the Google place photo is loading', () => {
   assert.match(googlePlaceMedia, /Utensils/)
   assert.match(googlePlaceMedia, /catalog-card__place-media-placeholder-icon/)
   assert.match(googlePlaceMedia, /mediaOnly = false/)
-  assert.match(googlePlaceMedia, /gmp-place-details'/)
+  assert.match(googlePlaceMedia, /gmp-advanced-place-details'/)
+  assert.match(googlePlacesLoader, /v: 'beta'/)
 })
 
 test('uses the Google Places UI Kit in the selected map card when a place ID exists', () => {
@@ -62,4 +67,8 @@ test('uses the Google Places UI Kit in the selected map card when a place ID exi
   assert.match(catalogMap, /catalog-map-card__content/)
   assert.match(catalogMapStyles, /grid-column: 1 \/ -1/)
   assert.match(catalogMap, /catalog-map-card__mark/)
+})
+
+test('uses the media-only Google Place UI Kit for the desktop catalog card', () => {
+  assert.match(catalogPage, /<GooglePlaceMedia[\s\S]*?mediaOnly/)
 })

@@ -91,7 +91,7 @@ export function loadGooglePlacesUiKit(apiKey = getGoogleMapsApiKey()) {
   if (!placesLibraryPromise) {
     addPreconnect('https://maps.googleapis.com')
     addPreconnect('https://maps.gstatic.com')
-    installGoogleMapsBootstrapLoader({ key: apiKey, v: 'weekly' })
+    installGoogleMapsBootstrapLoader({ key: apiKey, v: 'beta' })
     placesLibraryPromise = window.google.maps.importLibrary('places').catch((error) => {
       placesLibraryPromise = undefined
       throw error

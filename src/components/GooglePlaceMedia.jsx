@@ -55,7 +55,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
         const host = elementHostRef.current
         if (!isActive || !host) return
 
-        details = document.createElement(mediaOnly ? 'gmp-place-details' : 'gmp-place-details-compact')
+        details = document.createElement(mediaOnly ? 'gmp-advanced-place-details' : 'gmp-place-details-compact')
         if (!mediaOnly) details.setAttribute('orientation', 'vertical')
         details.setAttribute('aria-label', `Фотография ресторана ${restaurantName} из Google`)
         detailsRef.current = details
@@ -73,8 +73,12 @@ export default function GooglePlaceMedia({ placeId, restaurantName, className = 
         attribution.setAttribute('light-scheme-color', 'gray')
         attribution.setAttribute('dark-scheme-color', 'white')
 
-        content.append(media, attribution)
-        details.append(request, content)
+        if (mediaOnly) {
+          details.append(request, media, attribution)
+        } else {
+          content.append(media, attribution)
+          details.append(request, content)
+        }
         host.replaceChildren(details)
         timeoutId = window.setTimeout(handleError, 20_000)
       })

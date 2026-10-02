@@ -4450,7 +4450,7 @@ html[data-rs-theme="night"] .catalog-location-filter__center-note {
   width: 100%;
 }
 
-.catalog-card__place-media-element gmp-place-details-compact {
+.catalog-card__place-media-element gmp-advanced-place-details {
   display: block;
   width: 100%;
   margin: 0;
@@ -4461,7 +4461,7 @@ html[data-rs-theme="night"] .catalog-location-filter__center-note {
   visibility: hidden;
 }
 
-.catalog-card__place-media.is-loaded gmp-place-details-compact {
+.catalog-card__place-media.is-loaded gmp-advanced-place-details {
   visibility: visible;
 }
 
