@@ -83,6 +83,26 @@ an isolated Cloudflare Pages preview from the same workflow.
 
 The application includes a built-in maintenance mode that can be toggled without code changes or deployments, perfect for GitHub Pages environments.
 
+## Backend release gate
+
+Web releases are pinned to the linked Cloudflare Worker and `pd-api` pull
+requests in `release/backend-dependencies.json`. The manifest can use separate
+`staging_pull_request` and `production_pull_request` values when the backend
+reaches the two environments through different promotion PRs. Each referenced
+PR must be merged, its merge commit must be present in the target backend
+branch, and the matching staging or production deploy jobs must be green before
+the web workflow continues.
+
+For a web PR that depends on a new backend change, update both the web manifest
+and the backend PR. The PR checks wait for the backend PRs and their staging
+deployments. After merge, the Pages workflow repeats the same check against
+the backend production branches before building or deploying the site.
+
+The workflows use `BACKEND_RELEASE_TOKEN` when configured. It should have
+read-only access to pull requests, actions, and contents in both backend
+repositories; for public repositories the repository `GITHUB_TOKEN` is a
+fallback.
+
 ### How to Enable
 1. Locate `public/maintenance.json` in the GitHub repository.
 2. Edit the file directly in the GitHub UI:
