@@ -204,25 +204,34 @@ test('clears a previous geolocation error after a later successful location requ
   await expect(page.getByText('Не удалось определить местоположение.', { exact: false })).toHaveCount(0)
 })
 
-test('allows location filters without a radius limit', async ({ page }) => {
+test('defaults to the center with a 3 km radius and can clear the location filter', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
-  await page.getByRole('button', { name: /Где удобно/ }).click()
-  await page.getByRole('button', { name: 'В центре', exact: true }).click()
-  await page.getByRole('button', { name: 'Без ограничения', exact: true }).click()
-
-  await expect(page.getByRole('button', { name: 'Без ограничения', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await page.keyboard.press('Escape')
-
   const locationFilter = page.getByRole('button', { name: /Где удобно/ })
   await expect(locationFilter).toContainText('В центре')
+  await expect(locationFilter).toContainText('3 км')
+
+  await locationFilter.click()
+  await expect(page.getByRole('button', { name: 'В центре', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: '3 км', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Без ограничения', exact: true })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Сбросить', exact: true }).click()
+  await expect(page.getByText('Место не выбрано.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Допустимый радиус' })).toHaveCount(0)
+  await expect.poll(() => new URL(page.url()).searchParams.get('catalog_location')).toBe('none')
+  await expect.poll(() => new URL(page.url()).searchParams.get('catalog_radius')).toBeNull()
+
+  await page.keyboard.press('Escape')
+
+  await expect(locationFilter).toContainText('Любое место')
   await expect(locationFilter).not.toContainText('3 км')
-  await expect(page.locator('.catalog-applied-filter')).toHaveCount(1)
-  await expect(page.locator('.catalog-applied-filter')).toHaveText('Центр×')
+  await expect(page.locator('.catalog-applied-filter')).toHaveCount(0)
 })
 
 test('groups metro stations under expandable colored lines', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
 
   const line = page.getByRole('button', { name: /Тестовая линия/ })
   await expect(line).toHaveAttribute('aria-expanded', 'false')
@@ -455,13 +464,24 @@ test('keeps catalog nutrition filters on the restaurant menu and on return', asy
   const catalogUrl = page.url()
 
   await Promise.all([
-    page.waitForURL(/\/restaurants\/coffee-test\/menu\/?\?/),
-    page.locator('.catalog-card:not(.catalog-card--chain)').first().getByRole('button', { name: 'Открыть меню' }).click(),
+    page.waitForURL(/\/login$/),
+    page.locator('.catalog-card:not(.catalog-card--chain)').first().getByRole('button', { name: 'Посмотреть подходящие блюда' }).click(),
   ])
+
+  const menuUrl = new URL('/restaurants/coffee-test/menu/', page.url())
+  menuUrl.search = new URL(catalogUrl).search
+  menuUrl.searchParams.set('city', 'Москва')
+  await page.goto(menuUrl.toString())
   await expect(page.getByRole('button', { name: /Мало калорий/ })).toHaveClass(/is-on/)
   await expect(page.getByRole('button', { name: /Много белка/ })).toHaveClass(/is-on/)
-  await expect(page.locator('.rsm2-grid.rsm2-desktop-only .rsm2-tile__cover-name')).toHaveText(['Белковый суп'])
-  await expect(page.getByText('Паста', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.rsm2-filtered-access')).toContainText('1 ПОЗИЦИЯ')
+  await expect(page.getByRole('button', { name: 'Посмотреть бесплатно' })).toBeVisible()
+  await expect(page.locator('.rsm2-grid')).toHaveCount(0)
+
+  await Promise.all([
+    page.waitForURL(/\/login$/),
+    page.getByRole('button', { name: 'Посмотреть бесплатно' }).click(),
+  ])
 
   await page.goto(catalogUrl)
   await expect(page.getByRole('button', { name: /По блюдам/ })).toContainText('до 400 ккал')
@@ -475,7 +495,8 @@ test('shows applied filter chips on mobile and removes individual choices', asyn
   await page.getByRole('button', { name: /Любое место/ }).click()
   await page.getByRole('button', { name: 'Ресторан', exact: true }).click()
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: /У метро/ }).click()
+  await page.locator('.catalog-compact-filter').filter({ hasText: 'Где удобно?' }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
   await page.getByRole('button', { name: /Тестовая линия/ }).click()
   await page.getByRole('checkbox', { name: 'Тверская' }).check()
   await page.keyboard.press('Escape')
@@ -538,11 +559,49 @@ test('list includes restaurants whose map point is near the selected metro', asy
   await page.goto('/catalog/moskva/?view=list')
 
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
   await page.getByPlaceholder('Найти станцию метро').fill('Лубянка')
   await page.getByRole('checkbox', { name: 'Лубянка' }).check()
 
   await expect(page.locator('.catalog-card')).toHaveCount(1)
   await expect(page.locator('.catalog-card')).toContainText(restaurant.chainName)
+})
+
+test('metro radius includes nearby restaurants without matching station metadata', async ({ page }) => {
+  const nearbyRestaurant = {
+    ...restaurant,
+    id: 'nearby-metro-1',
+    slug: 'nearby-metro-test',
+    name: 'Ресторан рядом с метро',
+    chainSlug: 'nearby-metro-test',
+    chainName: 'Ресторан рядом с метро',
+    metro: 'Другая станция',
+    metroNames: ['Другая станция'],
+    lat: 55.7598,
+    lon: 37.627,
+  }
+
+  await page.route((url) => {
+    const parsed = new URL(url)
+    return isCatalogApi(url) && (
+      parsed.pathname.endsWith('/restaurants') || parsed.pathname.endsWith('/restaurants/map')
+    )
+  }, (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/restaurants/map')) {
+      return route.fulfill({ json: { items: [restaurant, nearbyRestaurant] } })
+    }
+    return route.fulfill({ json: { items: [restaurant, nearbyRestaurant], total: 2 } })
+  })
+
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
+  await page.getByPlaceholder('Найти станцию метро').fill('Лубянка')
+  await page.getByRole('checkbox', { name: 'Лубянка' }).check()
+
+  await expect(page.locator('.catalog-card')).toHaveCount(2)
+  await expect(page.locator('.catalog-card').filter({ hasText: nearbyRestaurant.name })).toHaveCount(1)
 })
 
 test('suggests a matching chain and leaves only nearby metro markers after selection', async ({ page }) => {
@@ -586,6 +645,7 @@ test('highlights only stations selected through the metro filter', async ({ page
 
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(3, { timeout: 15_000 })
   await page.getByRole('button', { name: /Где удобно/ }).click()
+  await page.getByRole('button', { name: 'У метро', exact: true }).click()
   await page.getByPlaceholder('Найти станцию метро').fill('Тверская')
   await page.getByRole('checkbox', { name: 'Тверская' }).check()
 
