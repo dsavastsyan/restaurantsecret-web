@@ -8,6 +8,10 @@ const googlePlaceMedia = await readFile(
   new URL('../src/components/GooglePlaceMedia.jsx', import.meta.url),
   'utf8',
 )
+const catalogPage = await readFile(
+  new URL('../src/pages/Catalog.jsx', import.meta.url),
+  'utf8',
+)
 const googlePlacesLoader = await readFile(
   new URL('../src/lib/googlePlaces.js', import.meta.url),
   'utf8',
@@ -42,4 +46,20 @@ test('reports only successful Google Place Details loads to the usage counter', 
 test('shows a food icon while the Google place photo is loading', () => {
   assert.match(googlePlaceMedia, /Utensils/)
   assert.match(googlePlaceMedia, /catalog-card__place-media-placeholder-icon/)
+})
+
+test('shows a food icon in the permanent placeholder for cards without photos', () => {
+  assert.match(
+    googlePlaceMedia,
+    /catalog-card__place-media--placeholder[\s\S]*catalog-card__place-media-placeholder-icon[\s\S]*<Utensils/,
+  )
+})
+
+test('renders media for every catalog card so cards without photos keep the same layout', () => {
+  assert.doesNotMatch(catalogPage, /firstPlaceMediaRestaurant/)
+  assert.match(catalogPage, /const googlePlaceId = getGooglePlaceId\(r\)/)
+  assert.match(
+    catalogPage,
+    /<GooglePlaceMedia key=\{googlePlaceId \|\| r\.slug \|\| r\.name\} placeId=\{googlePlaceId\}/,
+  )
 })
