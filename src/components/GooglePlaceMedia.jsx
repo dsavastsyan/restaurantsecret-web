@@ -8,6 +8,7 @@ const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey()
 
 export default function GooglePlaceMedia({ placeId, restaurantName }) {
   const elementHostRef = useRef(null)
+  const detailsRef = useRef(null)
   const [status, setStatus] = useState('loading')
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
       clearTimeout(timeoutId)
       details?.removeEventListener('gmp-load', handleLoad)
       details?.removeEventListener('gmp-error', handleError)
+      if (detailsRef.current === details) detailsRef.current = null
       elementHostRef.current?.replaceChildren()
       setStatus('error')
     }
@@ -40,6 +42,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
         details = document.createElement('gmp-place-details-compact')
         details.setAttribute('orientation', 'vertical')
         details.setAttribute('aria-label', `Фотография ресторана ${restaurantName} из Google`)
+        detailsRef.current = details
         details.addEventListener('gmp-load', handleLoad)
         details.addEventListener('gmp-error', handleError)
 
@@ -66,9 +69,16 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
       clearTimeout(timeoutId)
       details?.removeEventListener('gmp-load', handleLoad)
       details?.removeEventListener('gmp-error', handleError)
+      if (detailsRef.current === details) detailsRef.current = null
       if (elementHostRef.current) elementHostRef.current.replaceChildren()
     }
-  }, [placeId, restaurantName])
+  }, [placeId])
+
+  useEffect(() => {
+    if (detailsRef.current && restaurantName) {
+      detailsRef.current.setAttribute('aria-label', `Фотография ресторана ${restaurantName} из Google`)
+    }
+  }, [restaurantName])
 
   if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') return null
 

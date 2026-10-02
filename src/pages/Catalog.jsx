@@ -146,6 +146,9 @@ export default function Catalog() {
   const [geolocationLoading, setGeolocationLoading] = useState(false)
   const [geolocationError, setGeolocationError] = useState('')
   const [isPickingLocation, setIsPickingLocation] = useState(false)
+  // Keep the list mounted after its first visit so switching to the map does not
+  // recreate the Google UI Kit element. It is released when Catalog unmounts.
+  const [hasVisitedList, setHasVisitedList] = useState(() => searchParams.get('view') === 'list')
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
 
   const cityMetroData = useMemo(() => {
@@ -234,6 +237,7 @@ export default function Catalog() {
   }, [accessToken, navigate, query, searchParams, selectedCity.id])
 
   const changeViewMode = useCallback((nextMode) => {
+    if (nextMode === 'list') setHasVisitedList(true)
     const next = new URLSearchParams(searchParams)
     if (nextMode === 'list') next.set('view', 'list'); else next.delete('view')
     setSearchParams(next, { replace: true })
@@ -915,8 +919,12 @@ export default function Catalog() {
             onShowList={() => changeViewMode('list')}
           />
         </Suspense>
-      ) : (
-      <section className="catalog-results">
+      ) : null}
+      <section
+        className="catalog-results"
+        hidden={viewMode !== 'list'}
+        aria-hidden={viewMode !== 'list' ? 'true' : undefined}
+      >
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
         {!isInitialLoading && !error && (
           <div className="catalog-results__summary" role="status" aria-live="polite">
@@ -998,11 +1006,11 @@ export default function Catalog() {
               ? r.dishesCount
               : allDishes.length
             const badgeText = getInitials(r?.name)
-            const googlePlaceId = r === firstPlaceMediaRestaurant ? getGooglePlaceId(r) : ''
+            const googlePlaceId = hasVisitedList && r === firstPlaceMediaRestaurant ? getGooglePlaceId(r) : ''
             return (
-              <li key={`${r.slug || r.name}-${i}`} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
+              <li key={r.slug || r.id || r.name} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
                 {googlePlaceId && (
-                  <GooglePlaceMedia key={googlePlaceId} placeId={googlePlaceId} restaurantName={r.name} />
+                  <GooglePlaceMedia placeId={googlePlaceId} restaurantName={r.name} />
                 )}
                 <div className="catalog-card__top">
                   <div className="catalog-card__identity">
@@ -1094,7 +1102,6 @@ export default function Catalog() {
           </nav>
         )}
       </section>
-      )}
     </div>
   )
 }

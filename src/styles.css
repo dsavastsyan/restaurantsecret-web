@@ -5093,6 +5093,11 @@ html[data-rs-theme="night"] .catalog-location-filter__center-note {
   gap: 18px;
 }
 
+/* Keep the list (and its loaded Google UI Kit element) mounted while the map tab is active. */
+.catalog-results[hidden] {
+  display: none;
+}
+
 .catalog-page--map .catalog-heading__eyebrow {
   display: none;
 }
