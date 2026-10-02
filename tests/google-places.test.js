@@ -48,6 +48,13 @@ test('shows a food icon while the Google place photo is loading', () => {
   assert.match(googlePlaceMedia, /catalog-card__place-media-placeholder-icon/)
 })
 
+test('shows a food icon in the permanent placeholder for cards without photos', () => {
+  assert.match(
+    googlePlaceMedia,
+    /catalog-card__place-media--placeholder[\s\S]*catalog-card__place-media-placeholder-icon[\s\S]*<Utensils/,
+  )
+})
+
 test('renders media for every catalog card so cards without photos keep the same layout', () => {
   assert.doesNotMatch(catalogPage, /firstPlaceMediaRestaurant/)
   assert.match(catalogPage, /const googlePlaceId = getGooglePlaceId\(r\)/)
