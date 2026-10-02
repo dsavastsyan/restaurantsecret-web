@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { computeMacroGeometry, formatNumeric, formatPortionLabel, formatPriceRub } from '@/lib/nutrition';
 import { useAuth } from '@/store/auth';
@@ -8,6 +8,7 @@ import { useDiaryStore } from '@/store/diary';
 import { analytics } from '@/services/analytics';
 import MacroRing from './MacroRing';
 import { HeartIcon, DiaryIcon, LockIcon } from './icons';
+import VariantPicker from './VariantPicker';
 
 type DishRowV2Props = {
   dish: any;
@@ -16,7 +17,7 @@ type DishRowV2Props = {
   isFreeAccess?: boolean;
   interactive?: boolean;
   readOnly?: boolean;
-  onClick?: () => void;
+  onClick?: (dish: any) => void;
 };
 
 // Redesigned mobile feed row. Same data/handlers as DishTileV2 — the two
@@ -29,20 +30,26 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
     hasActiveSub: state.hasActiveSub,
     hasSubscriptionHistory: state.hasSubscriptionHistory,
   }));
+  const variants = Array.isArray(dish.variants) ? dish.variants : [];
+  const [selectedVariantId, setSelectedVariantId] = useState(dish.id);
+  useEffect(() => {
+    if (!variants.some((variant) => variant.id === selectedVariantId)) setSelectedVariantId(variants[0]?.id ?? dish.id);
+  }, [dish.id, selectedVariantId, variants]);
+  const selectedDish = variants.find((variant) => variant.id === selectedVariantId) || dish;
   const { isFavorite, toggle } = useFavoritesStore((state) => ({
-    isFavorite: state.isFavorite(Number(dish.id)),
+    isFavorite: state.isFavorite(Number(selectedDish.id)),
     toggle: state.toggle,
   }));
   const addDiaryEntry = useDiaryStore((s) => s.addEntry);
 
   const favorited = isFavorite;
   const hasDishAccess = hasActiveSub || isFreeAccess;
-  const photoUrl = dish.photoUrl || dish.photo_url || null;
+  const photoUrl = selectedDish.photoUrl || selectedDish.photo_url || null;
   void hasSubscriptionHistory;
 
-  const geometry = useMemo(() => computeMacroGeometry(dish.protein, dish.fat, dish.carbs), [dish.protein, dish.fat, dish.carbs]);
-  const price = formatPriceRub(dish.price);
-  const portion = formatPortionLabel(dish);
+  const geometry = useMemo(() => computeMacroGeometry(selectedDish.protein, selectedDish.fat, selectedDish.carbs), [selectedDish.protein, selectedDish.fat, selectedDish.carbs]);
+  const price = formatPriceRub(selectedDish.price);
+  const portion = formatPortionLabel(selectedDish);
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -56,11 +63,11 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
       return;
     }
     if (!favorited) {
-      analytics.track('favorite_add', { type: 'dish', dish_id: dish.id, name: dish.name });
+      analytics.track('favorite_add', { type: 'dish', dish_id: selectedDish.id, name: selectedDish.name });
     } else {
-      analytics.track('favorite_remove', { type: 'dish', dish_id: dish.id, name: dish.name });
+      analytics.track('favorite_remove', { type: 'dish', dish_id: selectedDish.id, name: selectedDish.name });
     }
-    await toggle(accessToken, Number(dish.id), restaurantSlug);
+    await toggle(accessToken, Number(selectedDish.id), restaurantSlug);
   };
 
   const handleDiaryAdd = async (e: React.MouseEvent) => {
@@ -78,18 +85,18 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
       const n = Number(val);
       return Number.isFinite(n) ? n : 0;
     };
-    const dishId = Number(dish.id);
+    const dishId = Number(selectedDish.id);
     await addDiaryEntry(accessToken, {
       date: new Date().toISOString().split('T')[0],
       dish_id: Number.isFinite(dishId) ? dishId : undefined,
       restaurant_slug: restaurantSlug,
       restaurant_name: restaurantName || undefined,
-      name: dish.name || 'Блюдо',
-      calories: safeNum(dish.kcal),
-      protein: safeNum(dish.protein),
-      fat: safeNum(dish.fat),
-      carbs: safeNum(dish.carbs),
-      weight: safeNum(dish.weight) || undefined,
+      name: selectedDish.name || dish.name || 'Блюдо',
+      calories: safeNum(selectedDish.kcal),
+      protein: safeNum(selectedDish.protein),
+      fat: safeNum(selectedDish.fat),
+      carbs: safeNum(selectedDish.carbs),
+      weight: safeNum(selectedDish.weight) || undefined,
     });
   };
 
@@ -104,12 +111,12 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
       }
       return;
     }
-    onClick?.();
+    onClick?.(selectedDish);
   };
 
   const handleRowClick = () => {
     if (!interactive) return;
-    onClick?.();
+    onClick?.(selectedDish);
   };
 
   return (
@@ -136,13 +143,21 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
           )}
         </div>
 
+        {hasDishAccess && variants.length > 1 && (
+          <VariantPicker
+            variants={variants}
+            selected={selectedDish}
+            onChange={(variant) => setSelectedVariantId(variant.id)}
+          />
+        )}
+
         {/*
           The ring sits in its own grid column spanning both the macro row and
           the action row, so it can be much larger than the 30px it had when it
           was trapped inside a single line. Everything else stacks to its right.
         */}
         <div className={`rsm2-row__lower ${hasDishAccess ? '' : 'rsm2-row__lower--teaser'}`}>
-          <MacroRing geometry={geometry} kcal={dish.kcal} size="row" className="rsm2-row__ring--tall" concealed={!hasDishAccess} />
+          <MacroRing geometry={geometry} kcal={selectedDish.kcal} size="row" className="rsm2-row__ring--tall" concealed={!hasDishAccess} />
 
           <div className="rsm2-row__macro-col">
             <div className="rsm2-row__macrobar" aria-hidden="true">
@@ -152,7 +167,7 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
             </div>
             <span className="rsm2-row__macro-text">
               {hasDishAccess
-                ? `Б ${formatNumeric(dish.protein)} · Ж ${formatNumeric(dish.fat)} · У ${formatNumeric(dish.carbs)}`
+                ? `Б ${formatNumeric(selectedDish.protein)} · Ж ${formatNumeric(selectedDish.fat)} · У ${formatNumeric(selectedDish.carbs)}`
                 : 'Б — · Ж — · У —'}
             </span>
           </div>

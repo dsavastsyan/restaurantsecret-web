@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiGet } from '@/lib/requests'
-import { flattenMenuDishes } from '@/lib/nutrition'
+import { flattenMenuDishes, flattenMenuGroups } from '@/lib/nutrition'
 import { formatDescription, matchesSearchQuery } from '@/lib/text'
 import {
   buildIngredientOptions,
@@ -253,6 +253,7 @@ export default function Menu({
   }, [city, slug])
 
   const dishes = useMemo(() => flattenMenuDishes(menu), [menu])
+  const menuGroups = useMemo(() => flattenMenuGroups(menu), [menu])
   const sectionOptions = useMemo(() => {
     const categories = Array.isArray(menu?.categories) ? menu.categories : []
     if (!categories.length || categories.some((category) => !['food', 'drinks'].includes(category?.menuSection))) {
@@ -275,31 +276,39 @@ export default function Menu({
   }
   const freeDishKeys = useMemo(() => {
     const isQrAccess = !previewMode && hasQrMenuAccess(slug)
-    const visibleDishes = (previewMode || isQrAccess) ? dishes : dishes.slice(0, 3)
-    return new Set(visibleDishes.map((dish) => buildDishAccessKey(dish)))
-  }, [dishes, previewMode, slug])
+    const visibleGroups = (previewMode || isQrAccess) ? menuGroups : menuGroups.slice(0, 3)
+    return new Set(visibleGroups.map((group) => buildDishAccessKey(group)))
+  }, [menuGroups, previewMode, slug])
   const capturedAt = useMemo(() => formatMenuCapturedAt(menu?.menuCapturedAt), [menu?.menuCapturedAt])
 
-  // Apply search and macro filters locally to keep the UI responsive.
+  // Apply search and macro filters to atomic variants, then keep only the
+  // matching variants inside each visible base item. This prevents a filtered
+  // result from re-opening all hidden milk/size combinations.
   const filtered = useMemo(() => {
     const q = query.trim()
-    return dishes.filter((dish) => {
-      if (selectedSection !== 'all' && dish.menuSection !== selectedSection) return false
-      const categoryName = formatDescription(dish.category, '') || 'Без категории'
-      if (selectedCategory !== 'all' && categoryName !== selectedCategory) return false
-      const searchableComposition = formatDescription(dish.ingredients ?? dish.description, '')
-      if (q && !matchesSearchQuery(dish.name, q) && !matchesSearchQuery(searchableComposition, q)) return false
-      if (presets.highProtein && !(dish.protein >= 25)) return false
-      if (presets.lowFat && !(dish.fat <= 10)) return false
-      if (presets.lowKcal && !(dish.kcal <= 400)) return false
-      if (!inRange(dish.kcal, range.kcal.min, range.kcal.max)) return false
-      if (!inRange(dish.protein, range.protein.min, range.protein.max)) return false
-      if (!inRange(dish.fat, range.fat.min, range.fat.max)) return false
-      if (!inRange(dish.carbs, range.carbs.min, range.carbs.max)) return false
-      if (!dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)) return false
-      return true
+    return menuGroups.flatMap((group) => {
+      if (selectedSection !== 'all' && group.menuSection !== selectedSection) return []
+      const categoryName = formatDescription(group.category, '') || 'Без категории'
+      if (selectedCategory !== 'all' && categoryName !== selectedCategory) return []
+      const variants = Array.isArray(group.variants) && group.variants.length ? group.variants : [group]
+      const groupNameMatches = q && matchesSearchQuery(group.name, q)
+      const matchingVariants = variants.filter((dish) => {
+        const searchableComposition = formatDescription(dish.ingredients ?? dish.description, '')
+        if (q && !groupNameMatches && !matchesSearchQuery(dish.name, q) && !matchesSearchQuery(searchableComposition, q)) return false
+        if (presets.highProtein && !(dish.protein >= 25)) return false
+        if (presets.lowFat && !(dish.fat <= 10)) return false
+        if (presets.lowKcal && !(dish.kcal <= 400)) return false
+        if (!inRange(dish.kcal, range.kcal.min, range.kcal.max)) return false
+        if (!inRange(dish.protein, range.protein.min, range.protein.max)) return false
+        if (!inRange(dish.fat, range.fat.min, range.fat.max)) return false
+        if (!inRange(dish.carbs, range.carbs.min, range.carbs.max)) return false
+        if (!dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)) return false
+        return true
+      })
+      if (!matchingVariants.length) return []
+      return [{ ...group, variants: matchingVariants, variantCount: matchingVariants.length, ...matchingVariants[0], name: group.name }]
     })
-  }, [dishes, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
+  }, [menuGroups, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
 
   const hasRestrictedMenuFilters = useMemo(() => {
     const hasCustomRange = Object.values(range).some((bounds) => bounds.min !== '' || bounds.max !== '')
@@ -402,8 +411,8 @@ export default function Menu({
     rawSeoName && !isSlugLike(rawSeoName)
       ? rawSeoName.charAt(0).toUpperCase() + rawSeoName.slice(1)
       : 'ресторана'
-  const seoDishCount = menu ? dishes.length : (seoHint?.dishCount ?? dishes.length)
-  const seoDishWord = pluralizeRu(seoDishCount, ['блюдо', 'блюда', 'блюд'])
+  const seoDishCount = menu ? menuGroups.length : (seoHint?.dishCount ?? menuGroups.length)
+  const seoDishWord = pluralizeRu(seoDishCount, ['позиция', 'позиции', 'позиций'])
   const seoDescription = useMemo(
     () => `${seoDishCount} ${seoDishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${seoRestaurantName} перед посещением ресторана.`,
     [seoDishCount, seoDishWord, seoRestaurantName]
