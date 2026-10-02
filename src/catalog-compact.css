@@ -970,6 +970,7 @@
 }
 
 .catalog-location-filter__empty,
+.catalog-location-filter__empty-state,
 .catalog-place-filter__empty {
   margin: 14px 0;
   color: #9299a1;
