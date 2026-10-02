@@ -27371,6 +27371,147 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
   }
 }
 
+/* Subscription layout repair: keep the plan summary in a predictable flow.
+   The previous desktop compact pass pulled the metadata up with a negative
+   margin, which made it collide with the plan title at normal viewport widths. */
+.account-subscription-panel.is-active-subscription {
+  width: min(100%, 920px) !important;
+}
+
+.account-subscription-panel.is-active-subscription .account-subscription-v2__active-card {
+  min-height: 0 !important;
+  padding: clamp(24px, 3vw, 38px) !important;
+}
+
+.account-subscription-panel.is-active-subscription .account-subscription-v2__active-meta {
+  max-width: none !important;
+  margin-top: 16px !important;
+  margin-bottom: 0 !important;
+}
+
+.account-subscription-panel.is-active-subscription :is(button, a):focus-visible {
+  outline: 3px solid rgba(117, 132, 90, 0.5) !important;
+  outline-offset: 3px !important;
+}
+
+@media (min-width: 900px) {
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-content {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "badges badges"
+      "title price"
+      "meta meta"
+      "actions actions" !important;
+    align-items: start !important;
+    column-gap: clamp(28px, 4vw, 64px) !important;
+    row-gap: 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-badges {
+    grid-area: badges !important;
+    margin-bottom: 20px !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-plan-row {
+    display: contents !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-title {
+    grid-area: title !important;
+    align-self: start !important;
+    margin: 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price-column {
+    grid-area: price !important;
+    align-items: flex-end !important;
+    margin: 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price {
+    margin: 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-meta {
+    grid-area: meta !important;
+    margin: 20px 0 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-actions--desktop {
+    grid-area: actions !important;
+    align-items: flex-start !important;
+    margin-top: 18px !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-actions--mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 899px) {
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-card {
+    padding: 22px 18px 20px !important;
+    border-radius: 20px !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-content {
+    display: block !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-plan-row {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price-column {
+    margin-left: auto !important;
+    align-items: flex-end !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-meta {
+    margin: 16px 0 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-actions--mobile {
+    display: flex !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-actions--desktop {
+    display: none !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-title,
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price,
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-meta,
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-note {
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-plan-row {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price-column {
+    align-items: flex-start !important;
+    margin-left: 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-card,
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-card:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
 /* Giveaway popup preview */
 .rs-giveaway {
   --rs-giveaway-bg: #f7f1e4;
