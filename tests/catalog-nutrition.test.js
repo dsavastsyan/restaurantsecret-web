@@ -71,7 +71,7 @@ test('round-trips catalog filters through the menu navigation URL', () => {
     selectedVenueTypes: ['restaurant'],
     selectedMetro: ['Тверская'],
     locationMode: 'nearby',
-    radiusKm: null,
+    radiusKm: 3,
     nearbyPoint: { lat: 55.75, lon: 37.62 },
     nearbyPointLabel: 'моё местоположение',
     addressQuery: '',
@@ -88,7 +88,7 @@ test('round-trips catalog filters through the menu navigation URL', () => {
     selectedVenueTypes: ['restaurant'],
     selectedMetro: ['Тверская'],
     locationMode: 'nearby',
-    radiusKm: null,
+    radiusKm: 3,
     nearbyPoint: { lat: 55.75, lon: 37.62 },
     nearbyPointLabel: 'моё местоположение',
     addressQuery: '',
@@ -101,10 +101,78 @@ test('round-trips catalog filters through the menu navigation URL', () => {
   })
 })
 
-test('defaults the catalog radius to 3 km until an explicit no-limit value is selected', () => {
+test('defaults to the center with a 3 km radius and persists an empty location filter', () => {
   assert.equal(DEFAULT_CATALOG_RADIUS_KM, 3)
-  assert.equal(parseCatalogFilterState(new URLSearchParams()).radiusKm, DEFAULT_CATALOG_RADIUS_KM)
-  assert.equal(parseCatalogFilterState(new URLSearchParams('catalog_radius=none')).radiusKm, null)
+  assert.deepEqual(
+    parseCatalogFilterState(new URLSearchParams()),
+    {
+      selectedCuisines: [],
+      selectedVenueTypes: [],
+      selectedMetro: [],
+      locationMode: 'center',
+      radiusKm: DEFAULT_CATALOG_RADIUS_KM,
+      nearbyPoint: null,
+      nearbyPointLabel: '',
+      addressQuery: '',
+      nutritionCriteria: {
+        calories: { min: '', max: '' },
+        protein: { min: '', max: '' },
+        fat: { min: '', max: '' },
+        carbs: { min: '', max: '' },
+      },
+    },
+  )
+  assert.equal(parseCatalogFilterState(new URLSearchParams('catalog_location=center&catalog_radius=none')).radiusKm, 3)
+
+  const activeParams = new URLSearchParams()
+  serializeCatalogFilterState(activeParams, {
+    selectedCuisines: [],
+    selectedVenueTypes: [],
+    selectedMetro: [],
+    locationMode: 'center',
+    radiusKm: null,
+    nearbyPoint: null,
+    nearbyPointLabel: '',
+    addressQuery: '',
+    nutritionCriteria: {},
+  })
+  assert.equal(activeParams.get('catalog_location'), 'center')
+  assert.equal(activeParams.get('catalog_radius'), '3')
+
+  assert.deepEqual(
+    parseCatalogFilterState(new URLSearchParams('catalog_location=none')),
+    {
+      selectedCuisines: [],
+      selectedVenueTypes: [],
+      selectedMetro: [],
+      locationMode: null,
+      radiusKm: null,
+      nearbyPoint: null,
+      nearbyPointLabel: '',
+      addressQuery: '',
+      nutritionCriteria: {
+        calories: { min: '', max: '' },
+        protein: { min: '', max: '' },
+        fat: { min: '', max: '' },
+        carbs: { min: '', max: '' },
+      },
+    },
+  )
+
+  const params = new URLSearchParams('catalog_location=center&catalog_radius=3')
+  serializeCatalogFilterState(params, {
+    selectedCuisines: [],
+    selectedVenueTypes: [],
+    selectedMetro: [],
+    locationMode: null,
+    radiusKm: null,
+    nearbyPoint: null,
+    nearbyPointLabel: '',
+    addressQuery: '',
+    nutritionCriteria: {},
+  })
+  assert.equal(params.get('catalog_location'), 'none')
+  assert.equal(params.has('catalog_radius'), false)
 })
 
 test('keeps optional restaurant metadata absent instead of inventing values', () => {

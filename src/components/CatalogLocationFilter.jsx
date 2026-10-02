@@ -7,10 +7,7 @@ const MODES = [
   { id: 'center', label: 'В центре' },
 ]
 
-const RADIUS_OPTIONS = [
-  { value: null, label: 'Без ограничения' },
-  ...[1, 3, 5, 10].map((value) => ({ value, label: `${value} км` })),
-]
+const RADIUS_OPTIONS = [1, 3, 5, 10].map((value) => ({ value, label: `${value} км` }))
 
 export default function CatalogLocationFilter({
   mode,
@@ -92,6 +89,12 @@ export default function CatalogLocationFilter({
       </div>
 
       <div className="catalog-location-filter__body">
+        {mode == null && (
+          <p className="catalog-location-filter__empty-state">
+            Место не выбрано. Выберите режим, если хотите ограничить поиск.
+          </p>
+        )}
+
         {mode === 'metro' && (
           <div className="catalog-location-filter__metro">
             <label className="catalog-location-filter__search">
@@ -258,22 +261,24 @@ export default function CatalogLocationFilter({
           </p>
         )}
 
-        <div className="catalog-location-filter__radius">
-          <span className="catalog-location-filter__caption">Радиус</span>
-          <div role="group" aria-label="Допустимый радиус">
-            {RADIUS_OPTIONS.map(({ value, label }) => (
-              <button
-                key={value ?? 'unlimited'}
-                type="button"
-                className={radiusKm === value ? 'is-active' : ''}
-                aria-pressed={radiusKm === value}
-                onClick={() => onRadiusChange(value)}
-              >
-                {label}
-              </button>
-            ))}
+        {mode != null && (
+          <div className="catalog-location-filter__radius">
+            <span className="catalog-location-filter__caption">Радиус</span>
+            <div role="group" aria-label="Допустимый радиус">
+              {RADIUS_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={radiusKm === value ? 'is-active' : ''}
+                  aria-pressed={radiusKm === value}
+                  onClick={() => onRadiusChange(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </fieldset>
   )
