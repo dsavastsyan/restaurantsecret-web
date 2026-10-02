@@ -8,9 +8,18 @@ import {
 
 const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey()
 
-export default function GooglePlaceMedia({ placeId, restaurantName }) {
+export default function GooglePlaceMedia({ placeId, restaurantName, className = 'catalog-card__place-media', mediaSize = 'large' }) {
   const elementHostRef = useRef(null)
   const [status, setStatus] = useState('loading')
+  const placeholderClassName = className === 'catalog-card__place-media'
+    ? 'catalog-card__place-media-placeholder'
+    : `${className}-placeholder`
+  const elementClassName = className === 'catalog-card__place-media'
+    ? 'catalog-card__place-media-element'
+    : `${className}-element`
+  const placeholderIconClassName = className === 'catalog-card__place-media'
+    ? 'catalog-card__place-media-placeholder-icon'
+    : `${className}-placeholder-icon`
 
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY || !placeId) return undefined
@@ -56,7 +65,7 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
         const content = document.createElement('gmp-place-content-config')
         const media = document.createElement('gmp-place-media')
         media.setAttribute('lightbox-preferred', '')
-        media.setAttribute('preferred-size', 'large')
+        media.setAttribute('preferred-size', mediaSize)
         const attribution = document.createElement('gmp-place-attribution')
         attribution.setAttribute('light-scheme-color', 'gray')
         attribution.setAttribute('dark-scheme-color', 'white')
@@ -75,22 +84,22 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
       details?.removeEventListener('gmp-error', handleError)
       if (elementHostRef.current) elementHostRef.current.replaceChildren()
     }
-  }, [placeId, restaurantName])
+  }, [mediaSize, placeId, restaurantName])
 
   if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') {
     return (
-      <div className="catalog-card__place-media catalog-card__place-media--placeholder" aria-hidden="true">
-        <div className="catalog-card__place-media-placeholder" />
+      <div className={`${className} ${className}--placeholder`} aria-hidden="true">
+        <div className={placeholderClassName} />
       </div>
     )
   }
 
   return (
-    <div className={`catalog-card__place-media${status === 'loaded' ? ' is-loaded' : ''}`}>
-      <div ref={elementHostRef} className="catalog-card__place-media-element" />
+    <div className={`${className}${status === 'loaded' ? ' is-loaded' : ''}`}>
+      <div ref={elementHostRef} className={elementClassName} />
       {status !== 'loaded' && (
-        <div className="catalog-card__place-media-placeholder" aria-hidden="true">
-          <span className="catalog-card__place-media-placeholder-icon">
+        <div className={placeholderClassName} aria-hidden="true">
+          <span className={placeholderIconClassName}>
             <Utensils size={32} strokeWidth={1.7} />
           </span>
         </div>

@@ -8,6 +8,10 @@ const googlePlaceMedia = await readFile(
   new URL('../src/components/GooglePlaceMedia.jsx', import.meta.url),
   'utf8',
 )
+const catalogMap = await readFile(
+  new URL('../src/components/CatalogMap.jsx', import.meta.url),
+  'utf8',
+)
 const googlePlacesLoader = await readFile(
   new URL('../src/lib/googlePlaces.js', import.meta.url),
   'utf8',
@@ -42,4 +46,11 @@ test('reports only successful Google Place Details loads to the usage counter', 
 test('shows a food icon while the Google place photo is loading', () => {
   assert.match(googlePlaceMedia, /Utensils/)
   assert.match(googlePlaceMedia, /catalog-card__place-media-placeholder-icon/)
+})
+
+test('uses the Google Places UI Kit in the selected map card when a place ID exists', () => {
+  assert.match(catalogMap, /selectedRestaurantGooglePlaceId/)
+  assert.match(catalogMap, /className="catalog-map-card__place-media"/)
+  assert.match(catalogMap, /mediaSize="small"/)
+  assert.match(catalogMap, /catalog-map-card__mark/)
 })

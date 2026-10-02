@@ -12,6 +12,8 @@ import MetroStationsLayer from './map/MetroStationsLayer'
 import MetroStationsText from './MetroStationsText'
 import { normalizeInstagramUrl } from '@/lib/instagram'
 import { getCatalogMapPointKey, normalizeCatalogMetroStations } from '@/lib/catalogMapItems'
+import GooglePlaceMedia from './GooglePlaceMedia.jsx'
+import { getGooglePlaceId } from '@/lib/googlePlaces'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
 const DEFAULT_ZOOM = 10
@@ -208,6 +210,7 @@ export default function CatalogMap({
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
   const selectedKey = getCatalogMapPointKey(selectedRestaurant)
   const selectedRestaurantInstagramUrl = normalizeInstagramUrl(selectedRestaurant?.instagramUrl)
+  const selectedRestaurantGooglePlaceId = getGooglePlaceId(selectedRestaurant)
 
   useEffect(() => {
     if (!selectedKey) return
@@ -291,9 +294,18 @@ export default function CatalogMap({
             ×
           </button>
           <div className="catalog-map-card__heading">
-            <span className="catalog-map-card__mark" aria-hidden="true">
-              {String(selectedRestaurant.name || 'Р').trim().charAt(0).toUpperCase()}
-            </span>
+            {selectedRestaurantGooglePlaceId ? (
+              <GooglePlaceMedia
+                className="catalog-map-card__place-media"
+                mediaSize="small"
+                placeId={selectedRestaurantGooglePlaceId}
+                restaurantName={selectedRestaurant.name}
+              />
+            ) : (
+              <span className="catalog-map-card__mark" aria-hidden="true">
+                {String(selectedRestaurant.name || 'Р').trim().charAt(0).toUpperCase()}
+              </span>
+            )}
             <div>
               <h2>{selectedRestaurant.name}</h2>
               {selectedRestaurant.cuisine && <p>{selectedRestaurant.cuisine}</p>}
