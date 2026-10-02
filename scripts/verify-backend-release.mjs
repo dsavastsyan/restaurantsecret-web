@@ -254,9 +254,10 @@ async function main() {
   const manifestPath = args.get('--manifest') || DEFAULT_MANIFEST
   const timeoutSeconds = Number(process.env.BACKEND_RELEASE_TIMEOUT_SECONDS || DEFAULT_TIMEOUT_SECONDS)
   const pollSeconds = Number(process.env.BACKEND_RELEASE_POLL_SECONDS || DEFAULT_POLL_SECONDS)
-  if (!process.env.GITHUB_TOKEN) throw new Error('GITHUB_TOKEN is required')
+  const token = process.env.BACKEND_RELEASE_TOKEN || process.env.GITHUB_TOKEN
+  if (!token) throw new Error('BACKEND_RELEASE_TOKEN is required for cross-repository checks')
   const manifest = await loadManifest(manifestPath)
-  const api = new GitHubApi({ token: process.env.GITHUB_TOKEN })
+  const api = new GitHubApi({ token })
   await waitForBackendRelease({ api, manifest, environment, timeoutSeconds, pollSeconds })
 }
 

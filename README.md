@@ -98,10 +98,10 @@ and the backend PR. The PR checks wait for the backend PRs and their staging
 deployments. After merge, the Pages workflow repeats the same check against
 the backend production branches before building or deploying the site.
 
-The workflows use `BACKEND_RELEASE_TOKEN` when configured. It should have
-read-only access to pull requests, actions, and contents in both backend
-repositories; for public repositories the repository `GITHUB_TOKEN` is a
-fallback.
+The workflows require a repository secret named `BACKEND_RELEASE_TOKEN`. It
+should have read-only access to pull requests, actions, and contents in both
+backend repositories. The default web-repository `GITHUB_TOKEN` is not enough
+for cross-repository workflow status queries.
 
 ### How to Enable
 1. Locate `public/maintenance.json` in the GitHub repository.
