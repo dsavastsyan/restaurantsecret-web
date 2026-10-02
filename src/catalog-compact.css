@@ -266,6 +266,10 @@
   cursor: pointer;
 }
 
+.catalog-filter-popover__actions {
+  display: none;
+}
+
 .catalog-filter-popover__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -585,7 +589,7 @@
     top: auto;
     z-index: 100;
     width: auto;
-    max-height: 82dvh;
+    max-height: min(72dvh, 620px);
     overflow: auto;
     padding: 18px;
     border-radius: 22px;
@@ -607,6 +611,43 @@
 
   .catalog-filter-popover__grid .catalog-filter--cuisine {
     grid-column: auto;
+  }
+
+  .catalog-filter-popover__actions {
+    position: sticky;
+    right: 0;
+    bottom: -18px;
+    z-index: 1;
+    display: block;
+    margin: 18px -18px -18px;
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid #e7e3d9;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.92), #fff 30%);
+  }
+
+  .catalog-filter-popover__apply {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 13px;
+    background: var(--catalog-compact-sage-dark);
+    box-shadow: 0 6px 16px rgba(111, 128, 85, 0.22);
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .catalog-filter-popover__apply:focus-visible {
+    outline: 3px solid rgba(111, 128, 85, 0.32);
+    outline-offset: 2px;
+  }
+
+  .catalog-filter-popover__apply:active {
+    transform: translateY(1px);
   }
 
   .catalog-filter-popover .catalog-location-filter__modes {
@@ -1760,7 +1801,7 @@
     right: 10px;
     left: 10px;
     width: auto;
-    max-height: 82dvh;
+    max-height: min(72dvh, 620px);
     padding: 18px;
     border-radius: 22px;
     bottom: 10px;

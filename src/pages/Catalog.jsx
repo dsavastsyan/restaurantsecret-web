@@ -1258,6 +1258,11 @@ export default function Catalog() {
                   onPickOnMap={handlePickOnMap}
                   isPickingOnMap={isPickingLocation}
                 />
+              <div className="catalog-filter-popover__actions">
+                <button type="button" className="catalog-filter-popover__apply" onClick={() => setOpenFilter(null)}>
+                  Применить
+                </button>
+              </div>
             </div>
 
             <div
@@ -1282,6 +1287,11 @@ export default function Catalog() {
                 selectedVenueTypes={selectedVenueTypes}
                 onVenueTypesChange={setSelectedVenueTypes}
               />
+              <div className="catalog-filter-popover__actions">
+                <button type="button" className="catalog-filter-popover__apply" onClick={() => setOpenFilter(null)}>
+                  Применить
+                </button>
+              </div>
             </div>
 
             <div
@@ -1362,6 +1372,11 @@ export default function Catalog() {
                     <span>{unit}</span>
                   </div>
                 ))}
+              </div>
+              <div className="catalog-filter-popover__actions">
+                <button type="button" className="catalog-filter-popover__apply" onClick={() => setOpenFilter(null)}>
+                  Применить
+                </button>
               </div>
             </div>
           </form>
