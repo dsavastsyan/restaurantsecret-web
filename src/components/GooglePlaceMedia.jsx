@@ -90,7 +90,11 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
   if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') {
     return (
       <div className="catalog-card__place-media catalog-card__place-media--placeholder" aria-hidden="true">
-        <div className="catalog-card__place-media-placeholder" />
+        <div className="catalog-card__place-media-placeholder">
+          <span className="catalog-card__place-media-placeholder-icon">
+            <Utensils size={32} strokeWidth={1.7} />
+          </span>
+        </div>
       </div>
     )
   }
