@@ -14,6 +14,10 @@ import MapCuisineFilter from './MapCuisineFilter'
 import MapCityFilter from './MapCityFilter'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { getMetroSelectionPoints, normalizeMetroStationName } from '@/lib/metroSelection'
+import {
+  getCatalogCuisineFilterValues,
+  normalizeCatalogCuisine,
+} from '@/lib/catalogFilters'
 import CleanMapBaseLayer from './map/CleanMapBaseLayer'
 import MetroStationsLayer from './map/MetroStationsLayer'
 
@@ -244,15 +248,9 @@ function getRestaurantKey(item) {
 }
 
 function isFastFoodCuisine(cuisineRaw) {
-  if (!cuisineRaw) return false
-  const normalized = String(cuisineRaw).toLowerCase().replace(/\s+/g, '')
-  return (
-    normalized.includes('фастфуд') ||
-    normalized.includes('быстроепитание') ||
-    normalized.includes('fastfood') ||
-    normalized.includes('fast-food') ||
-    normalized.includes('quickservice')
-  )
+  return normalizeCatalogCuisine(cuisineRaw)
+    .split(', ')
+    .includes('Фастфуд')
 }
 
 function calculateRestaurantStats(restaurants) {
@@ -428,7 +426,9 @@ export default function RestaurantMap({
         const res = await fetch(`${API_BASE}/filters?city=${encodeURIComponent(selectedCity)}`)
         if (res.ok) {
           const data = await res.json()
-          setCuisines(data.cuisines || [])
+          setCuisines(Array.from(new Set(
+            (data.cuisines || []).map(normalizeCatalogCuisine).filter(Boolean),
+          )))
         }
       } catch (err) {
         console.error('Failed to load cuisines data', err)
@@ -447,7 +447,8 @@ export default function RestaurantMap({
         const params = new URLSearchParams()
         params.set('city', selectedCity)
         if (filters.cuisines && filters.cuisines.length > 0) {
-          filters.cuisines.forEach((cuisine) => params.append('cuisine', cuisine))
+          getCatalogCuisineFilterValues(filters.cuisines)
+            .forEach((cuisine) => params.append('cuisine', cuisine))
         }
 
         const res = await fetch(`${API_BASE}/restaurants/map?${params.toString()}`)
