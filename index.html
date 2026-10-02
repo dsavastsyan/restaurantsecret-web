@@ -326,8 +326,20 @@
       if (!window.location.hostname.endsWith('.pages.dev')) {
       window.ym = window.ym || function(){(window.ym.a=window.ym.a||[]).push(arguments)};
       window.ym.l = 1 * new Date();
+      // Metrika must respect the same cookie-consent decision as the custom
+      // analytics pipe (src/services/analytics.js) instead of loading unconditionally.
+      function __hasAnalyticsConsent(){
+        try {
+          var raw = localStorage.getItem('rs_consent_v1');
+          if (!raw) return false;
+          var parsed = JSON.parse(raw);
+          return !!parsed && parsed.policyVersion === 'cookies_v1_2026-01-16' && parsed.analytics === 'granted';
+        } catch (e) {
+          return false;
+        }
+      }
       window.__loadYandexMetrika = window.__loadYandexMetrika || function(){
-        if (window.__yandexMetrikaLoaded) return;
+        if (window.__yandexMetrikaLoaded || !__hasAnalyticsConsent()) return;
         window.__yandexMetrikaLoaded = true;
         var script = document.createElement('script');
         script.async = true;
@@ -347,7 +359,8 @@
     </script>
   </head>
   <body>
-    <noscript><div><img src="https://mc.yandex.ru/watch/108992733" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- No noscript pixel here: it can't be gated by stored consent (consent itself
+         requires JS), and we'd rather under-count no-JS visitors than track without consent. -->
     <div id="rs-splash" role="status" aria-live="polite" aria-label="RestaurantSecret загружается">
       <svg class="rs-splash__decor" viewBox="0 0 1200 800" preserveAspectRatio="none" aria-hidden="true">
         <ellipse cx="600" cy="-80" rx="620" ry="500" fill="none" stroke="rgba(212,122,58,0.07)" stroke-width="2" />

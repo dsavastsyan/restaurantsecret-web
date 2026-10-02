@@ -269,7 +269,9 @@ export default function AppShell() {
   const isRestaurantsCatalogPage =
     normalizedPath === '/restaurants' ||
     normalizedPath === '/catalog' ||
-    normalizedPath === '/app/catalog'
+    normalizedPath.startsWith('/catalog/') ||
+    normalizedPath === '/app/catalog' ||
+    normalizedPath.startsWith('/app/catalog/')
   // A chain's bare URL (e.g. /restaurants/syrovarnya) — the hub page, not a
   // single restaurant's menu, so it's excluded by isRestaurantMenuPage's
   // /menu suffix requirement and needs its own, equally full-width container.

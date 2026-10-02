@@ -3511,7 +3511,7 @@ html[data-rs-theme="night"] .navbar.navbar--guest .navbar__brand--guest {
   border-color: #cbd5e1;
 }
 
-.catalog-card__icon-btn--web {
+.catalog-card__icon-btn--instagram {
   color: #2f6f68;
 }
 
@@ -4427,8 +4427,23 @@ html[data-rs-theme="night"] .catalog-location-filter__center-note {
 .catalog-card__place-media-placeholder {
   position: absolute;
   inset: 0;
+  display: grid;
+  place-items: center;
   border-radius: inherit;
   background: linear-gradient(135deg, rgba(242, 238, 229, 0.9), rgba(225, 218, 204, 0.72));
+  pointer-events: none;
+}
+
+.catalog-card__place-media-placeholder-icon {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  border: 1px solid rgba(98, 111, 73, 0.2);
+  border-radius: 50%;
+  color: #6b7952;
+  background: rgba(255, 253, 247, 0.72);
+  box-shadow: 0 9px 24px rgba(70, 62, 42, 0.1), 0 1px 0 rgba(255, 255, 255, 0.86) inset;
 }
 
 .catalog-card__place-media-element {
@@ -4609,7 +4624,7 @@ html[data-rs-theme="night"] .catalog-location-filter__center-note {
   color: #4d463e;
 }
 
-.catalog-page .catalog-card__icon-btn--web {
+.catalog-page .catalog-card__icon-btn--instagram {
   color: #4d463e;
 }
 
@@ -5091,11 +5106,6 @@ html[data-rs-theme="night"] .catalog-location-filter__center-note {
 
 .catalog-page--map {
   gap: 18px;
-}
-
-/* Keep the list (and its loaded Google UI Kit element) mounted while the map tab is active. */
-.catalog-results[hidden] {
-  display: none;
 }
 
 .catalog-page--map .catalog-heading__eyebrow {

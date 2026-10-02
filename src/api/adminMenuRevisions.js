@@ -148,6 +148,22 @@ export const adminMenuRevisionsApi = {
       method: 'POST',
       body: value === undefined ? { decision } : { decision, value },
     }),
+  googlePlaceNetworkReviews: (status = 'pending') => {
+    const params = new URLSearchParams({ status })
+    return request(`/api/admin/google-place-network-reviews?${params}`)
+  },
+  decideGooglePlaceNetworkReview: (reviewId, body) =>
+    request(`/api/admin/google-place-network-reviews/${encodeURIComponent(reviewId)}/decision`, {
+      method: 'POST',
+      body,
+    }),
+  googlePlaceBranchReviews: () => request('/api/admin/google-place-branch-reviews'),
+  googlePlacesUsage: () => request('/api/admin/google-places-usage'),
+  decideGooglePlaceBranchReview: (locationId, body) =>
+    request(`/api/admin/google-place-branch-reviews/${encodeURIComponent(locationId)}/decision`, {
+      method: 'POST',
+      body,
+    }),
   searchRestaurants: (query) => {
     const params = new URLSearchParams({ query })
     return request(`/api/admin/restaurants/search?${params}`)

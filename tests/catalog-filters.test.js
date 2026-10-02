@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   CATALOG_VENUE_TYPES,
   filterCatalogRestaurants,
+  getCatalogCuisineFilterValues,
   getCatalogRestaurantVenueType,
   getCatalogRestaurantMetroNames,
   normalizeCatalogCuisine,
@@ -11,6 +12,32 @@ import {
 
 test('normalizes catalog cuisines and replaces NaN with the fallback label', () => {
   assert.equal(normalizeCatalogCuisine('грузинская, ГРУЗИНСКАЯ, nan'), 'Грузинская, Другое')
+})
+
+test('collapses punctuation variants and fast food aliases into one cuisine', () => {
+  assert.equal(
+    normalizeCatalogCuisine('Итальянская, итальянская), быстрое питание, Хот-доги, Бургерная'),
+    'Итальянская, Фастфуд',
+  )
+  assert.deepEqual(getCatalogCuisineFilterValues(['Фастфуд']), ['Фастфуд'])
+  assert.deepEqual(
+    getCatalogCuisineFilterValues(['Фастфуд', 'Итальянская']).slice(0, 2),
+    ['Фастфуд', 'Итальянская'],
+  )
+})
+
+test('matches legacy fast food cuisine values through the canonical label', () => {
+  const restaurants = [
+    { name: 'Сэндвичи', cuisine: 'Быстрое питание / сэндвичи' },
+    { name: 'Хотдоги', cuisine: 'Хотдоги' },
+    { name: 'Бургеры', cuisine: 'Бургерная' },
+    { name: 'Пицца', cuisine: 'Итальянская' },
+  ]
+
+  assert.deepEqual(
+    filterCatalogRestaurants(restaurants, { cuisines: ['Фастфуд'] }),
+    restaurants.slice(0, 3),
+  )
 })
 
 test('uses the same query, cuisine and metro filters for map and list results', () => {
@@ -54,7 +81,7 @@ test('filters by the primary venue type and ignores unknown API values', () => {
 
   assert.deepEqual(
     CATALOG_VENUE_TYPES.map((option) => option.name),
-    ['Рестораны', 'Кафе', 'Кофе и чай', 'Быстрая еда'],
+    ['Рестораны', 'Кафе', 'Кофе и чай', 'Быстрая еда', 'Бары'],
   )
   assert.equal(getCatalogRestaurantVenueType(restaurants[2]), '')
   assert.deepEqual(
@@ -67,5 +94,18 @@ test('reads all supported metro fields used by catalog and map responses', () =>
   assert.deepEqual(
     getCatalogRestaurantMetroNames({ metro_name: 'Охотный ряд', metros: ['Театральная'] }),
     ['охотный ряд', 'театральная'],
+  )
+})
+
+test('supports selecting several venue types together', () => {
+  const restaurants = [
+    { name: 'Ресторан', primary_venue_type: 'restaurant' },
+    { name: 'Кафе', primary_venue_type: 'cafe' },
+    { name: 'Кофейня', primary_venue_type: 'coffee_tea' },
+  ]
+
+  assert.deepEqual(
+    filterCatalogRestaurants(restaurants, { venueType: ['restaurant', 'coffee_tea'] }),
+    [restaurants[0], restaurants[2]],
   )
 })

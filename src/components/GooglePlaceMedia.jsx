@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Utensils } from 'lucide-react'
 import {
   getGoogleMapsApiKey,
   loadGooglePlacesUiKit,
+  reportGooglePlacesUsage,
 } from '@/lib/googlePlaces'
 
 const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey()
@@ -17,12 +19,17 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
     let isActive = true
     let details
     let timeoutId
+    let usageReported = false
     setStatus('loading')
 
     const handleLoad = () => {
       if (!isActive) return
       clearTimeout(timeoutId)
       setStatus('loaded')
+      if (!usageReported) {
+        usageReported = true
+        reportGooglePlacesUsage()
+      }
     }
     const handleError = () => {
       if (!isActive) return
@@ -80,12 +87,24 @@ export default function GooglePlaceMedia({ placeId, restaurantName }) {
     }
   }, [restaurantName])
 
-  if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') return null
+  if (!GOOGLE_MAPS_API_KEY || !placeId || status === 'error') {
+    return (
+      <div className="catalog-card__place-media catalog-card__place-media--placeholder" aria-hidden="true">
+        <div className="catalog-card__place-media-placeholder" />
+      </div>
+    )
+  }
 
   return (
     <div className={`catalog-card__place-media${status === 'loaded' ? ' is-loaded' : ''}`}>
       <div ref={elementHostRef} className="catalog-card__place-media-element" />
-      {status !== 'loaded' && <div className="catalog-card__place-media-placeholder" aria-hidden="true" />}
+      {status !== 'loaded' && (
+        <div className="catalog-card__place-media-placeholder" aria-hidden="true">
+          <span className="catalog-card__place-media-placeholder-icon">
+            <Utensils size={32} strokeWidth={1.7} />
+          </span>
+        </div>
+      )}
     </div>
   )
 }

@@ -68,7 +68,7 @@ export default function DishCardModal() {
 
   useEffect(() => {
     if (!isOpen || isReadOnly || !hasDishAccess || !data) return;
-    try { ym(108992733, 'reachGoal', 'dish_kbju_view'); } catch { /* ym not loaded */ }
+    analytics.reachGoal('dish_kbju_view');
   }, [isOpen, isReadOnly, hasDishAccess, data]);
 
   const handleSubscribeClick = () => {
