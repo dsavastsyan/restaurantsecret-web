@@ -1213,13 +1213,6 @@ body[data-rs-menu-v2] main {
   color: var(--rsm2-ink);
 }
 
-.rsm2-filtered-access__text {
-  max-width: 520px;
-  margin: 0;
-  color: var(--rsm2-text-2);
-  font: 500 14px/1.5 Inter, sans-serif;
-}
-
 .rsm2-filtered-access__cta {
   border: 0;
   border-radius: 999px;
