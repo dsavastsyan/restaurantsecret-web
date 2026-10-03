@@ -2,6 +2,16 @@ import { expect, test } from '@playwright/test'
 
 test.use({ serviceWorkers: 'block' })
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('rs_consent_v1', JSON.stringify({
+      analytics: 'denied',
+      updatedAt: new Date().toISOString(),
+      policyVersion: 'cookies_v1_2026-01-16',
+    }))
+  })
+})
+
 const dish = (id, name, menuSection, category) => ({
   id,
   name,
@@ -71,4 +81,27 @@ test('section switch stays hidden when the menu has only food', async ({ page })
 
   await expect(page.getByRole('tablist', { name: 'Раздел меню' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Закуски' })).toBeVisible()
+})
+
+test('diary CTA opens the AnyEat waitlist modal instead of writing to the web diary', async ({ page }) => {
+  let diaryRequests = 0
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/diary') diaryRequests += 1
+  })
+
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+
+  await page.locator('.rsm2-desktop-only .rsm2-dbtn').first().click()
+
+  const modal = page.getByRole('dialog', { name: /Вся еда/ })
+  await expect(modal).toBeVisible()
+  await expect(modal.getByText('Скоро в приложении')).toBeVisible()
+  await expect(modal.getByRole('button', { name: /Получить код/ })).toBeVisible()
+
+  await modal.getByRole('button', { name: 'Закрыть' }).click()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.locator('.rsm2-mobile-only .rsm2-dbtn').first().click()
+  await expect(modal).toBeVisible()
+  expect(diaryRequests).toBe(0)
 })
