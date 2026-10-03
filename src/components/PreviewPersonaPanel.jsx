@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { setToken } from '@/store/auth'
 
@@ -10,6 +10,7 @@ const PERSONAS = [
 ]
 
 const PERSONA_STORAGE_KEY = 'rs_preview_persona'
+const PANEL_EXPANDED_STORAGE_KEY = 'rs_preview_persona_panel_expanded'
 
 export default function PreviewPersonaPanel() {
   const [selectedPersona, setSelectedPersona] = useState(() => {
@@ -21,7 +22,14 @@ export default function PreviewPersonaPanel() {
   })
   const [busyPersona, setBusyPersona] = useState('')
   const [message, setMessage] = useState('')
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(() => {
+    try {
+      return window.localStorage.getItem(PANEL_EXPANDED_STORAGE_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
+  const recoveryInFlight = useRef(false)
 
   useEffect(() => {
     let meta = document.querySelector('meta[name="robots"]')
@@ -33,9 +41,9 @@ export default function PreviewPersonaPanel() {
     meta.setAttribute('content', 'noindex, nofollow, noarchive')
   }, [])
 
-  const activatePersona = async (persona, { reset = false } = {}) => {
+  const activatePersona = useCallback(async (persona, { reset = false, redirect = true, silent = false } = {}) => {
     setBusyPersona(reset ? 'reset' : persona)
-    setMessage('')
+    if (!silent) setMessage('')
 
     try {
       const response = await fetch('/api/preview-login', {
@@ -61,19 +69,46 @@ export default function PreviewPersonaPanel() {
         return
       }
 
-      setMessage('Персона активирована')
-      window.location.assign('/account/subscription')
+      if (!silent) setMessage('Персона активирована')
+      if (redirect) window.location.assign('/account/subscription')
     } catch (error) {
       console.error('Preview persona login failed', error)
-      setMessage('Не удалось включить персону')
+      if (!silent) setMessage('Не удалось включить персону')
     } finally {
       setBusyPersona('')
     }
-  }
+  }, [])
+
+  // A preview can retain a token from a previous deploy or a different
+  // staging session. Re-issue the selected test session after a protected API
+  // request reports 401, without moving the user away from the current page.
+  useEffect(() => {
+    const handleAuthRequired = () => {
+      if (!selectedPersona || recoveryInFlight.current) return
+      recoveryInFlight.current = true
+      activatePersona(selectedPersona, { redirect: false, silent: true })
+        .finally(() => { recoveryInFlight.current = false })
+    }
+
+    window.addEventListener('rs:preview-auth-required', handleAuthRequired)
+    return () => window.removeEventListener('rs:preview-auth-required', handleAuthRequired)
+  }, [activatePersona, selectedPersona])
 
   const resetPersona = () => {
     const persona = selectedPersona || 'free'
     activatePersona(persona, { reset: true })
+  }
+
+  const toggleExpanded = () => {
+    setExpanded((value) => {
+      const nextValue = !value
+      try {
+        window.localStorage.setItem(PANEL_EXPANDED_STORAGE_KEY, String(nextValue))
+      } catch {
+        // Ignore storage errors in restricted browser contexts.
+      }
+      return nextValue
+    })
   }
 
   return (
@@ -82,11 +117,12 @@ export default function PreviewPersonaPanel() {
         className="preview-persona-panel__toggle"
         type="button"
         aria-expanded={expanded}
-        onClick={() => setExpanded((value) => !value)}
+        aria-label={expanded ? 'Свернуть панель staging-персон' : 'Развернуть панель staging-персон'}
+        onClick={toggleExpanded}
       >
         <strong>STAGING</strong>
         <span>{selectedPersona ? PERSONAS.find((item) => item.id === selectedPersona)?.label : 'Выберите персону'}</span>
-        <span aria-hidden="true">{expanded ? '×' : '☰'}</span>
+        <span aria-hidden="true">{expanded ? '⌄' : '☰'}</span>
       </button>
 
       {expanded && (
