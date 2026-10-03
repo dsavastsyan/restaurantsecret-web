@@ -5,10 +5,12 @@ export const MENU_SORT_OPTIONS = [
   { field: 'fat', label: 'Жиры', defaultDirection: 'asc' },
 ]
 
-export const DEFAULT_MENU_SORT = Object.freeze({ field: 'kcal', direction: 'asc' })
+// Keep the API response order until the visitor explicitly chooses a metric
+// and direction. This preserves the curated/photo-first order of menu cards.
+export const DEFAULT_MENU_SORT = null
 
 export function createDefaultMenuSort() {
-  return { ...DEFAULT_MENU_SORT }
+  return null
 }
 
 export function getMenuSortOption(field) {
@@ -24,6 +26,8 @@ export function toggleMenuSortDirection(direction) {
 }
 
 export function sortMenuDishes(dishes, sort = DEFAULT_MENU_SORT) {
+  if (!sort?.field) return [...dishes]
+
   const field = getMenuSortOption(sort?.field).field
   const direction = sort?.direction === 'asc' || sort?.direction === 'desc'
     ? sort.direction

@@ -586,6 +586,10 @@ export default function Menu({
     navigate(checkoutLink.to, { state: checkoutLink.state })
   }
 
+  const handleSortAttempt = () => {
+    handleViewFilteredDishes()
+  }
+
   return (
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
@@ -623,6 +627,8 @@ export default function Menu({
       categorySorts={categorySorts}
       onSortChange={handleSortChange}
       onSortReset={handleSortReset}
+      onSortAttempt={handleSortAttempt}
+      canSort={hasFullDishAccess}
       isIngredientFilterOpen={isIngredientFilterOpen}
       setIsIngredientFilterOpen={setIsIngredientFilterOpen}
       hasCompositions={hasCompositions}

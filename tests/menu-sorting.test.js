@@ -8,17 +8,32 @@ import {
 
 const dish = (name, values) => ({ name, ...values })
 
-test('defaults to calories ascending and keeps missing values last', () => {
+test('keeps the curated menu order until sorting is selected', () => {
   const result = sortMenuDishes([
     dish('Без КБЖУ', { kcal: Number.NaN }),
     dish('Среднее', { kcal: 450 }),
     dish('Лёгкое', { kcal: 180 }),
   ], createDefaultMenuSort())
 
-  assert.deepEqual(result.map(({ name }) => name), ['Лёгкое', 'Среднее', 'Без КБЖУ'])
+  assert.deepEqual(result.map(({ name }) => name), ['Без КБЖУ', 'Среднее', 'Лёгкое'])
+
+  const previewFirst = sortMenuDishes([
+    dish('Превью с фото', { photoUrl: '/preview.jpg', kcal: 700 }),
+    dish('Блюдо без фото', { kcal: 120 }),
+  ], createDefaultMenuSort())
+
+  assert.deepEqual(previewFirst.map(({ name }) => name), ['Превью с фото', 'Блюдо без фото'])
+
+  const sorted = sortMenuDishes([
+    dish('Без КБЖУ', { kcal: Number.NaN }),
+    dish('Среднее', { kcal: 450 }),
+    dish('Лёгкое', { kcal: 180 }),
+  ], { field: 'kcal', direction: 'asc' })
+
+  assert.deepEqual(sorted.map(({ name }) => name), ['Лёгкое', 'Среднее', 'Без КБЖУ'])
 })
 
-test('uses descending as the default direction for protein', () => {
+test('sorts protein in the requested direction', () => {
   const result = sortMenuDishes([
     dish('Мало белка', { protein: 8 }),
     dish('Много белка', { protein: 32 }),

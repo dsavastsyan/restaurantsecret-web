@@ -110,7 +110,13 @@ test('section switch stays hidden when the menu has only food', async ({ page })
   await expect(page.getByRole('heading', { name: 'Закуски' })).toBeVisible()
 })
 
-test('sorts all categories or one category and can reset the choice', async ({ page }) => {
+test('keeps the curated order by default and sorts only after an explicit choice', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('rs_access', 'active-token')
+  })
+  await page.route((url) => isApiRequest(url, '/api/subscriptions/status'), (route) => route.fulfill({
+    json: { status: 'active', statusNorm: 'active' },
+  }))
   await mockMenu(page, {
     name: 'Меню с сортировкой',
     categories: [
@@ -139,33 +145,49 @@ test('sorts all categories or one category and can reset the choice', async ({ p
   const firstCards = page.locator('.rsm2-grid.rsm2-desktop-only').nth(0).locator('.rsm2-tile__cover-name, .rsm2-paywall__name')
   const secondCards = page.locator('.rsm2-grid.rsm2-desktop-only').nth(1).locator('.rsm2-tile__cover-name, .rsm2-paywall__name')
 
-  await expect(firstSort).toContainText('Калории')
-  await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
-  await expect(secondCards).toHaveText(['Свежий салат', 'Сытный салат'])
-
-  await firstSort.click()
-  const sortMenu = page.getByRole('menu')
-  await sortMenu.getByRole('button', { name: 'Только категория' }).click()
-  await sortMenu.getByRole('menuitem', { name: 'Белки' }).click()
-
-  await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
-  await expect(secondCards).toHaveText(['Свежий салат', 'Сытный салат'])
-
-  await firstSort.click()
-  await page.getByRole('menu').getByRole('button', { name: /Белки: по возрастанию/ }).click()
+  await expect(firstSort).toContainText('Сортировать')
   await expect(firstCards).toHaveText(['Калорийная закуска', 'Лёгкая закуска'])
-
-  await firstSort.click()
-  await page.getByRole('menu').getByRole('button', { name: 'Всё меню' }).click()
-  await page.getByRole('menu').getByRole('menuitem', { name: 'Белки' }).click()
-  await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
   await expect(secondCards).toHaveText(['Сытный салат', 'Свежий салат'])
 
   await firstSort.click()
-  await page.getByRole('menu').getByRole('button', { name: 'Сбросить сортировку' }).click()
-  await expect(firstSort).toContainText('Калории')
+  let sortMenu = page.getByRole('menu')
+  await sortMenu.getByRole('menuitem', { name: 'Белки' }).click()
+  await sortMenu.getByRole('button', { name: 'Только категория' }).click()
+  await sortMenu.getByRole('button', { name: 'По возрастанию' }).click()
+
+  await expect(firstCards).toHaveText(['Калорийная закуска', 'Лёгкая закуска'])
+  await expect(secondCards).toHaveText(['Сытный салат', 'Свежий салат'])
+
+  await firstSort.click()
+  sortMenu = page.getByRole('menu')
+  await sortMenu.getByRole('button', { name: 'По убыванию' }).click()
   await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
+
+  await firstSort.click()
+  sortMenu = page.getByRole('menu')
+  await sortMenu.getByRole('button', { name: 'Всё меню' }).click()
+  await sortMenu.getByRole('menuitem', { name: 'Белки' }).click()
+  await sortMenu.getByRole('button', { name: 'По возрастанию' }).click()
+  await expect(firstCards).toHaveText(['Калорийная закуска', 'Лёгкая закуска'])
   await expect(secondCards).toHaveText(['Свежий салат', 'Сытный салат'])
+
+  await firstSort.click()
+  await page.getByRole('menu').getByRole('button', { name: 'Сбросить' }).click()
+  await expect(firstSort).toContainText('Сортировать')
+  await expect(firstCards).toHaveText(['Калорийная закуска', 'Лёгкая закуска'])
+  await expect(secondCards).toHaveText(['Сытный салат', 'Свежий салат'])
+})
+
+test('sends a guest to the subscription flow when sorting is attempted', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('rs_menu_guide_v2', 'dismissed')
+  })
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+
+  const firstSort = page.locator('.rsm2-section__head').first().getByRole('button', { name: /Сортировка категории/ })
+  await firstSort.click()
+  await expect(page).toHaveURL(/\/login$/)
 })
 
 test('diary CTA opens the AnyEat waitlist modal instead of writing to the web diary', async ({ page }) => {
