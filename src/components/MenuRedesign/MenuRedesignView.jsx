@@ -171,6 +171,30 @@ export default function MenuRedesignView({
   };
 
   useEffect(() => {
+    if (guideStep !== 'filters' || typeof document === 'undefined') return undefined;
+
+    // The first hint is instructional only: clicking a filter must not apply
+    // it and hide the dishes before the visitor has seen the second hint.
+    // Capture the click before React's button handlers, then move straight to
+    // the next hint after collapsing the panel.
+    const handleFirstGuideClick = (event) => {
+      const dismissButton = document.querySelector('.rsm2-guide--filters .rsm2-guide__dismiss');
+      const clickedDismiss = dismissButton?.contains(event.target)
+        || event.composedPath?.().some((target) => (
+          target?.classList?.contains?.('rsm2-guide__dismiss')
+        ));
+      if (clickedDismiss) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setIsFilterPanelOpen(false);
+      setGuideStep('dish');
+    };
+
+    document.addEventListener('click', handleFirstGuideClick, true);
+    return () => document.removeEventListener('click', handleFirstGuideClick, true);
+  }, [guideStep]);
+
+  useEffect(() => {
     if (guideStep !== 'restaurants' || typeof document === 'undefined') return undefined;
     const handleNavigationClick = (event) => {
       if (event.target.closest('[data-rs-menu-nav="restaurants"]')) completeGuide();
