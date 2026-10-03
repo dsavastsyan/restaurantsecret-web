@@ -112,7 +112,7 @@ test('first onboarding hint collapses filters without applying one and shows the
   await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
   await expect(page.locator('.rsm2-filter-cluster')).toHaveCount(0)
   await expect(page.locator('.rsm2-filter-toggle__count')).toHaveCount(0)
-  await expect(page.locator('.rsm2-guide--dish')).toContainText('Добавляйте любимые меню и рестораны в избранное')
+  await expect(page.locator('.rsm2-guide--dish')).toContainText('Добавляйте любимые блюда и рестораны в избранное')
 
   await filterToggle.click()
   await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
