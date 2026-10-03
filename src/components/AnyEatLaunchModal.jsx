@@ -33,15 +33,15 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return embedded || (previewMode && requested)
   })
   const [email, setEmail] = useState('')
-  const [accountEmail, setAccountEmail] = useState('')
   const [consents, setConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
   const [knownConsents, setKnownConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
+  const [accountEmail, setAccountEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
-  // Anonymous visitors go through the same email → OTP code → consent flow
-  // as regular registration (/login) — there is no account, and therefore
-  // no user_id to attach a consent record to, until this completes.
+  // Guests go through the same email → OTP code flow as regular registration
+  // (/login). An authenticated visitor uses the email already attached to
+  // their account for the consent submission.
   const [otpStep, setOtpStep] = useState('email') // 'email' | 'code'
   const [code, setCode] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
@@ -62,9 +62,8 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return () => window.removeEventListener('rs:anyeat-launch-open', show)
   }, [embedded])
 
-  // Load the account's known email/consent for logged-in visitors (including
-  // one who just completed the OTP step below) so the form can prefill and
-  // skip questions it already has answers to.
+  // Load the account email and known consent for authenticated visitors so
+  // the email cannot drift away from the identity represented by the token.
   useEffect(() => {
     if (!open || !token) return
     let active = true
@@ -83,7 +82,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
       }
       setKnownConsents(known)
       setConsents(known)
-    }).catch(() => { /* account details are a nice-to-have prefill, not required */ })
+    }).catch(() => { /* account details are a nice-to-have, not required */ })
 
     return () => { active = false }
   }, [open, token])
@@ -139,8 +138,6 @@ export default function AnyEatLaunchModal({ embedded = false }) {
       const res = await apiPost('/auth/verify-otp', { email: email.trim(), code: code.trim() })
       if (!res?.ok || !res?.access_token) throw new Error('verify_otp_failed')
       setToken(res.access_token)
-      // The account consent form below (shared with already-logged-in
-      // visitors) takes over once `token` is set — nothing else to do here.
     } catch {
       setError('Неверный или истёкший код. Попробуйте ещё раз.')
     } finally {
@@ -162,15 +159,12 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   }
 
   const canSubmit = /^\S+@\S+\.\S+$/.test(email.trim()) &&
+    Boolean(token) && Boolean(accountEmail) &&
     consents.personal_data_advertising && consents.marketing_communications && !submitting
 
   const submit = async (event) => {
     event.preventDefault()
     if (!canSubmit) return
-    if (!accountEmail || email.trim().toLowerCase() !== accountEmail.toLowerCase()) {
-      setError('Укажите почту вашего аккаунта RestaurantSecret.')
-      return
-    }
     setSubmitting(true)
     setError('')
     try {
@@ -252,7 +246,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
           {token && (
             <form className="rs-anyeat__form" onSubmit={submit}>
               <div className="rs-anyeat__formrow">
-                <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+                <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="off" placeholder="Ваша почта" value={email} readOnly aria-readonly="true" required /></label>
                 <button className="rs-anyeat__submit" type="submit" disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
               </div>
               {(!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
