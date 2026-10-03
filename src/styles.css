@@ -94,6 +94,10 @@ body {
   justify-content: flex-start;
 }
 
+.navbar__brand-group {
+  gap: 10px;
+}
+
 .navbar__right {
   display: flex;
   align-items: center;
