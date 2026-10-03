@@ -36,12 +36,17 @@ export default function PaySuccess() {
   const [message, setMessage] = useState('')
   const [expiresAt, setExpiresAt] = useState(access?.expiresAt ?? null)
 
-  // Fire payment_success Metrika goal immediately on page load.
-  // We fire it here (not inside refreshAccess) because:
-  // 1. The user definitely completed payment to land on this page.
-  // 2. refreshAccess is manual and isActive may be false due to webhook delay.
+  // Landing here proves that the provider redirected the browser back, but it
+  // does not prove that YooKassa's webhook has activated the subscription.
   useEffect(() => {
-    analytics.reachGoal('payment_success');
+    const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
+    const paymentId = searchParams.get("payment_id") || sessionStorage.getItem("rs_checkout_payment_id") || null;
+    analytics.track("payment_returned", {
+      payment_id: paymentId,
+      plan,
+      return_status: searchParams.get("status") || "not_provided",
+      return_path: window.location.pathname,
+    });
   }, []);
 
   // Keep the local expiration date in sync with context updates.
@@ -101,10 +106,11 @@ export default function PaySuccess() {
 
         // Analytics — read plan stored before payment redirect
         const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
+        const paymentId = sessionStorage.getItem("rs_checkout_payment_id") || null;
         sessionStorage.removeItem("rs_checkout_plan");
+        sessionStorage.removeItem("rs_checkout_payment_id");
         analytics.track("subscription_activated", { plan });
-        analytics.track("payment_success", { plan });
-        analytics.reachGoal('payment_success');
+        analytics.track("payment_access_confirmed", { payment_id: paymentId, plan });
       } else {
         setStatus('inactive')
         setExpiresAt(detail.expiresAt)
