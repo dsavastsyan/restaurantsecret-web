@@ -491,8 +491,10 @@ export default function MenuRedesignView({
               {groupedDishes.map((section, sectionIndex) => (
               <div key={section.name}>
                 <div className="rsm2-section__head">
-                  <h2 className="rsm2-section__title">{section.name}</h2>
-                  <span className="rsm2-section__count">{formatPositionCount(section.dishes.length)}</span>
+                  <div className="rsm2-section__heading">
+                    <h2 className="rsm2-section__title">{section.name}</h2>
+                    <span className="rsm2-section__count">{formatPositionCount(section.dishes.length)}</span>
+                  </div>
                   <div className="rsm2-section__rule" />
                   <SortControl
                     categoryName={section.name}
@@ -649,8 +651,8 @@ function SortControl({
       >
         <span className="rsm2-sort-control__label">{selectedOption?.label || 'Сортировать'}</span>
         {selectedOption && (
-          <span className="rsm2-sort-control__direction-label">
-            {sort.direction === 'asc' ? 'по возрастанию' : 'по убыванию'}
+          <span className="rsm2-sort-control__direction" aria-hidden="true">
+            {sort.direction === 'asc' ? '↑' : '↓'}
           </span>
         )}
         <span className="rsm2-sort-control__caret" aria-hidden="true">{isOpen ? '▴' : '▾'}</span>
@@ -691,7 +693,8 @@ function SortControl({
               disabled={!draftField}
               onClick={() => chooseDirection('asc')}
             >
-              По возрастанию
+              <span>По возрастанию</span>
+              <span aria-hidden="true">↑</span>
             </button>
             <button
               type="button"
@@ -700,7 +703,8 @@ function SortControl({
               disabled={!draftField}
               onClick={() => chooseDirection('desc')}
             >
-              По убыванию
+              <span>По убыванию</span>
+              <span aria-hidden="true">↓</span>
             </button>
           </div>
 
