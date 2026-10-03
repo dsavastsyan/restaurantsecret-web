@@ -125,6 +125,22 @@ export default function MenuRedesignView({
     return () => document.body.removeAttribute('data-rs-menu-guide-step');
   }, [guideStep]);
 
+  useLayoutEffect(() => {
+    if (!guideStep || typeof document === 'undefined') return undefined;
+
+    const root = document.documentElement;
+    root.setAttribute('data-rs-menu-guide-lock', '');
+    const preventGuideScroll = (event) => event.preventDefault();
+    document.addEventListener('wheel', preventGuideScroll, { passive: false });
+    document.addEventListener('touchmove', preventGuideScroll, { passive: false });
+
+    return () => {
+      root.removeAttribute('data-rs-menu-guide-lock');
+      document.removeEventListener('wheel', preventGuideScroll);
+      document.removeEventListener('touchmove', preventGuideScroll);
+    };
+  }, [guideStep]);
+
   useEffect(() => {
     if (!guideStep || typeof window === 'undefined') return undefined;
     const handleEscape = (event) => {

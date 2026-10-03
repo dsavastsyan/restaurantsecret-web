@@ -86,6 +86,12 @@ body[data-rs-menu-v2] main {
   padding: 0;
 }
 
+html[data-rs-menu-guide-lock],
+html[data-rs-menu-guide-lock] body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .rsm2-serif {
   font-family: "DM Serif Display", Georgia, serif;
 }

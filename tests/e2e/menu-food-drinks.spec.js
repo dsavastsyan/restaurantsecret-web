@@ -177,6 +177,26 @@ test('third hint closes and consumes any click', async ({ page }) => {
   await expect(page).toHaveURL(/\/restaurants\/test-menu\/menu/)
 })
 
+test('guide locks page scrolling until the tour is dismissed', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+  await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+
+  await expect.poll(() => page.evaluate(() => window.getComputedStyle(document.documentElement).overflow))
+    .toBe('hidden')
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.mouse.wheel(0, 600)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  await page.locator('.rsm2-guide__dismiss').click()
+  await expect(page.locator('.rsm2-guide')).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => window.getComputedStyle(document.documentElement).overflow))
+    .not.toBe('hidden')
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.mouse.wheel(0, 600)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+})
+
 test('section switch stays hidden when the menu has only food', async ({ page }) => {
   await mockMenu(page, { ...mixedMenu, categories: mixedMenu.categories.filter((category) => category.menuSection === 'food') })
   await page.goto('/restaurants/test-menu/menu')
