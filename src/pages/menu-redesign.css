@@ -464,6 +464,21 @@ body[data-rs-menu-v2] main {
   background: rgba(255, 253, 251, 0.24);
 }
 
+.rsm2-root--guide-open .rsm2-filters {
+  position: static;
+  z-index: auto;
+  backdrop-filter: none;
+}
+
+.rsm2-guide-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(37, 34, 29, 0.22);
+  cursor: pointer;
+  animation: rsm2-guide-scrim-in 0.18s ease both;
+}
+
 .rsm2-guide {
   position: relative;
   display: grid;
@@ -480,6 +495,7 @@ body[data-rs-menu-v2] main {
   background: linear-gradient(135deg, #f5eddd 0%, #fffaf1 100%);
   box-shadow: 0 7px 16px rgba(119, 98, 61, 0.1);
   color: var(--rsm2-ink);
+  z-index: 1001;
   animation: rsm2-guide-in 0.24s ease both;
 }
 
@@ -591,6 +607,15 @@ body[data-rs-menu-v2] main {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes rsm2-guide-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -1527,7 +1552,8 @@ body[data-rs-menu-v2] main {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rsm2-guide {
+  .rsm2-guide,
+  .rsm2-guide-scrim {
     animation: none;
   }
 }

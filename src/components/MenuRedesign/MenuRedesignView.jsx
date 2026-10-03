@@ -203,7 +203,14 @@ export default function MenuRedesignView({
   };
 
   return (
-    <div className="rsm2-root">
+    <div className={`rsm2-root ${guideStep ? 'rsm2-root--guide-open' : ''}`}>
+      {guideStep && (
+        <div
+          className="rsm2-guide-scrim"
+          aria-hidden="true"
+          onClick={dismissGuide}
+        />
+      )}
       <div className="rsm2-hero">
         {/* Reporting a stale menu makes no sense inside the partner's own
             draft preview, so the trigger is omitted there rather than shown
