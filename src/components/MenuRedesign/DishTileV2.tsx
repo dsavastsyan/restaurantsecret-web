@@ -16,6 +16,8 @@ type DishTileV2Props = {
   isFreeAccess?: boolean;
   interactive?: boolean;
   readOnly?: boolean;
+  guideFavoriteTarget?: boolean;
+  onGuideFavorite?: () => void;
   onClick?: () => void;
 };
 
@@ -24,7 +26,7 @@ type DishTileV2Props = {
 // the new visual language. Photos are not yet part of the data model, so
 // every card renders the "plaque" (photo-less) cover today — the photo
 // branch below is future-proofing per the design handoff.
-export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFreeAccess = false, interactive = true, readOnly = false, onClick }: DishTileV2Props) {
+export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFreeAccess = false, interactive = true, readOnly = false, guideFavoriteTarget = false, onGuideFavorite, onClick }: DishTileV2Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const accessToken = useAuth((state) => state.accessToken);
@@ -62,6 +64,7 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
       analytics.track('favorite_remove', { type: 'dish', dish_id: dish.id, name: dish.name });
     }
     await toggle(accessToken, Number(dish.id), restaurantSlug);
+    onGuideFavorite?.();
   };
 
   const handleDiaryAdd = (e: React.MouseEvent) => {
@@ -167,7 +170,7 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
 
         {!readOnly && (
           <div className="rsm2-tile__footer">
-            <button type="button" className="rsm2-fav" onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
+            <button type="button" className={`rsm2-fav ${guideFavoriteTarget ? 'is-guide-target' : ''}`} onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
               <HeartIcon filled={favorited} size={24} />
             </button>
             <button type="button" className="rsm2-dbtn" onClick={handleDiaryAdd}>

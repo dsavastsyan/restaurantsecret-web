@@ -255,8 +255,11 @@ export default function MenuRedesignView({
             {!readOnly && (
               <button
                 type="button"
-                className="rsm2-icon-btn"
-                onClick={handleToggleRestaurantFavorite}
+                className={`rsm2-icon-btn ${guideStep === 'dish' ? 'is-guide-target' : ''}`}
+                onClick={async () => {
+                  await handleToggleRestaurantFavorite();
+                  if (guideStep === 'dish') completeGuide();
+                }}
                 aria-label={isFavoriteRestaurant ? 'Удалить ресторан из избранного' : 'Добавить ресторан в избранное'}
                 style={isFavoriteRestaurant ? { color: '#f0855a' } : undefined}
               >
@@ -417,8 +420,8 @@ export default function MenuRedesignView({
                   <div className="rsm2-section__rule" />
                 </div>
 
-                <div className={`rsm2-grid rsm2-desktop-only ${guideStep === 'dish' && sectionIndex === 0 ? 'is-guide-target' : ''}`}>
-                  {section.dishes.map((dish) => {
+                <div className="rsm2-grid rsm2-desktop-only">
+                  {section.dishes.map((dish, dishIndex) => {
                     const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
                     return (
                       <DishTileV2
@@ -429,14 +432,16 @@ export default function MenuRedesignView({
                         isFreeAccess={isFreeAccess}
                         interactive
                         readOnly={readOnly}
+                        guideFavoriteTarget={guideStep === 'dish' && sectionIndex === 0 && dishIndex === 0}
+                        onGuideFavorite={guideStep === 'dish' ? completeGuide : undefined}
                         onClick={() => openDish(dish)}
                       />
                     );
                   })}
                 </div>
 
-                <div className={`rsm2-grid rsm2-mobile-only ${guideStep === 'dish' && sectionIndex === 0 ? 'is-guide-target' : ''}`}>
-                  {section.dishes.map((dish) => {
+                <div className="rsm2-grid rsm2-mobile-only">
+                  {section.dishes.map((dish, dishIndex) => {
                     const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
                     return (
                       <DishRowV2
@@ -447,6 +452,8 @@ export default function MenuRedesignView({
                         isFreeAccess={isFreeAccess}
                         interactive
                         readOnly={readOnly}
+                        guideFavoriteTarget={guideStep === 'dish' && sectionIndex === 0 && dishIndex === 0}
+                        onGuideFavorite={guideStep === 'dish' ? completeGuide : undefined}
                         onClick={() => openDish(dish)}
                       />
                     );
@@ -492,12 +499,12 @@ function MenuGuide({ step, onDismiss }) {
           Подсказка · {isFiltersStep ? '1 из 2' : '2 из 2'}
         </div>
         <h2 className="rsm2-guide__title">
-          {isFiltersStep ? 'Попробуй быстрые фильтры' : 'Теперь открой блюдо'}
+          {isFiltersStep ? 'Попробуй быстрые фильтры' : 'Добавляйте любимые меню и рестораны в избранное'}
         </h2>
         <p className="rsm2-guide__text">
           {isFiltersStep
             ? 'Настрой меню под себя одним нажатием.'
-            : 'В карточке увидишь состав, КБЖУ и сможешь сохранить то, что понравилось.'}
+            : 'Сравнивайте позиции и быстро возвращайтесь к любимым местам и блюдам'}
         </p>
       </div>
       <button type="button" className="rsm2-guide__dismiss" onClick={onDismiss}>

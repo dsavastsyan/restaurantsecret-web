@@ -16,12 +16,14 @@ type DishRowV2Props = {
   isFreeAccess?: boolean;
   interactive?: boolean;
   readOnly?: boolean;
+  guideFavoriteTarget?: boolean;
+  onGuideFavorite?: () => void;
   onClick?: () => void;
 };
 
 // Redesigned mobile feed row. Same data/handlers as DishTileV2 — the two
 // only differ in markup so they read correctly at 72px-row vs. tile scale.
-export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFreeAccess = false, interactive = true, readOnly = false, onClick }: DishRowV2Props) {
+export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFreeAccess = false, interactive = true, readOnly = false, guideFavoriteTarget = false, onGuideFavorite, onClick }: DishRowV2Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const accessToken = useAuth((state) => state.accessToken);
@@ -59,6 +61,7 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
       analytics.track('favorite_remove', { type: 'dish', dish_id: dish.id, name: dish.name });
     }
     await toggle(accessToken, Number(dish.id), restaurantSlug);
+    onGuideFavorite?.();
   };
 
   const handleDiaryAdd = (e: React.MouseEvent) => {
@@ -139,7 +142,7 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
                 </button>
                 {!readOnly && (
                   <div className="rsm2-row__actions">
-                    <button type="button" className="rsm2-fav rsm2-fav--row" onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
+                    <button type="button" className={`rsm2-fav rsm2-fav--row ${guideFavoriteTarget ? 'is-guide-target' : ''}`} onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
                       <HeartIcon filled={favorited} size={19} />
                     </button>
                     <button type="button" className="rsm2-dbtn rsm2-dbtn--icon" onClick={handleDiaryAdd} aria-label="В дневник" title="В дневник">
@@ -151,7 +154,7 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
             ) : (
               <div className="rsm2-row__footer-actions">
                 <div className="rsm2-row__actions">
-                  <button type="button" className="rsm2-fav rsm2-fav--row" onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
+                  <button type="button" className={`rsm2-fav rsm2-fav--row ${guideFavoriteTarget ? 'is-guide-target' : ''}`} onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
                     <HeartIcon filled={favorited} size={19} />
                   </button>
                   <button type="button" className="rsm2-row__open-btn" onClick={handleOpen}>

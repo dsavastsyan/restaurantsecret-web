@@ -586,19 +586,6 @@ body[data-rs-menu-v2] main {
   border-radius: 4px;
 }
 
-.rsm2-grid.is-guide-target {
-  position: relative;
-}
-
-.rsm2-grid.is-guide-target::after {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border: 1px dashed rgba(117, 132, 90, 0.5);
-  border-radius: 20px;
-  pointer-events: none;
-}
-
 @keyframes rsm2-guide-in {
   from {
     opacity: 0;
@@ -607,6 +594,16 @@ body[data-rs-menu-v2] main {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes rsm2-guide-heart-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgba(240, 133, 90, 0.22), 0 0 0 8px rgba(240, 133, 90, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(240, 133, 90, 0.38), 0 0 0 10px rgba(240, 133, 90, 0.12);
   }
 }
 
@@ -1237,6 +1234,16 @@ body[data-rs-menu-v2] main {
   height: 36px;
 }
 
+.rsm2-icon-btn.is-guide-target,
+.rsm2-fav.is-guide-target {
+  position: relative;
+  z-index: 1002;
+  outline: 2px solid rgba(255, 191, 126, 0.95);
+  outline-offset: 4px;
+  background: rgba(255, 238, 218, 0.2);
+  animation: rsm2-guide-heart-pulse 1.4s ease-in-out infinite;
+}
+
 .rsm2-dbtn {
   min-height: 36px;
   border: 1.5px solid var(--rsm2-ink-2);
@@ -1553,7 +1560,9 @@ body[data-rs-menu-v2] main {
 
 @media (prefers-reduced-motion: reduce) {
   .rsm2-guide,
-  .rsm2-guide-scrim {
+  .rsm2-guide-scrim,
+  .rsm2-icon-btn.is-guide-target,
+  .rsm2-fav.is-guide-target {
     animation: none;
   }
 }
