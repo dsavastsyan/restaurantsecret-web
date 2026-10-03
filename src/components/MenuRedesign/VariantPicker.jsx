@@ -37,14 +37,13 @@ export default function VariantPicker({ variants = [], selected, onChange }) {
         </label>
       )}
       {milks.length > 0 && (
-        <label className="rsm2-variant-picker__field">
+        <label className="rsm2-variant-picker__field rsm2-variant-picker__field--milk">
           <span>Молоко</span>
           <select value={selected?.milk?.key || ''} onChange={(event) => selectVariant('milk', event.target.value)} aria-label="Молоко">
             {milks.map((variant) => <option key={variant.milk.key} value={variant.milk.key}>{variant.milk.label}</option>)}
           </select>
         </label>
       )}
-      <span className="rsm2-variant-picker__count">{variants.length} {variants.length === 1 ? 'вариант' : variants.length < 5 ? 'варианта' : 'вариантов'}</span>
       <span className="sr-only">Выбран вариант: {optionLabel(selected)}</span>
     </div>
   )

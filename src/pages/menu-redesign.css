@@ -2368,6 +2368,7 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 .rsm2-variant-picker {
   display: flex;
   align-items: end;
+  justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
   margin: 2px 0 12px;
@@ -2388,6 +2389,7 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 }
 
 .rsm2-variant-picker__field select {
+  width: 150px;
   max-width: 150px;
   min-height: 30px;
   padding: 0 25px 0 8px;
@@ -2398,11 +2400,9 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   font: 600 12px/1 Inter, sans-serif;
 }
 
-.rsm2-variant-picker__count {
-  margin-left: auto;
-  color: var(--rsm2-muted, #756b5f);
-  font: 600 11px/1 Inter, sans-serif;
-  white-space: nowrap;
+.rsm2-variant-picker__field--milk select {
+  width: 250px;
+  max-width: min(250px, 100%);
 }
 
 @media (max-width: 768px) {
@@ -2413,13 +2413,14 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   }
 
   .rsm2-variant-picker__field select {
+    width: 125px;
     max-width: 125px;
     min-height: 28px;
     font-size: 11px;
   }
 
-  .rsm2-variant-picker__count {
-    width: 100%;
-    margin-left: 0;
+  .rsm2-variant-picker__field--milk select {
+    width: min(250px, calc(100vw - 32px));
+    max-width: min(250px, calc(100vw - 32px));
   }
 }
