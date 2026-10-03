@@ -2555,6 +2555,10 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   max-width: min(250px, 100%);
 }
 
+.rsm2-variant-picker__field--milk {
+  flex-grow: 1.6;
+}
+
 @media (max-width: 768px) {
   .rsm2-variant-picker {
     gap: 6px;

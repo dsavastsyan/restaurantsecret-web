@@ -245,6 +245,55 @@ test('section switch stays hidden when the menu has only food', async ({ page })
   await expect(page.getByRole('heading', { name: 'Закуски' })).toBeVisible()
 })
 
+test('gives milk variants more room while keeping size-only filters on one line', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('rs_access', 'active-token')
+    sessionStorage.setItem('rs_menu_guide_v2', 'dismissed')
+  })
+  await page.route((url) => isApiRequest(url, '/api/subscriptions/status'), (route) => route.fulfill({
+    json: { status: 'active', statusNorm: 'active' },
+  }))
+  await mockMenu(page, {
+    name: 'Меню с вариантами',
+    categories: [{
+      name: 'Кофе',
+      menuSection: 'food',
+      dishes: [
+        {
+          ...dish(10, 'Айс-латте', 'food', 'Кофе'),
+          variants: [
+            { ...dish(10, 'Айс-латте', 'food', 'Кофе'), size: { key: 'grand', label: 'Grand' }, milk: { key: 'regular', label: 'Обычное' } },
+            { ...dish(11, 'Айс-латте', 'food', 'Кофе'), size: { key: 'tall', label: 'Tall' }, milk: { key: 'oat', label: 'Овсяное' } },
+          ],
+        },
+        {
+          ...dish(20, 'Американо', 'food', 'Кофе'),
+          variants: [
+            { ...dish(20, 'Американо', 'food', 'Кофе'), size: { key: 'grand', label: 'Grand' } },
+            { ...dish(21, 'Американо', 'food', 'Кофе'), size: { key: 'tall', label: 'Tall' } },
+          ],
+        },
+      ],
+    }],
+  })
+  await page.setViewportSize({ width: 499, height: 800 })
+  await page.goto('/restaurants/test-menu/menu')
+
+  const pickers = page.locator('.rsm2-row .rsm2-variant-picker')
+  await expect(pickers).toHaveCount(2)
+  const layouts = await pickers.evaluateAll((elements) => elements.map((picker) => {
+    const fields = [...picker.querySelectorAll('.rsm2-variant-picker__field')]
+    return {
+      fieldCount: fields.length,
+      sizeWidth: fields.find((field) => !field.classList.contains('rsm2-variant-picker__field--milk'))?.getBoundingClientRect().width || 0,
+      milkWidth: fields.find((field) => field.classList.contains('rsm2-variant-picker__field--milk'))?.getBoundingClientRect().width || 0,
+    }
+  }))
+
+  expect(layouts[0].milkWidth).toBeGreaterThan(layouts[0].sizeWidth)
+  expect(layouts[1].fieldCount).toBe(1)
+})
+
 test('keeps the curated order by default and sorts only after an explicit choice', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('rs_access', 'active-token')
