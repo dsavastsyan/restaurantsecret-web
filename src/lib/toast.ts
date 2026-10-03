@@ -5,9 +5,14 @@ export type ToastAction = {
   onClick: () => void;
 };
 
+export type ToastIcon = "party" | "spinner" | "error";
+
 export type ToastOptions = {
   duration?: number;
   action?: ToastAction;
+  actions?: ToastAction[];
+  title?: string;
+  icon?: ToastIcon;
 };
 
 export type ToastMessage = {
@@ -16,6 +21,9 @@ export type ToastMessage = {
   message: string;
   duration: number;
   action?: ToastAction;
+  actions?: ToastAction[];
+  title?: string;
+  icon?: ToastIcon;
 };
 
 type ToastListener = (toast: ToastMessage) => void;
@@ -33,6 +41,9 @@ const emit = (variant: ToastVariant, message: string, options?: ToastOptions) =>
     message,
     duration,
     action: options?.action,
+    actions: options?.actions,
+    title: options?.title,
+    icon: options?.icon,
   };
   listeners.forEach((listener) => listener(toast));
 };

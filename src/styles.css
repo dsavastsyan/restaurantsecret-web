@@ -11252,6 +11252,191 @@ body:has(.account--sheet-open) {
   }
 }
 
+/* Subscription feedback uses the warm RestaurantSecret brand palette already
+   used by the guest navigation and subscription surfaces. */
+.toast--subscription {
+  width: min(500px, calc(100vw - 32px));
+  padding: 24px 28px 20px;
+  border: 1px solid #eadfce;
+  border-radius: 24px;
+  background: #fffdfb;
+  color: #25221d;
+  box-shadow: 0 18px 42px rgba(85, 68, 45, 0.18);
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  column-gap: 18px;
+  row-gap: 20px;
+  align-items: start;
+}
+
+.toast--subscription .toast__header {
+  display: contents;
+}
+
+.toast--subscription .toast__icon {
+  grid-column: 1;
+  grid-row: 1;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast--subscription .toast__icon svg {
+  width: 42px;
+  height: 42px;
+}
+
+.toast__icon--party {
+  background: #fbf3e1;
+  color: #e8a15e;
+}
+
+.toast__icon--spinner {
+  background: #f3ede2;
+}
+
+.toast__icon--spinner span {
+  width: 30px;
+  height: 30px;
+  border: 4px solid #ded3bf;
+  border-top-color: #75845a;
+  border-right-color: #25221d;
+  border-radius: 50%;
+  animation: toast-subscription-spin 0.9s linear infinite;
+}
+
+.toast__icon--error {
+  background: #fbf3e1;
+  color: #d87a5e;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.toast--subscription .toast__close {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #25221d;
+  font: 400 30px/24px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.toast--subscription .toast__close:hover {
+  color: #75845a;
+}
+
+.toast--subscription .toast__content {
+  grid-column: 2;
+  grid-row: 1;
+  padding-right: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast--subscription .toast__title {
+  font: 700 22px/1.18 'Inter', ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.45px;
+}
+
+.toast--subscription .toast__message {
+  color: #4b4a46;
+  font: 400 17px/1.4 'Inter', ui-sans-serif, system-ui, sans-serif;
+  white-space: pre-line;
+}
+
+.toast--subscription .toast__actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.toast--subscription .toast__action {
+  min-height: 52px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #75845a;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #78934f 0%, #617f3a 100%);
+  color: #fffdfb;
+  font: 600 16px/1.2 'Inter', ui-sans-serif, system-ui, sans-serif;
+  white-space: normal;
+  transition: transform 160ms ease, filter 160ms ease, background 160ms ease;
+}
+
+.toast--subscription .toast__action:only-child {
+  grid-column: 1 / -1;
+}
+
+.toast--subscription .toast__action + .toast__action {
+  border-color: #75845a;
+  background: transparent;
+  color: #5f7048;
+}
+
+.toast--subscription .toast__action:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.toast--subscription .toast__action + .toast__action:hover {
+  background: #f5f1e8;
+}
+
+@keyframes toast-subscription-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .toast--subscription {
+    padding: 20px;
+    grid-template-columns: 52px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 16px;
+    text-align: left;
+  }
+
+  .toast--subscription .toast__icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .toast--subscription .toast__icon svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .toast--subscription .toast__title {
+    font-size: 19px;
+  }
+
+  .toast--subscription .toast__message {
+    font-size: 15px;
+  }
+
+  .toast--subscription .toast__actions {
+    gap: 8px;
+  }
+
+  .toast--subscription .toast__action {
+    min-height: 48px;
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+}
+
 /* Footer */
 .site-footer {
   padding: 16px 0 18px;
