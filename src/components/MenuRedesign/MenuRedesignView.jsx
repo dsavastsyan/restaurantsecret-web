@@ -2,7 +2,7 @@
 // All data-fetching, filtering and mutation logic lives in Menu.jsx; this
 // component is presentation only. Also reused by the partner portal's draft
 // preview via the `readOnly` prop, which suppresses every mutating action.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MenuOutdatedModal } from '@/components/MenuOutdatedModal';
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx';
 import DishTileV2 from './DishTileV2';
@@ -291,6 +291,7 @@ export default function MenuRedesignView({
         />
       )}
       {guideStep === 'restaurants' && <MenuGuide step="restaurants" onDismiss={dismissGuide} />}
+      {guideStep === 'dish' && <MenuGuide step="dish" onDismiss={dismissGuide} />}
       <div className="rsm2-hero">
         <div className="rsm2-hero__grid">
           <div className="rsm2-hero__lead">
@@ -511,7 +512,6 @@ export default function MenuRedesignView({
             </div>
           ) : groupedDishes.length ? (
             <>
-              {guideStep === 'dish' && <MenuGuide step="dish" onDismiss={dismissGuide} />}
               {groupedDishes.map((section, sectionIndex) => (
               <div key={section.name}>
                 <div className="rsm2-section__head">
@@ -756,33 +756,156 @@ function MenuGuide({ step, onDismiss }) {
   const isFiltersStep = step === 'filters';
   const isDishStep = step === 'dish';
   const stepNumber = isFiltersStep ? '1' : isDishStep ? '2' : '3';
+  const guideRef = useRef(null);
+  const [dishGuideGeometry, setDishGuideGeometry] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!isDishStep || typeof window === 'undefined' || typeof document === 'undefined') {
+      setDishGuideGeometry(null);
+      return undefined;
+    }
+
+    const findVisibleTarget = (selector) => Array.from(document.querySelectorAll(selector)).find((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+
+    let frameId = 0;
+    const updateGeometry = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const guide = guideRef.current;
+        const root = guide?.closest('.rsm2-root');
+        const restaurantHeart = findVisibleTarget('.rsm2-icon-btn.is-guide-target');
+        const dishHeart = findVisibleTarget('.rsm2-fav.is-guide-target');
+        if (!guide || !root || !restaurantHeart || !dishHeart) return;
+
+        const rootRect = root.getBoundingClientRect();
+        const guideRect = guide.getBoundingClientRect();
+        const restaurantRect = restaurantHeart.getBoundingClientRect();
+        const dishRect = dishHeart.getBoundingClientRect();
+        const restaurantPoint = {
+          x: restaurantRect.left + restaurantRect.width / 2 - rootRect.left,
+          y: restaurantRect.top + restaurantRect.height / 2 - rootRect.top,
+        };
+        const dishPoint = {
+          x: dishRect.left + dishRect.width / 2 - rootRect.left,
+          y: dishRect.top + dishRect.height / 2 - rootRect.top,
+        };
+        const guideTop = Math.max(
+          16,
+          (restaurantPoint.y + dishPoint.y) / 2 - guideRect.height / 2,
+        );
+        const guideLeft = guideRect.left - rootRect.left;
+        const guideTopX = Math.min(
+          guideRect.width - 12,
+          Math.max(12, restaurantPoint.x - guideLeft),
+        );
+        const guideBottomX = Math.min(
+          guideRect.width - 12,
+          Math.max(12, dishPoint.x - guideLeft),
+        );
+        const rootHeight = Math.max(root.scrollHeight, rootRect.height);
+
+        setDishGuideGeometry({
+          top: guideTop,
+          rootWidth: rootRect.width,
+          rootHeight,
+          restaurantPoint,
+          dishPoint,
+          guideTop,
+          guideBottom: guideTop + guideRect.height,
+          guideTopX: guideLeft + guideTopX,
+          guideBottomX: guideLeft + guideBottomX,
+          restaurantTailX: guideTopX,
+          dishTailX: guideBottomX,
+        });
+      });
+    };
+
+    updateGeometry();
+    const root = guideRef.current?.closest('.rsm2-root');
+    const observer = typeof ResizeObserver === 'undefined' || !root
+      ? null
+      : new ResizeObserver(updateGeometry);
+    if (observer) {
+      observer.observe(root);
+      observer.observe(guideRef.current);
+    }
+    window.addEventListener('resize', updateGeometry);
+    window.addEventListener('load', updateGeometry);
+    return () => {
+      cancelAnimationFrame(frameId);
+      observer?.disconnect();
+      window.removeEventListener('resize', updateGeometry);
+      window.removeEventListener('load', updateGeometry);
+    };
+  }, [isDishStep]);
+
+  const guideStyle = isDishStep && dishGuideGeometry
+    ? {
+      top: `${dishGuideGeometry.top}px`,
+      '--rsm2-guide-top-tail-x': `${dishGuideGeometry.restaurantTailX}px`,
+      '--rsm2-guide-bottom-tail-x': `${dishGuideGeometry.dishTailX}px`,
+    }
+    : undefined;
 
   return (
-    <aside className={`rsm2-guide rsm2-guide--${step}`} aria-label="Подсказка по меню" aria-live="polite">
-      <span className="rsm2-guide__mark" aria-hidden="true">✦</span>
-      <div className="rsm2-guide__copy">
-        <div className="rsm2-guide__meta">
-          Подсказка · {stepNumber} из 3
+    <>
+      {isDishStep && dishGuideGeometry && (
+        <svg
+          className="rsm2-guide-connectors"
+          width={dishGuideGeometry.rootWidth}
+          height={dishGuideGeometry.rootHeight}
+          viewBox={`0 0 ${dishGuideGeometry.rootWidth} ${dishGuideGeometry.rootHeight}`}
+          aria-hidden="true"
+        >
+          <line
+            x1={dishGuideGeometry.restaurantPoint.x}
+            y1={dishGuideGeometry.restaurantPoint.y}
+            x2={dishGuideGeometry.guideTopX}
+            y2={dishGuideGeometry.guideTop}
+          />
+          <line
+            x1={dishGuideGeometry.guideBottomX}
+            y1={dishGuideGeometry.guideBottom}
+            x2={dishGuideGeometry.dishPoint.x}
+            y2={dishGuideGeometry.dishPoint.y}
+          />
+        </svg>
+      )}
+      <aside
+        ref={guideRef}
+        className={`rsm2-guide rsm2-guide--${step}`}
+        aria-label="Подсказка по меню"
+        aria-live="polite"
+        style={guideStyle}
+      >
+        <span className="rsm2-guide__mark" aria-hidden="true">✦</span>
+        <div className="rsm2-guide__copy">
+          <div className="rsm2-guide__meta">
+            Подсказка · {stepNumber} из 3
+          </div>
+          <h2 className="rsm2-guide__title">
+            {isFiltersStep
+              ? 'Попробуй быстрые фильтры'
+              : isDishStep
+                ? 'Добавляйте любимые меню и рестораны в избранное'
+                : 'Выбирайте заранее без стресса'}
+          </h2>
+          <p className="rsm2-guide__text">
+            {isFiltersStep
+              ? 'Настрой меню под себя одним нажатием'
+              : isDishStep
+                ? 'Сравнивайте позиции и быстро возвращайтесь к любимым местам и блюдам'
+                : 'Более 700 ресторанов в 12 городах с полным КБЖУ блюд и быстрыми фильтрами'}
+          </p>
         </div>
-        <h2 className="rsm2-guide__title">
-          {isFiltersStep
-            ? 'Попробуй быстрые фильтры'
-            : isDishStep
-              ? 'Добавляйте любимые меню и рестораны в избранное'
-              : 'Выбирайте заранее без стресса'}
-        </h2>
-        <p className="rsm2-guide__text">
-          {isFiltersStep
-            ? 'Настрой меню под себя одним нажатием'
-            : isDishStep
-              ? 'Сравнивайте позиции и быстро возвращайтесь к любимым местам и блюдам'
-              : 'Более 700 ресторанов в 12 городах с полным КБЖУ блюд и быстрыми фильтрами'}
-        </p>
-      </div>
-      <button type="button" className="rsm2-guide__dismiss" onClick={onDismiss}>
-        Не сейчас
-      </button>
-    </aside>
+        <button type="button" className="rsm2-guide__dismiss" onClick={onDismiss}>
+          Не сейчас
+        </button>
+      </aside>
+    </>
   );
 }
 

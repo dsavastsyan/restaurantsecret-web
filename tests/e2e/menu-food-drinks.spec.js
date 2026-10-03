@@ -104,6 +104,39 @@ test('first onboarding hint collapses filters without applying one and shows the
   await expect(page.getByRole('tab', { name: 'Еда' })).toBeVisible()
 })
 
+test('favorites guide bridges the restaurant and first dish hearts on desktop and mobile', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/restaurants/test-menu/menu')
+    await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+
+    const category = viewport.width <= 640
+      ? page.locator('.rsm2-mobile-only .rsm2-cat').first()
+      : page.locator('.rsm2-category-bar .rsm2-cat').first()
+    await category.click()
+    await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+    await expect.poll(async () => page.evaluate(() => {
+      const guide = document.querySelector('.rsm2-guide--dish')?.getBoundingClientRect()
+      const restaurant = document.querySelector('.rsm2-icon-btn.is-guide-target')?.getBoundingClientRect()
+      const dish = [...document.querySelectorAll('.rsm2-fav.is-guide-target')]
+        .map((element) => element.getBoundingClientRect())
+        .find((rect) => rect.width > 0 && rect.height > 0)
+      if (!guide || !restaurant || !dish) return Number.POSITIVE_INFINITY
+      const guideCenter = guide.top + guide.height / 2
+      const targetCenter = (
+        restaurant.top + restaurant.height / 2 + dish.top + dish.height / 2
+      ) / 2
+      return Math.abs(guideCenter - targetCenter)
+    })).toBeLessThan(8)
+
+    await expect(page.locator('.rsm2-guide-connectors line')).toHaveCount(2)
+    const guideBox = await page.locator('.rsm2-guide--dish').boundingBox()
+    expect(guideBox.width).toBe(viewport.width <= 640 ? viewport.width - 32 : 820)
+  }
+})
+
 test('section switch stays hidden when the menu has only food', async ({ page }) => {
   await mockMenu(page, { ...mixedMenu, categories: mixedMenu.categories.filter((category) => category.menuSection === 'food') })
   await page.goto('/restaurants/test-menu/menu')
