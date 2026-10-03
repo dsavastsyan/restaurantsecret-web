@@ -94,7 +94,7 @@ body[data-rs-menu-v2] main {
     radial-gradient(120% 140% at 12% 0%, rgba(117, 132, 90, 0.16) 0%, transparent 58%),
     linear-gradient(180deg, #2b2721 0%, #211e1a 100%);
   color: var(--rsm2-on-ink);
-  padding: 30px 36px 26px;
+  padding: 24px 36px 20px;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 10px 24px rgba(37, 34, 29, 0.16);
 }
 
@@ -136,7 +136,7 @@ body[data-rs-menu-v2] main {
 .rsm2-hero__lead {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -159,7 +159,7 @@ body[data-rs-menu-v2] main {
     0 1px 0 rgba(255, 255, 255, 0.14),
     0 12px 34px rgba(0, 0, 0, 0.45),
     0 2px 10px rgba(240, 133, 90, 0.12);
-  padding-bottom: 18px;
+  padding-bottom: 13px;
   border-bottom: 1px solid rgba(244, 239, 228, 0.14);
 }
 
@@ -178,7 +178,7 @@ body[data-rs-menu-v2] main {
 
 .rsm2-hero__stats {
   display: flex;
-  gap: 26px;
+  gap: 20px;
   flex-wrap: wrap;
   padding-top: 2px;
 }
@@ -186,16 +186,16 @@ body[data-rs-menu-v2] main {
 .rsm2-hero__stat {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .rsm2-hero__stat-value {
-  font: 400 26px/1 "DM Serif Display", Georgia, serif;
+  font: 400 23px/1 "DM Serif Display", Georgia, serif;
 }
 
 .rsm2-hero__stat-label {
-  font: 600 11.5px/1 Inter, sans-serif;
-  letter-spacing: 0.08em;
+  font: 600 10px/1.1 Inter, sans-serif;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--rsm2-on-ink-muted);
 }
@@ -207,13 +207,13 @@ body[data-rs-menu-v2] main {
 
 .rsm2-hero__actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex: none;
 }
 
 .rsm2-icon-btn {
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   border: 1px solid rgba(244, 239, 228, 0.26);
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(255, 253, 248, 0.13), rgba(255, 253, 248, 0.04));
@@ -258,6 +258,68 @@ body[data-rs-menu-v2] main {
   backdrop-filter: blur(10px);
   background: linear-gradient(180deg, rgba(253, 249, 241, 0.97), rgba(249, 243, 232, 0.94));
   box-shadow: 0 6px 16px -10px rgba(119, 98, 61, 0.4);
+}
+
+.rsm2-filter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.rsm2-filter-toggle {
+  min-height: 42px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid var(--rsm2-border);
+  border-radius: 999px;
+  background: var(--rsm2-surface-grad);
+  color: var(--rsm2-ink);
+  cursor: pointer;
+  font: 700 13px/1 Inter, sans-serif;
+  box-shadow: var(--rsm2-elev-1);
+  white-space: nowrap;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.rsm2-filter-toggle:hover,
+.rsm2-filter-toggle.is-on {
+  border-color: var(--rsm2-border-hover-2);
+  background: linear-gradient(180deg, #fdf6e9, #f7eeda);
+  box-shadow: 0 2px 6px rgba(119, 98, 61, 0.16) inset;
+}
+
+.rsm2-filter-toggle__count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--rsm2-accent);
+  color: #fff;
+  font: 800 10.5px/18px Inter, sans-serif;
+  text-align: center;
+}
+
+.rsm2-filter-toggle__caret {
+  color: var(--rsm2-muted);
+  font-size: 10px;
+}
+
+.rsm2-filter-panel {
+  display: flex;
+  align-items: center;
+  flex: 1 1 100%;
+  gap: 10px 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.rsm2-filter-panel > .rsm2-cats {
+  flex: 1 1 auto;
 }
 
 .rsm2-search {
@@ -458,6 +520,7 @@ body[data-rs-menu-v2] main {
 }
 
 .rsm2-filter-cluster.is-guide-target {
+  z-index: 1001;
   padding: 8px;
   border: 1px dashed rgba(117, 132, 90, 0.65);
   border-radius: 16px;
@@ -475,7 +538,9 @@ body[data-rs-menu-v2] main {
   inset: 0;
   z-index: 1000;
   background: rgba(37, 34, 29, 0.22);
-  cursor: pointer;
+  /* The scrim focuses attention without trapping the visitor behind the
+     onboarding card. The highlighted controls must remain usable. */
+  pointer-events: none;
   animation: rsm2-guide-scrim-in 0.18s ease both;
 }
 
@@ -1517,7 +1582,7 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 
 @media (max-width: 860px) {
   .rsm2-hero {
-    padding: 22px 16px;
+    padding: 18px 16px 16px;
   }
 
   .rsm2-hero__report {
@@ -1526,12 +1591,31 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 
   .rsm2-hero__grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
     align-items: start;
   }
 
   .rsm2-hero__actions {
     align-self: flex-start;
+    gap: 7px;
+  }
+
+  .rsm2-hero__title {
+    font-size: clamp(34px, 10vw, 54px);
+    padding-bottom: 11px;
+  }
+
+  .rsm2-hero__stat-value {
+    font-size: 21px;
+  }
+
+  .rsm2-hero__stat-label {
+    font-size: 9.5px;
+  }
+
+  .rsm2-icon-btn {
+    width: 40px;
+    height: 40px;
   }
 
   .rsm2-filters {
@@ -1543,6 +1627,10 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 
   .rsm2-section-switch {
     width: 100%;
+  }
+
+  .rsm2-filter-panel > .rsm2-cats {
+    flex-basis: 100%;
   }
 
   .rsm2-content {

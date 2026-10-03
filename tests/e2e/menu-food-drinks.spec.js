@@ -51,9 +51,17 @@ async function mockMenu(page, payload) {
   await page.route((url) => isApiRequest(url, '/restaurants/map'), (route) => route.fulfill({ json: { items: [] } }))
 }
 
+async function dismissMenuGuide(page) {
+  const dismiss = page.locator('.rsm2-guide__dismiss')
+  await expect(dismiss).toBeVisible()
+  await dismiss.click({ force: true })
+  await expect(page.locator('.rsm2-guide-scrim')).toHaveCount(0)
+}
+
 test('menu defaults to food, then expands into curated category order', async ({ page }) => {
   await mockMenu(page, mixedMenu)
   await page.goto('/restaurants/test-menu/menu')
+  await dismissMenuGuide(page)
 
   const sectionTabs = page.getByRole('tablist', { name: 'Раздел меню' })
   await expect(sectionTabs).toBeVisible()
@@ -75,6 +83,24 @@ test('menu defaults to food, then expands into curated category order', async ({
   await expect(headings).toHaveText(['Кофе', 'Холодные напитки'])
 })
 
+test('onboarding filter action collapses the panel until the user reopens it', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+
+  const filterToggle = page.getByRole('button', { name: /Фильтры/ })
+  await expect(filterToggle).toHaveAttribute('aria-expanded', 'true')
+  const lowKcal = page.locator('.rsm2-filter-cluster .rsm2-chip').first()
+  await expect(lowKcal).toBeVisible()
+
+  await lowKcal.click()
+  await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.locator('.rsm2-filter-cluster')).toHaveCount(0)
+
+  await filterToggle.click()
+  await expect(filterToggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('tab', { name: 'Еда' })).toBeVisible()
+})
+
 test('section switch stays hidden when the menu has only food', async ({ page }) => {
   await mockMenu(page, { ...mixedMenu, categories: mixedMenu.categories.filter((category) => category.menuSection === 'food') })
   await page.goto('/restaurants/test-menu/menu')
@@ -91,6 +117,7 @@ test('diary CTA opens the AnyEat waitlist modal instead of writing to the web di
 
   await mockMenu(page, mixedMenu)
   await page.goto('/restaurants/test-menu/menu')
+  await dismissMenuGuide(page)
 
   await page.locator('.rsm2-desktop-only .rsm2-dbtn').first().click()
 
