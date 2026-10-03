@@ -5,6 +5,7 @@ import { useAuth } from '@/store/auth';
 import { useDiaryStore, type DiaryEntry } from '@/store/diary';
 import { useGoalsStore } from '@/store/goals';
 import { useSubscriptionStore } from '@/store/subscription';
+import { analytics } from '@/services/analytics';
 const formatDateCompact = (dateStr: string) => {
     const d = new Date(dateStr);
     const day = d.getDate();
@@ -314,15 +315,21 @@ export default function Statistics() {
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setDate(e.target.value);
+        analytics.track('diary_date_changed', { selected_date: e.target.value });
     };
 
     const handleShiftDate = (delta: number) => {
-        setDate(shiftDateByDays(selectedDate, delta));
+        const nextDate = shiftDateByDays(selectedDate, delta);
+        setDate(nextDate);
+        analytics.track('diary_date_changed', { selected_date: nextDate, direction: delta < 0 ? 'previous' : 'next' });
     };
 
     const handleDelete = async (id: string) => {
         if (confirm('Удалить запись?')) {
-            if (token) await removeEntry(token, id);
+            if (token) {
+                await removeEntry(token, id);
+                analytics.track('diary_entry_removed');
+            }
             setDiaryProductEditors((current) => {
                 const next = { ...current };
                 delete next[String(id)];
@@ -386,6 +393,7 @@ export default function Statistics() {
             carbs: Number(manualForm.carbs) || 0,
             weight: Number(manualForm.weight) || null
         });
+        analytics.track('diary_manual_entry_added');
 
         setManualForm({ name: '', calories: '', protein: '', fat: '', carbs: '', weight: '' });
         setIsAdding(false);
@@ -409,8 +417,13 @@ export default function Statistics() {
                 const response = await searchStoreProducts(query, 12);
                 if (!isCurrent) return;
                 setProductResults(response.products || []);
+                analytics.track('diary_product_search_completed', {
+                    query_length: query.length,
+                    results_count: response.products?.length || 0,
+                });
             } catch (error) {
                 console.error(error);
+                analytics.track('diary_product_search_failed', { query_length: query.length, error_status: error?.status || 'request_failed' });
                 if (!isCurrent) return;
                 setProductResults([]);
                 setProductSearchError('Не удалось загрузить продукты');
@@ -448,6 +461,7 @@ export default function Statistics() {
                 [String(addedEntry.id)]: createDiaryProductEditor(product, mode)
             }));
         }
+        analytics.track('diary_store_product_added', { source: product.source, nutrition_mode: mode });
         setAddingProductCode(null);
         setProductQuery('');
         setProductResults([]);

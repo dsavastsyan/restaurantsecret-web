@@ -4,6 +4,7 @@ import type { AccountOutletContext } from "./Layout";
 import { useAuth } from "@/store/auth";
 import { useGoalsStore } from "@/store/goals";
 import { apiPut } from "@/lib/api";
+import { analytics } from "@/services/analytics";
 
 export default function AccountOverview() {
   const { me, sub, reload, incomingFriendRequestsCount } = useOutletContext<AccountOutletContext>();
@@ -93,9 +94,11 @@ export default function AccountOverview() {
 
       setSaveStatus('saved');
       setIsFormDirty(false);
+      analytics.track("account_body_params_updated");
       setTimeout(() => setSaveStatus(''), 2000);
     } catch (err: any) {
       console.error(err);
+      analytics.track("account_body_params_update_failed", { error_status: err?.status || "request_failed" });
       setSaveStatus('');
       alert('Ошибка при сохранении: ' + (err.message || 'Unknown error'));
     }
@@ -118,9 +121,11 @@ export default function AccountOverview() {
       await reload();
       setProfileSaveStatus('saved');
       setIsProfileEditing(false);
+      analytics.track("account_profile_updated");
       setTimeout(() => setProfileSaveStatus(''), 2000);
     } catch (err: any) {
       console.error(err);
+      analytics.track("account_profile_update_failed", { error_status: err?.status || "request_failed" });
       setProfileSaveStatus('');
       alert('Ошибка при сохранении профиля: ' + (err.message || 'Unknown error'));
     }

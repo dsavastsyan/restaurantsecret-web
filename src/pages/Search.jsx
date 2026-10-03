@@ -1,5 +1,5 @@
 // Unified search page for dishes and restaurants.
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 
 import { postSuggest, searchFull } from '@/lib/api'
@@ -9,6 +9,7 @@ import { useDishCardStore } from '@/store/dishCard'
 import { api } from '@/api/client'
 import { getRussianPluralWord, getSearchQueryScore } from '@/lib/text'
 import { saveCatalogCity } from '@/lib/cityPreference'
+import { analytics } from '@/services/analytics'
 
 const DEFAULT_TYPE = 'dish'
 const emptyResults = { restaurants: [], dishes: [], otherCities: [] }
@@ -54,6 +55,17 @@ export default function Search() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [submittingSuggest, setSubmittingSuggest] = useState(false)
+  const pageViewTracked = useRef(false)
+
+  useEffect(() => {
+    if (pageViewTracked.current) return
+    pageViewTracked.current = true
+    analytics.track('search_page_view', {
+      search_type: searchType,
+      selected_city: selectedCity,
+      has_query: Boolean(queryParam),
+    })
+  }, [queryParam, selectedCity])
 
   useEffect(() => {
     const query = queryParam.trim()
@@ -71,7 +83,7 @@ export default function Search() {
     searchFull(query, selectedCity)
       .then((data) => {
         if (cancelled) return
-        setResults({
+        const nextResults = {
           restaurants: [...(data?.restaurants ?? [])].sort((left, right) =>
             getSearchQueryScore(right.name, query) - getSearchQueryScore(left.name, query)
           ),
@@ -79,12 +91,28 @@ export default function Search() {
             getSearchQueryScore(right.dishName, query) - getSearchQueryScore(left.dishName, query)
           ),
           otherCities: data?.otherCities ?? [],
+        }
+        setResults(nextResults)
+        analytics.track('search_results_loaded', {
+          source: 'search_page',
+          search_type: searchType,
+          selected_city: selectedCity,
+          query,
+          restaurants_count: nextResults.restaurants.length,
+          dishes_count: nextResults.dishes.length,
+          other_cities_count: nextResults.otherCities.length,
         })
       })
       .catch((err) => {
         if (cancelled) return
         setError(err?.message || 'Не удалось выполнить поиск')
         setResults(emptyResults)
+        analytics.track('search_error', {
+          source: 'search_page',
+          search_type: searchType,
+          selected_city: selectedCity,
+          error_status: err?.status || 'request_failed',
+        })
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -93,7 +121,7 @@ export default function Search() {
     return () => {
       cancelled = true
     }
-  }, [queryParam, selectedCity])
+  }, [queryParam, searchType, selectedCity])
 
   const updateParams = useCallback((nextQuery, nextType = searchType) => {
     const params = new URLSearchParams()
@@ -107,41 +135,65 @@ export default function Search() {
   }, [searchType, selectedCity, setSearchParams])
 
   const changeCity = useCallback((city) => {
+    if (city !== selectedCity) {
+      analytics.track('search_city_changed', { from_city: selectedCity, selected_city: city })
+    }
     saveCatalogCity(city, 'manual', accessToken)
     const params = new URLSearchParams(searchParams)
     params.set('city', city)
     setSearchParams(params)
-  }, [accessToken, searchParams, setSearchParams])
+  }, [accessToken, searchParams, selectedCity, setSearchParams])
 
   const handleSubmit = useCallback((event) => {
     event.preventDefault()
     setRestaurantsExpanded(false)
     setDishesExpanded(false)
+    analytics.track('search_submit', {
+      source: 'search_page',
+      type: searchType,
+      query: inputValue.trim(),
+      selected_city: selectedCity,
+    })
     updateParams(inputValue, searchType)
-  }, [inputValue, searchType, updateParams])
+  }, [inputValue, searchType, selectedCity, updateParams])
 
   const handleClear = useCallback(() => {
     setInputValue('')
     setRestaurantsExpanded(false)
     setDishesExpanded(false)
+    analytics.track('search_cleared', { source: 'search_page', selected_city: selectedCity })
     updateParams('', searchType)
-  }, [searchType, updateParams])
+  }, [searchType, selectedCity, updateParams])
 
   const handleRestaurantOpen = useCallback((slug) => {
     if (!slug) return
     if (ensureAccess()) {
+      const restaurant = restaurants.find((item) => item.slug === slug)
+      analytics.track('search_result_open', {
+        result_type: 'restaurant',
+        slug,
+        name: restaurant?.name,
+        selected_city: selectedCity,
+      })
       navigate(`/restaurants/${slug}/menu/?city=${encodeURIComponent(selectedCity)}`)
     }
-  }, [ensureAccess, navigate, selectedCity])
+  }, [ensureAccess, navigate, restaurants, selectedCity])
 
   const handleDishOpen = useCallback((dish) => {
+    analytics.track('search_result_open', {
+      result_type: 'dish',
+      dish_id: dish.id,
+      restaurant_slug: dish.restaurantSlug,
+      name: dish.dishName,
+      selected_city: selectedCity,
+    })
     openDishCard({
       id: dish.id,
       dishName: dish.dishName,
       restaurantSlug: dish.restaurantSlug,
       restaurantName: dish.restaurantName,
     })
-  }, [openDishCard])
+  }, [openDishCard, selectedCity])
 
   const handleSuggestRestaurant = useCallback(async () => {
     const trimmedQuery = queryParam.trim()
@@ -158,13 +210,21 @@ export default function Search() {
         accessTokenOrUndefined,
       )
       toast.success('Спасибо, ваш запрос принят!')
+      analytics.track('search_restaurant_suggestion_submitted', {
+        selected_city: selectedCity,
+        query: trimmedQuery,
+      })
     } catch (requestError) {
       console.error('Failed to submit search suggestion', requestError)
+      analytics.track('search_restaurant_suggestion_failed', {
+        selected_city: selectedCity,
+        error_status: requestError?.status || 'request_failed',
+      })
       toast.error('Не удалось отправить запрос. Попробуйте ещё раз.')
     } finally {
       setSubmittingSuggest(false)
     }
-  }, [accessTokenOrUndefined, queryParam, submittingSuggest])
+  }, [accessTokenOrUndefined, queryParam, selectedCity, submittingSuggest])
 
   const hasQuery = queryParam.length > 0
   const dishes = results?.dishes ?? []
@@ -280,7 +340,11 @@ export default function Search() {
               {restaurants.length > 5 && (
                 <button
                   className="search-results-expand"
-                  onClick={() => setRestaurantsExpanded(!restaurantsExpanded)}
+                  onClick={() => {
+                    const expanded = !restaurantsExpanded
+                    setRestaurantsExpanded(expanded)
+                    analytics.track('search_results_expanded', { result_type: 'restaurant', expanded })
+                  }}
                 >
                   {restaurantsExpanded ? 'Свернуть' : 'Показать все'}
                 </button>
@@ -315,7 +379,11 @@ export default function Search() {
               {dishes.length > 5 && (
                 <button
                   className="search-results-expand"
-                  onClick={() => setDishesExpanded(!dishesExpanded)}
+                  onClick={() => {
+                    const expanded = !dishesExpanded
+                    setDishesExpanded(expanded)
+                    analytics.track('search_results_expanded', { result_type: 'dish', expanded })
+                  }}
                 >
                   {dishesExpanded ? 'Свернуть' : 'Показать все'}
                 </button>

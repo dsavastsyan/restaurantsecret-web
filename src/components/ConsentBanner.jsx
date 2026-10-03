@@ -45,6 +45,7 @@ export function ConsentBanner() {
 
     const handleAccept = () => {
         analytics.setConsent("granted");
+        analytics.track("cookie_banner_action", { action: "accept", source: "banner" });
     };
 
     const handleDecline = () => {

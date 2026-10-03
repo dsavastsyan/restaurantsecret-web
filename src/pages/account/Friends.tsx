@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ApiError, apiGet, apiPost } from "@/lib/api";
 import { useAuth } from "@/store/auth";
 import { toast } from "@/lib/toast";
+import { analytics } from "@/services/analytics";
 
 type FriendUser = {
   id: number;
@@ -94,8 +95,14 @@ export default function FriendsPage() {
       setFriends(Array.isArray(response.friends) ? response.friends : []);
       setIncomingRequests(Array.isArray(response.incoming_requests) ? response.incoming_requests : []);
       setOutgoingRequests(Array.isArray(response.outgoing_requests) ? response.outgoing_requests : []);
+      analytics.track("friends_loaded", {
+        friends_count: Array.isArray(response.friends) ? response.friends.length : 0,
+        incoming_requests_count: Array.isArray(response.incoming_requests) ? response.incoming_requests.length : 0,
+        outgoing_requests_count: Array.isArray(response.outgoing_requests) ? response.outgoing_requests.length : 0,
+      });
     } catch (err) {
       console.error("Failed to load friends", err);
+      analytics.track("friends_load_failed", { error_status: err?.status || "request_failed" });
       setError("Не удалось загрузить друзей и заявки.");
     } finally {
       setIsLoading(false);
@@ -127,10 +134,15 @@ export default function FriendsPage() {
         );
         if (!cancelled) {
           setSearchResults(Array.isArray(response?.users) ? response.users : []);
+          analytics.track("friend_search_completed", {
+            query_length: query.length,
+            results_count: Array.isArray(response?.users) ? response.users.length : 0,
+          });
         }
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to search users", err);
+          analytics.track("friend_search_failed", { query_length: query.length, error_status: err?.status || "request_failed" });
           setSearchResults([]);
         }
       } finally {
@@ -154,6 +166,7 @@ export default function FriendsPage() {
     try {
       await apiPost("/api/friends/requests", { to_user_id: toUserId }, token);
       toast.success("Заявка отправлена");
+      analytics.track("friend_request_sent");
       await loadFriends();
 
       const query = searchQuery.trim();
@@ -170,6 +183,9 @@ export default function FriendsPage() {
       } else {
         toast.error("Не удалось отправить заявку");
       }
+      analytics.track("friend_request_send_failed", {
+        error_status: err?.status || "request_failed",
+      });
     } finally {
       setActionKey(null);
     }
@@ -182,12 +198,17 @@ export default function FriendsPage() {
     setActionKey(key);
     try {
       await apiPost(`/api/friends/requests/${requestId}/${action}`, undefined, token);
+      analytics.track("friend_request_action", { action });
       if (action === "accept") {
         toast.success("Пользователь добавлен в друзья");
       }
       await loadFriends();
     } catch (err) {
       console.error(`Failed to ${action} friend request`, err);
+      analytics.track("friend_request_action_failed", {
+        action,
+        error_status: err?.status || "request_failed",
+      });
       toast.error("Не удалось обновить заявку");
     } finally {
       setActionKey(null);
