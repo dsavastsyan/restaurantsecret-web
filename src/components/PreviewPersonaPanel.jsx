@@ -41,7 +41,7 @@ export default function PreviewPersonaPanel() {
     meta.setAttribute('content', 'noindex, nofollow, noarchive')
   }, [])
 
-  const activatePersona = useCallback(async (persona, { reset = false, redirect = true, silent = false } = {}) => {
+  const activatePersona = useCallback(async (persona, { reset = false, redirect = false, silent = false } = {}) => {
     setBusyPersona(reset ? 'reset' : persona)
     if (!silent) setMessage('')
 
