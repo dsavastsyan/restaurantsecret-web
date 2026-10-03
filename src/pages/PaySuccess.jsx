@@ -1,10 +1,12 @@
 // Confirmation page displayed after a payment is completed. Allows users to
 // re-validate access from the API.
-import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { PD_API_BASE } from '@/config/api'
 import { useAuth } from '@/store/auth'
 import { analytics } from '@/services/analytics'
+import { showSubscriptionError, showSubscriptionPending, showSubscriptionSuccess } from '@/lib/subscriptionFeedback'
+import { forgetSubscriptionReturnTo, readSubscriptionReturnTo } from '@/lib/subscriptionCta'
 
 const queryErrors = {
   no_id: 'Платёж не найден. Попробуйте оформить подписку ещё раз.',
@@ -30,11 +32,13 @@ export default function PaySuccess() {
   const access = outlet.access ?? {}
   const onAccessUpdate = outlet.handleAccessUpdate
   const accessToken = useAuth((state) => state.accessToken)
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [expiresAt, setExpiresAt] = useState(access?.expiresAt ?? null)
+  const refreshAccessRef = useRef(null)
 
   // Landing here proves that the provider redirected the browser back, but it
   // does not prove that YooKassa's webhook has activated the subscription.
@@ -63,7 +67,7 @@ export default function PaySuccess() {
 
   // Manual re-check against the backend. This duplicates the logic used in
   // AppShell but keeps the flow explicit on this screen.
-  const refreshAccess = async () => {
+  const refreshAccess = useCallback(async () => {
     setLoading(true)
     setStatus('loading')
     setMessage('')
@@ -104,6 +108,15 @@ export default function PaySuccess() {
         setExpiresAt(detail.expiresAt)
         setMessage('Доступ подтверждён.')
 
+        const returnTo = readSubscriptionReturnTo()
+        if (returnTo) forgetSubscriptionReturnTo()
+        showSubscriptionSuccess({
+          onContinue: () => {
+            if (returnTo) navigate(returnTo, { replace: true })
+          },
+        })
+        if (returnTo) navigate(returnTo, { replace: true })
+
         // Analytics — read plan stored before payment redirect
         const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
         const paymentId = sessionStorage.getItem("rs_checkout_payment_id") || null;
@@ -115,15 +128,31 @@ export default function PaySuccess() {
         setStatus('inactive')
         setExpiresAt(detail.expiresAt)
         setMessage('Подписка пока не активна. Попробуйте повторить проверку позже.')
+        showSubscriptionPending(() => {
+          void refreshAccessRef.current?.()
+        })
       }
     } catch (err) {
       console.error('Failed to refresh access', err)
       setStatus('error')
       setMessage(err?.message ?? 'Не удалось проверить доступ. Попробуйте позже.')
+      showSubscriptionError(
+        () => {
+          void refreshAccessRef.current?.()
+        },
+        () => {
+          void refreshAccessRef.current?.()
+        },
+      )
     } finally {
       setLoading(false)
     }
-  }
+  }, [accessToken, navigate, onAccessUpdate])
+  refreshAccessRef.current = refreshAccess;
+
+  useEffect(() => {
+    void refreshAccess()
+  }, [refreshAccess])
 
   return (
     <div className="page">

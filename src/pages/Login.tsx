@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, apiPost } from "@/lib/api";
 import { resetImmersiveViewport, useImmersiveViewport } from "@/hooks/useImmersiveViewport";
-import { SUBSCRIPTION_CHECKOUT_PATH } from "@/lib/subscriptionCta";
+import { rememberSubscriptionReturnTo, SUBSCRIPTION_CHECKOUT_PATH } from "@/lib/subscriptionCta";
 import { useAuth, selectSetToken } from "@/store/auth"; // <— меняем импорт
 import { useSubscriptionStore, selectFetchStatus } from "@/store/subscription";
 import { analytics } from "@/services/analytics";
@@ -93,6 +93,7 @@ export default function LoginPage() {
   const resolvePostLoginRedirect = async (token: string) => {
     if (redirectTo !== SUBSCRIPTION_CHECKOUT_PATH || !returnTo) return redirectTo;
 
+    rememberSubscriptionReturnTo(returnTo);
     const hasActiveSubscription = await fetchSubscriptionStatus(token);
     return hasActiveSubscription ? returnTo : redirectTo;
   };
