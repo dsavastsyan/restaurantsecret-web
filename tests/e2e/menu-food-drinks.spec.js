@@ -198,6 +198,7 @@ test('third hint closes and consumes any click', async ({ page }) => {
   await page.locator('.rsm2-icon-btn.is-guide-target').click()
   await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
   await expect(page.locator('.rsm2-guide--restaurants')).toContainText('Более 600 ресторанов')
+  await expect(page.locator('.rsm2-guide--restaurants')).toHaveCSS('position', 'absolute')
 
   await page.getByRole('link', { name: 'Рестораны' }).click()
   await expect(page.locator('.rsm2-guide')).toHaveCount(0)
