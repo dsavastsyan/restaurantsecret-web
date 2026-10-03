@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client.js";
 import { apiGet } from "@/lib/api";
 import { useAuth } from "@/store/auth";
+import { analytics } from "@/services/analytics";
 
 type FriendInfo = {
   id: number;
@@ -77,8 +78,16 @@ export default function FriendFavoritesPage() {
       }
 
       setData(response);
+      analytics.track("friend_favorites_loaded", {
+        only_common: showOnlyCommon,
+        restaurants_count: Array.isArray(response.restaurants) ? response.restaurants.length : 0,
+      });
     } catch (err: any) {
       console.error("Failed to load friend favorites", err);
+      analytics.track("friend_favorites_load_failed", {
+        only_common: showOnlyCommon,
+        error_status: err?.status || "request_failed",
+      });
       const status = err?.status;
       if (status === 403) {
         setError("Этот пользователь пока не у вас в друзьях.");
@@ -202,7 +211,11 @@ export default function FriendFavoritesPage() {
             id="only-common-toggle"
             type="checkbox"
             checked={showOnlyCommon}
-            onChange={(event) => setShowOnlyCommon(event.target.checked)}
+            onChange={(event) => {
+              const onlyCommon = event.target.checked;
+              setShowOnlyCommon(onlyCommon);
+              analytics.track("friend_favorites_filter_changed", { only_common: onlyCommon });
+            }}
           />
           <span>Показать только общее</span>
         </label>
@@ -268,7 +281,13 @@ export default function FriendFavoritesPage() {
                     <button
                       type="button"
                       className="btn btn--primary"
-                      onClick={() => navigate(`/r/${slug}/menu`)}
+                      onClick={() => {
+                        analytics.track("friend_favorite_restaurant_open", {
+                          restaurant_slug: slug,
+                          is_common: item.is_common,
+                        });
+                        navigate(`/r/${slug}/menu`);
+                      }}
                     >
                       Открыть меню
                     </button>

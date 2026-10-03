@@ -210,6 +210,18 @@ function MetrikaRouteTracker() {
   const isInitialRenderRef = React.useRef(true)
 
   React.useEffect(() => {
+    if (!location.pathname.startsWith('/account')) return
+
+    const section = location.pathname === '/account' || location.pathname === '/account/profile'
+      ? 'overview'
+      : location.pathname.split('/')[2] || 'overview'
+    analytics.track('account_page_view', {
+      section,
+      path: location.pathname,
+    })
+  }, [location.pathname])
+
+  React.useEffect(() => {
     if (isInitialRenderRef.current) {
       isInitialRenderRef.current = false
       return
