@@ -4,7 +4,7 @@ import { computeMacroGeometry, formatNumeric, formatPortionLabel, formatPriceRub
 import { useAuth } from '@/store/auth';
 import { useSubscriptionStore } from '@/store/subscription';
 import { useFavoritesStore } from '@/store/favorites';
-import { useDiaryStore } from '@/store/diary';
+import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal';
 import { analytics } from '@/services/analytics';
 import MacroRing from './MacroRing';
 import { HeartIcon } from './icons';
@@ -20,7 +20,7 @@ type DishTileV2Props = {
 };
 
 // Redesigned desktop grid card. Mirrors DishCard.tsx's data/handlers 1:1 for
-// functional parity (favorite, diary add, subscribe redirect) but renders
+// functional parity (favorite, AnyEat launch CTA, subscribe redirect) but renders
 // the new visual language. Photos are not yet part of the data model, so
 // every card renders the "plaque" (photo-less) cover today — the photo
 // branch below is future-proofing per the design handoff.
@@ -36,8 +36,6 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
     isFavorite: state.isFavorite(Number(dish.id)),
     toggle: state.toggle,
   }));
-  const addDiaryEntry = useDiaryStore((s) => s.addEntry);
-
   const favorited = isFavorite;
   const hasDishAccess = hasActiveSub || isFreeAccess;
   const subscriptionCtaText = hasSubscriptionHistory ? 'Возобновить подписку' : 'Попробовать бесплатно';
@@ -66,34 +64,10 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
     await toggle(accessToken, Number(dish.id), restaurantSlug);
   };
 
-  const handleDiaryAdd = async (e: React.MouseEvent) => {
+  const handleDiaryAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (readOnly) return;
-    if (!accessToken) {
-      navigate('/login', { state: { from: location.pathname + location.search } });
-      return;
-    }
-    if (!hasDishAccess) {
-      navigate('/account/subscription', { state: { from: location.pathname + location.search } });
-      return;
-    }
-    const safeNum = (val: any) => {
-      const n = Number(val);
-      return Number.isFinite(n) ? n : 0;
-    };
-    const dishId = Number(dish.id);
-    await addDiaryEntry(accessToken, {
-      date: new Date().toISOString().split('T')[0],
-      dish_id: Number.isFinite(dishId) ? dishId : undefined,
-      restaurant_slug: restaurantSlug,
-      restaurant_name: restaurantName || undefined,
-      name: dish.name || 'Блюдо',
-      calories: safeNum(dish.kcal),
-      protein: safeNum(dish.protein),
-      fat: safeNum(dish.fat),
-      carbs: safeNum(dish.carbs),
-      weight: safeNum(dish.weight) || undefined,
-    });
+    openAnyEatLaunchModal();
   };
 
   const handleSubscribe = (e: React.MouseEvent) => {
