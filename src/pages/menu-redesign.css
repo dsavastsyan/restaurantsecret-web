@@ -975,9 +975,10 @@ body[data-rs-menu-v2] main {
    serif descenders visually collide with the first row of cards. */
 .rsm2-section__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
   margin-bottom: 20px;
+  position: relative;
 }
 
 .rsm2-section__title {
@@ -998,6 +999,138 @@ body[data-rs-menu-v2] main {
   flex: 1;
   height: 1px;
   background: var(--rsm2-hairline-2);
+}
+
+.rsm2-sort-control {
+  position: relative;
+  flex: none;
+}
+
+.rsm2-sort-control__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 10px 7px 12px;
+  border: 1px solid var(--rsm2-border);
+  border-radius: 999px;
+  background: var(--rsm2-surface-grad);
+  color: var(--rsm2-text-2);
+  font: 700 12px/1 Inter, sans-serif;
+  cursor: pointer;
+  box-shadow: var(--rsm2-elev-1);
+  white-space: nowrap;
+  transition: all 0.16s ease;
+}
+
+.rsm2-sort-control__trigger:hover,
+.rsm2-sort-control__trigger.is-on {
+  border-color: var(--rsm2-border-hover);
+  color: var(--rsm2-ink);
+  box-shadow: var(--rsm2-elev-2);
+}
+
+.rsm2-sort-control__trigger.is-on {
+  background: linear-gradient(180deg, #fdf6e9, #f7eeda);
+}
+
+.rsm2-sort-control__label {
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rsm2-sort-control__caret {
+  color: var(--rsm2-muted);
+  font-size: 10px;
+}
+
+.rsm2-sort-control__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: 260px;
+  padding: 10px;
+  border: 1px solid var(--rsm2-border);
+  border-radius: 14px;
+  background: var(--rsm2-card);
+  box-shadow: 0 12px 28px rgba(119, 98, 61, 0.2);
+}
+
+.rsm2-sort-control__scope {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: var(--rsm2-cream-alt);
+}
+
+.rsm2-sort-control__scope button,
+.rsm2-sort-control__option button,
+.rsm2-sort-control__reset {
+  border: 0;
+  background: transparent;
+  color: var(--rsm2-text-2);
+  font: 600 12px/1.2 Inter, sans-serif;
+  cursor: pointer;
+}
+
+.rsm2-sort-control__scope button {
+  min-height: 30px;
+  padding: 5px 6px;
+  border-radius: 8px;
+}
+
+.rsm2-sort-control__scope button.is-on {
+  background: var(--rsm2-card);
+  color: var(--rsm2-ink);
+  box-shadow: 0 1px 3px rgba(119, 98, 61, 0.12);
+}
+
+.rsm2-sort-control__options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rsm2-sort-control__option {
+  display: flex;
+  align-items: center;
+  border-radius: 9px;
+}
+
+.rsm2-sort-control__option:hover,
+.rsm2-sort-control__option.is-selected {
+  background: var(--rsm2-cream-alt);
+}
+
+.rsm2-sort-control__option > button:first-child {
+  flex: 1;
+  padding: 10px 8px;
+  text-align: left;
+}
+
+.rsm2-sort-control__direction {
+  min-width: 38px;
+  padding: 9px 8px;
+  color: var(--rsm2-ink) !important;
+  font-size: 15px !important;
+}
+
+.rsm2-sort-control__reset {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 8px 3px;
+  border-top: 1px solid var(--rsm2-hairline);
+  color: var(--rsm2-text-3);
+  text-align: left;
+}
+
+.rsm2-sort-control__reset:hover {
+  color: var(--rsm2-ink);
 }
 
 .rsm2-grid {
@@ -1609,6 +1742,21 @@ body[data-rs-menu-v2] main {
 
   .rsm2-grid {
     grid-template-columns: 1fr;
+  }
+
+  .rsm2-section__head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .rsm2-section__rule {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .rsm2-sort-control__menu {
+    right: -4px;
+    max-width: calc(100vw - 32px);
   }
 
   .rsm2-guide {

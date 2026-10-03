@@ -8,6 +8,12 @@ import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx';
 import DishTileV2 from './DishTileV2';
 import DishRowV2 from './DishRowV2';
 import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon, LockIcon } from './icons';
+import {
+  MENU_SORT_OPTIONS,
+  getDefaultMenuSortDirection,
+  getMenuSortOption,
+  toggleMenuSortDirection,
+} from '@/lib/menuSorting';
 import '@/pages/menu-redesign.css';
 
 const CATS_VISIBLE = 3;
@@ -85,6 +91,11 @@ export default function MenuRedesignView({
   toggleIngredient,
   setIngredientMode,
   clearIngredients,
+
+  menuSort,
+  categorySorts,
+  onSortChange,
+  onSortReset,
 
   isFavoriteRestaurant,
   handleToggleRestaurantFavorite,
@@ -450,6 +461,14 @@ export default function MenuRedesignView({
                   <h2 className="rsm2-section__title">{section.name}</h2>
                   <span className="rsm2-section__count">{formatPositionCount(section.dishes.length)}</span>
                   <div className="rsm2-section__rule" />
+                  <SortControl
+                    categoryName={section.name}
+                    sort={categorySorts?.[section.name] || menuSort}
+                    globalSort={menuSort}
+                    hasCategoryOverride={Boolean(categorySorts?.[section.name])}
+                    onChange={onSortChange}
+                    onReset={onSortReset}
+                  />
                 </div>
 
                 <div className={`rsm2-grid rsm2-desktop-only ${guideStep === 'dish' && sectionIndex === 0 ? 'is-guide-target' : ''}`}>
@@ -511,6 +530,111 @@ export default function MenuRedesignView({
           isOpen={isOutdatedOpen}
           onClose={() => setIsOutdatedOpen(false)}
         />
+      )}
+    </div>
+  );
+}
+
+function SortControl({ categoryName, sort, globalSort, hasCategoryOverride, onChange, onReset }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [scope, setScope] = useState(hasCategoryOverride ? 'category' : 'menu');
+  const selectedOption = getMenuSortOption(sort?.field);
+  const selectedDirection = sort?.direction || selectedOption.defaultDirection;
+
+  useEffect(() => {
+    if (!isOpen) setScope(hasCategoryOverride ? 'category' : 'menu');
+  }, [hasCategoryOverride, isOpen]);
+
+  const chooseSort = (field, direction = null) => {
+    const scopeSort = scope === 'menu' ? globalSort : sort;
+    const nextDirection = direction || (
+      field === scopeSort?.field
+        ? scopeSort.direction
+        : getDefaultMenuSortDirection(field)
+    );
+    onChange(scope, categoryName, { field, direction: nextDirection });
+    setIsOpen(false);
+  };
+
+  const toggleDirection = (field) => {
+    const scopeSort = scope === 'menu' ? globalSort : sort;
+    const currentDirection = field === scopeSort?.field
+      ? scopeSort.direction
+      : getDefaultMenuSortDirection(field);
+    chooseSort(field, toggleMenuSortDirection(currentDirection));
+  };
+
+  const reset = () => {
+    onReset(scope, categoryName);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="rsm2-sort-control">
+      <button
+        type="button"
+        className={`rsm2-sort-control__trigger ${isOpen || hasCategoryOverride ? 'is-on' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-label={`Сортировка категории «${categoryName}»`}
+        onClick={() => setIsOpen((previous) => !previous)}
+      >
+        <span className="rsm2-sort-control__label">{selectedOption.label}</span>
+        <span aria-hidden="true">{selectedDirection === 'asc' ? '↑' : '↓'}</span>
+        <span className="rsm2-sort-control__caret" aria-hidden="true">{isOpen ? '▴' : '▾'}</span>
+      </button>
+
+      {isOpen && (
+        <div className="rsm2-sort-control__menu" role="menu" aria-label={`Сортировка «${categoryName}»`}>
+          <div className="rsm2-sort-control__scope" role="group" aria-label="Область сортировки">
+            <button
+              type="button"
+              className={scope === 'menu' ? 'is-on' : ''}
+              aria-pressed={scope === 'menu'}
+              onClick={() => setScope('menu')}
+            >
+              Всё меню
+            </button>
+            <button
+              type="button"
+              className={scope === 'category' ? 'is-on' : ''}
+              aria-pressed={scope === 'category'}
+              onClick={() => setScope('category')}
+            >
+              Только категория
+            </button>
+          </div>
+
+          <div className="rsm2-sort-control__options">
+            {MENU_SORT_OPTIONS.map((option) => {
+              const isSelected = option.field === sort?.field;
+              const direction = isSelected ? selectedDirection : option.defaultDirection;
+              return (
+                <div className={`rsm2-sort-control__option ${isSelected ? 'is-selected' : ''}`} key={option.field}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => chooseSort(option.field)}
+                  >
+                    {option.label}
+                  </button>
+                  <button
+                    type="button"
+                    className="rsm2-sort-control__direction"
+                    aria-label={`${option.label}: по ${direction === 'asc' ? 'убыванию' : 'возрастанию'}`}
+                    onClick={() => toggleDirection(option.field)}
+                  >
+                    {direction === 'asc' ? '↑' : '↓'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <button type="button" className="rsm2-sort-control__reset" onClick={reset}>
+            Сбросить сортировку
+          </button>
+        </div>
       )}
     </div>
   );

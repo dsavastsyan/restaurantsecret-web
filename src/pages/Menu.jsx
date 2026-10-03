@@ -14,6 +14,7 @@ import {
 import { formatMenuCapturedAt } from '@/lib/dates'
 import { parseCatalogNutritionCriteria } from '@/lib/catalogFilterParams'
 import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
+import { createDefaultMenuSort, sortMenuDishes } from '@/lib/menuSorting'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { useDishCardStore } from '@/store/dishCard'
@@ -192,6 +193,8 @@ export default function Menu({
   const [allCategoriesExpanded, setAllCategoriesExpanded] = useState(false)
   const [isIngredientFilterOpen, setIsIngredientFilterOpen] = useState(false)
   const [ingredientFilter, setIngredientFilter] = useState(createDefaultIngredientFilter)
+  const [menuSort, setMenuSort] = useState(createDefaultMenuSort)
+  const [categorySorts, setCategorySorts] = useState({})
 
   // Reset menu-local filters when the restaurant or incoming catalog filters change.
   useEffect(() => {
@@ -202,6 +205,8 @@ export default function Menu({
     setAllCategoriesExpanded(false)
     setIsIngredientFilterOpen(false)
     setIngredientFilter(createDefaultIngredientFilter())
+    setMenuSort(createDefaultMenuSort())
+    setCategorySorts({})
     const nextMenuFilters = createMenuFiltersFromCatalog(routeSearchParams)
     setPresets(nextMenuFilters.presets)
     setRange(nextMenuFilters.range)
@@ -421,19 +426,41 @@ export default function Menu({
 
     return ordered.filter((section) => section.dishes.length)
   }, [filtered, menu?.categories])
-  // Within each category, dishes with a photo come first (stable sort), so the
-  // grid never mixes photo and photo-less cards into a ragged rhythm. Only the
-  // partner draft preview supplies photos today; the public menu API does not.
+  const handleSortChange = (scope, categoryName, nextSort) => {
+    if (scope === 'menu') {
+      setMenuSort(nextSort)
+      setCategorySorts({})
+      return
+    }
+    setCategorySorts((previous) => ({ ...previous, [categoryName]: nextSort }))
+  }
+
+  const handleSortReset = (scope, categoryName) => {
+    if (scope === 'menu') {
+      setMenuSort(createDefaultMenuSort())
+      setCategorySorts({})
+      return
+    }
+    setCategorySorts((previous) => {
+      const next = { ...previous }
+      delete next[categoryName]
+      return next
+    })
+  }
+
+  const resetSorting = () => {
+    setMenuSort(createDefaultMenuSort())
+    setCategorySorts({})
+  }
+
+  // Sort within each category so the curated category order remains intact.
+  // A category-level choice overrides the global sort only for that category.
   const groupedDishesSorted = useMemo(
     () => groupedDishes.map((section) => ({
       ...section,
-      dishes: [...section.dishes].sort((a, b) => {
-        const aHasPhoto = a.photoUrl || a.photo_url ? 1 : 0
-        const bHasPhoto = b.photoUrl || b.photo_url ? 1 : 0
-        return bHasPhoto - aHasPhoto
-      }),
+      dishes: sortMenuDishes(section.dishes, categorySorts[section.name] || menuSort),
     })),
-    [groupedDishes]
+    [categorySorts, groupedDishes, menuSort]
   )
   const restaurantLinkUrl = useMemo(() => normalizeRestaurantLinkUrl(menu?.instagramUrl), [menu?.instagramUrl])
   // A slug ("horoshaya-devochka-nan") must never stand in for a real name —
@@ -501,6 +528,7 @@ export default function Menu({
     setPresets(createDefaultPresets())
     setRange(createDefaultRange())
     setIngredientFilter(createDefaultIngredientFilter())
+    resetSorting()
   }
 
   const openMapInBrowser = () => {
@@ -591,6 +619,10 @@ export default function Menu({
       range={range}
       updateRange={updateRange}
       resetFilters={resetFilters}
+      menuSort={menuSort}
+      categorySorts={categorySorts}
+      onSortChange={handleSortChange}
+      onSortReset={handleSortReset}
       isIngredientFilterOpen={isIngredientFilterOpen}
       setIsIngredientFilterOpen={setIsIngredientFilterOpen}
       hasCompositions={hasCompositions}

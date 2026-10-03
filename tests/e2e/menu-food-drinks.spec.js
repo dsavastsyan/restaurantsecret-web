@@ -4,6 +4,7 @@ test.use({ serviceWorkers: 'block' })
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
+    sessionStorage.setItem('rs_menu_guide_v1', 'dismissed')
     localStorage.setItem('rs_consent_v1', JSON.stringify({
       analytics: 'denied',
       updatedAt: new Date().toISOString(),
@@ -12,16 +13,16 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-const dish = (id, name, menuSection, category) => ({
+const dish = (id, name, menuSection, category, nutrition = {}) => ({
   id,
   name,
   menuSection,
   normalizedCategory: category,
   per: 'portion',
-  kcal: 200,
-  protein: 10,
-  fat: 8,
-  carbs: 20,
+  kcal: nutrition.kcal ?? 200,
+  protein: nutrition.protein ?? 10,
+  fat: nutrition.fat ?? 8,
+  carbs: nutrition.carbs ?? 20,
 })
 
 const mixedMenu = {
@@ -107,6 +108,64 @@ test('section switch stays hidden when the menu has only food', async ({ page })
 
   await expect(page.getByRole('tablist', { name: 'Раздел меню' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Закуски' })).toBeVisible()
+})
+
+test('sorts all categories or one category and can reset the choice', async ({ page }) => {
+  await mockMenu(page, {
+    name: 'Меню с сортировкой',
+    categories: [
+      {
+        name: 'Закуски',
+        menuSection: 'food',
+        dishes: [
+          dish(1, 'Калорийная закуска', 'food', 'Закуски', { kcal: 700, protein: 8, fat: 30 }),
+          dish(2, 'Лёгкая закуска', 'food', 'Закуски', { kcal: 300, protein: 22, fat: 5 }),
+        ],
+      },
+      {
+        name: 'Салаты',
+        menuSection: 'food',
+        dishes: [
+          dish(3, 'Сытный салат', 'food', 'Салаты', { kcal: 500, protein: 12, fat: 20 }),
+          dish(4, 'Свежий салат', 'food', 'Салаты', { kcal: 150, protein: 6, fat: 3 }),
+        ],
+      },
+    ],
+  })
+  await page.goto('/restaurants/test-menu/menu')
+
+  const sections = page.locator('.rsm2-section__head')
+  const firstSort = sections.nth(0).getByRole('button', { name: /Сортировка категории/ })
+  const firstCards = page.locator('.rsm2-grid.rsm2-desktop-only').nth(0).locator('.rsm2-tile__cover-name, .rsm2-paywall__name')
+  const secondCards = page.locator('.rsm2-grid.rsm2-desktop-only').nth(1).locator('.rsm2-tile__cover-name, .rsm2-paywall__name')
+
+  await expect(firstSort).toContainText('Калории')
+  await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
+  await expect(secondCards).toHaveText(['Свежий салат', 'Сытный салат'])
+
+  await firstSort.click()
+  const sortMenu = page.getByRole('menu')
+  await sortMenu.getByRole('button', { name: 'Только категория' }).click()
+  await sortMenu.getByRole('menuitem', { name: 'Белки' }).click()
+
+  await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
+  await expect(secondCards).toHaveText(['Свежий салат', 'Сытный салат'])
+
+  await firstSort.click()
+  await page.getByRole('menu').getByRole('button', { name: /Белки: по возрастанию/ }).click()
+  await expect(firstCards).toHaveText(['Калорийная закуска', 'Лёгкая закуска'])
+
+  await firstSort.click()
+  await page.getByRole('menu').getByRole('button', { name: 'Всё меню' }).click()
+  await page.getByRole('menu').getByRole('menuitem', { name: 'Белки' }).click()
+  await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
+  await expect(secondCards).toHaveText(['Сытный салат', 'Свежий салат'])
+
+  await firstSort.click()
+  await page.getByRole('menu').getByRole('button', { name: 'Сбросить сортировку' }).click()
+  await expect(firstSort).toContainText('Калории')
+  await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
+  await expect(secondCards).toHaveText(['Свежий салат', 'Сытный салат'])
 })
 
 test('diary CTA opens the AnyEat waitlist modal instead of writing to the web diary', async ({ page }) => {
