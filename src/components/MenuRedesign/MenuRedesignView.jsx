@@ -388,7 +388,11 @@ export default function MenuRedesignView({
           isFilteredResultsLocked ? (
             <div className="rsm2-filtered-access" role="status" aria-live="polite">
               <span className="rsm2-filtered-access__count">{formatPositionCount(filteredDishCount)}</span>
-              <h2 className="rsm2-filtered-access__title">Подходящие блюда найдены</h2>
+              <h2 className="rsm2-filtered-access__title">
+                {filteredDishCount > 0
+                  ? 'Подходящие блюда найдены'
+                  : 'Подходящие блюда не найдены. Попробуйте изменить фильтры.'}
+              </h2>
               {filteredDishCount > 0 && (
                 <button type="button" className="rsm2-filtered-access__cta" onClick={onViewFilteredDishes}>
                   Посмотреть бесплатно
