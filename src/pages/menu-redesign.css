@@ -545,13 +545,13 @@ body[data-rs-menu-v2] main {
 .rsm2-guide {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: 12px;
   flex: 1 1 100%;
   width: min(560px, 100%);
   margin: 3px 0 1px;
-  padding: 14px 16px 14px 14px;
+  padding: 14px 96px 14px 14px;
   border: 1px solid var(--rsm2-border-hover-2);
   border-left: 3px solid var(--rsm2-accent);
   border-radius: 14px;
@@ -647,7 +647,9 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 }
 
 .rsm2-guide__dismiss {
-  align-self: center;
+  position: absolute;
+  top: 14px;
+  right: 16px;
   padding: 6px 0;
   border: 0;
   background: transparent;
@@ -1792,13 +1794,13 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   .rsm2-guide {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 10px;
-    padding: 13px 14px 13px 12px;
+    padding: 13px 82px 13px 12px;
   }
 
   .rsm2-guide__dismiss {
-    grid-column: 2;
-    justify-self: start;
-    padding: 2px 0 0;
+    top: 13px;
+    right: 14px;
+    padding: 2px 0;
   }
 
   .rsm2-guide--dish {
