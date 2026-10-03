@@ -524,6 +524,26 @@ body[data-rs-menu-v2] main {
   transform: rotate(225deg);
 }
 
+.rsm2-guide--restaurants {
+  width: min(620px, calc(100% - 72px));
+  margin: 14px 36px 0;
+}
+
+body[data-rs-menu-guide-step="restaurants"] .navbar.navbar--guest {
+  z-index: 1002;
+}
+
+body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="restaurants"] {
+  position: relative;
+  z-index: 1003;
+  outline: 2px solid rgba(255, 191, 126, 0.95);
+  outline-offset: 4px;
+  border-radius: 12px;
+  background: rgba(255, 238, 218, 0.92);
+  box-shadow: 0 0 0 4px rgba(240, 133, 90, 0.22), 0 0 0 8px rgba(240, 133, 90, 0.08);
+  animation: rsm2-guide-nav-pulse 1.4s ease-in-out infinite;
+}
+
 .rsm2-guide__mark {
   display: grid;
   place-items: center;
@@ -598,6 +618,16 @@ body[data-rs-menu-v2] main {
 }
 
 @keyframes rsm2-guide-heart-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgba(240, 133, 90, 0.22), 0 0 0 8px rgba(240, 133, 90, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(240, 133, 90, 0.38), 0 0 0 10px rgba(240, 133, 90, 0.12);
+  }
+}
+
+@keyframes rsm2-guide-nav-pulse {
   0%,
   100% {
     box-shadow: 0 0 0 4px rgba(240, 133, 90, 0.22), 0 0 0 8px rgba(240, 133, 90, 0.08);
@@ -1545,6 +1575,11 @@ body[data-rs-menu-v2] main {
     margin: -8px 0 -6px;
   }
 
+  .rsm2-guide--restaurants {
+    width: calc(100% - 32px);
+    margin: 12px 16px 0;
+  }
+
   .rsm2-filter-cluster {
     align-items: stretch;
   }
@@ -1562,7 +1597,8 @@ body[data-rs-menu-v2] main {
   .rsm2-guide,
   .rsm2-guide-scrim,
   .rsm2-icon-btn.is-guide-target,
-  .rsm2-fav.is-guide-target {
+  .rsm2-fav.is-guide-target,
+  body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="restaurants"] {
     animation: none;
   }
 }

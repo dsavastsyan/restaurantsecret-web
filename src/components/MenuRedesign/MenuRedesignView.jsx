@@ -11,7 +11,7 @@ import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon, LockIcon } from './icons'
 import '@/pages/menu-redesign.css';
 
 const CATS_VISIBLE = 3;
-const MENU_GUIDE_STORAGE_KEY = 'rs_menu_guide_v1';
+const MENU_GUIDE_STORAGE_KEY = 'rs_menu_guide_v2';
 
 // AppShell wraps every page in `.container--menu`, which adds a max-width and
 // side/top padding. This page is edge-to-edge by design, so we flag the body
@@ -104,6 +104,16 @@ export default function MenuRedesignView({
   const [guideStep, setGuideStep] = useState(() => getInitialGuideStep(readOnly));
 
   useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    if (guideStep) {
+      document.body.setAttribute('data-rs-menu-guide-step', guideStep);
+    } else {
+      document.body.removeAttribute('data-rs-menu-guide-step');
+    }
+    return () => document.body.removeAttribute('data-rs-menu-guide-step');
+  }, [guideStep]);
+
+  useEffect(() => {
     if (!guideStep || typeof window === 'undefined') return undefined;
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
@@ -128,10 +138,6 @@ export default function MenuRedesignView({
     }
   };
 
-  const markGuideAction = () => {
-    if (guideStep === 'filters') setGuideStep('dish');
-  };
-
   const completeGuide = () => {
     setGuideStep(null);
     try {
@@ -140,6 +146,27 @@ export default function MenuRedesignView({
       // Session storage is optional; the in-memory completion still applies.
     }
   };
+
+  const advanceGuide = () => {
+    if (guideStep === 'filters') {
+      setGuideStep('dish');
+    } else if (guideStep === 'dish') {
+      setGuideStep('restaurants');
+    } else {
+      completeGuide();
+    }
+  };
+
+  useEffect(() => {
+    if (guideStep !== 'restaurants' || typeof document === 'undefined') return undefined;
+    const handleNavigationClick = (event) => {
+      if (event.target.closest('[data-rs-menu-nav="restaurants"]')) completeGuide();
+    };
+    document.addEventListener('click', handleNavigationClick);
+    return () => document.removeEventListener('click', handleNavigationClick);
+  }, [guideStep]);
+
+  const markGuideAction = advanceGuide;
 
   const selectedIngredientCount = ingredientFilter?.selected?.length ?? 0;
   const visibleCats = allCategoriesExpanded ? categoryOptions : categoryOptions.slice(0, CATS_VISIBLE);
@@ -198,7 +225,7 @@ export default function MenuRedesignView({
       openPreviewDishCard(dish, draft, menu?.menuCapturedAt);
       return;
     }
-    if (guideStep === 'dish') completeGuide();
+    if (guideStep === 'dish') advanceGuide();
     openDishCard(draft);
   };
 
@@ -211,6 +238,7 @@ export default function MenuRedesignView({
           onClick={dismissGuide}
         />
       )}
+      {guideStep === 'restaurants' && <MenuGuide step="restaurants" onDismiss={dismissGuide} />}
       <div className="rsm2-hero">
         {/* Reporting a stale menu makes no sense inside the partner's own
             draft preview, so the trigger is omitted there rather than shown
@@ -258,7 +286,7 @@ export default function MenuRedesignView({
                 className={`rsm2-icon-btn ${guideStep === 'dish' ? 'is-guide-target' : ''}`}
                 onClick={async () => {
                   await handleToggleRestaurantFavorite();
-                  if (guideStep === 'dish') completeGuide();
+                  if (guideStep === 'dish') advanceGuide();
                 }}
                 aria-label={isFavoriteRestaurant ? 'Удалить ресторан из избранного' : 'Добавить ресторан в избранное'}
                 style={isFavoriteRestaurant ? { color: '#f0855a' } : undefined}
@@ -433,7 +461,7 @@ export default function MenuRedesignView({
                         interactive
                         readOnly={readOnly}
                         guideFavoriteTarget={guideStep === 'dish' && sectionIndex === 0 && dishIndex === 0}
-                        onGuideFavorite={guideStep === 'dish' ? completeGuide : undefined}
+                        onGuideFavorite={guideStep === 'dish' ? advanceGuide : undefined}
                         onClick={() => openDish(dish)}
                       />
                     );
@@ -453,7 +481,7 @@ export default function MenuRedesignView({
                         interactive
                         readOnly={readOnly}
                         guideFavoriteTarget={guideStep === 'dish' && sectionIndex === 0 && dishIndex === 0}
-                        onGuideFavorite={guideStep === 'dish' ? completeGuide : undefined}
+                        onGuideFavorite={guideStep === 'dish' ? advanceGuide : undefined}
                         onClick={() => openDish(dish)}
                       />
                     );
@@ -490,21 +518,29 @@ export default function MenuRedesignView({
 
 function MenuGuide({ step, onDismiss }) {
   const isFiltersStep = step === 'filters';
+  const isDishStep = step === 'dish';
+  const stepNumber = isFiltersStep ? '1' : isDishStep ? '2' : '3';
 
   return (
     <aside className={`rsm2-guide rsm2-guide--${step}`} aria-label="Подсказка по меню" aria-live="polite">
       <span className="rsm2-guide__mark" aria-hidden="true">✦</span>
       <div className="rsm2-guide__copy">
         <div className="rsm2-guide__meta">
-          Подсказка · {isFiltersStep ? '1 из 2' : '2 из 2'}
+          Подсказка · {stepNumber} из 3
         </div>
         <h2 className="rsm2-guide__title">
-          {isFiltersStep ? 'Попробуй быстрые фильтры' : 'Добавляйте любимые меню и рестораны в избранное'}
+          {isFiltersStep
+            ? 'Попробуй быстрые фильтры'
+            : isDishStep
+              ? 'Добавляйте любимые меню и рестораны в избранное'
+              : 'Выбирайте заранее без стресса'}
         </h2>
         <p className="rsm2-guide__text">
           {isFiltersStep
             ? 'Настрой меню под себя одним нажатием.'
-            : 'Сравнивайте позиции и быстро возвращайтесь к любимым местам и блюдам'}
+            : isDishStep
+              ? 'Сравнивайте позиции и быстро возвращайтесь к любимым местам и блюдам'
+              : 'Более 700 ресторанов в 12 городах с полным КБЖУ блюд и быстрыми фильтрами.'}
         </p>
       </div>
       <button type="button" className="rsm2-guide__dismiss" onClick={onDismiss}>
