@@ -99,10 +99,8 @@ body[data-rs-menu-v2] main {
 }
 
 .rsm2-hero__report {
-  position: absolute;
-  top: 16px;
-  right: 36px;
   padding: 9px 15px;
+  min-height: 42px;
   border-radius: 999px;
   border: 1px solid rgba(244, 239, 228, 0.26);
   background: linear-gradient(180deg, rgba(255, 253, 248, 0.12), rgba(255, 253, 248, 0.04));
@@ -1716,10 +1714,6 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 @media (max-width: 860px) {
   .rsm2-hero {
     padding: 18px 16px 16px;
-  }
-
-  .rsm2-hero__report {
-    right: 16px;
   }
 
   .rsm2-hero__grid {
