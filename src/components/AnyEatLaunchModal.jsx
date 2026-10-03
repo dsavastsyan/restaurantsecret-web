@@ -33,18 +33,18 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return embedded || (previewMode && requested)
   })
   const [email, setEmail] = useState('')
-  const [accountEmail, setAccountEmail] = useState('')
   const [consents, setConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
   const [knownConsents, setKnownConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
-  // Anonymous visitors go through the same email → OTP code → consent flow
-  // as regular registration (/login) — there is no account, and therefore
-  // no user_id to attach a consent record to, until this completes.
+  // Every visitor goes through the same email → OTP code → consent flow as
+  // regular registration (/login). This also prevents a stale access token
+  // from bypassing OTP and showing the account-linked form immediately.
   const [otpStep, setOtpStep] = useState('email') // 'email' | 'code'
   const [code, setCode] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
+  const [otpVerified, setOtpVerified] = useState(false)
 
   const segment = token && hasActiveSub ? 'active' : 'default'
 
@@ -62,31 +62,25 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return () => window.removeEventListener('rs:anyeat-launch-open', show)
   }, [embedded])
 
-  // Load the account's known email/consent for logged-in visitors (including
-  // one who just completed the OTP step below) so the form can prefill and
-  // skip questions it already has answers to.
+  // Load the account's known consent after the OTP step so the form can skip
+  // questions the account has already answered. The verified email remains the
+  // source of truth for this flow.
   useEffect(() => {
-    if (!open || !token) return
+    if (!open || !otpVerified || !token) return
     let active = true
 
-    Promise.all([
-      apiGet('/api/v1/me', token),
-      apiGet('/api/consent/communications', token),
-    ]).then(([me, consent]) => {
+    apiGet('/api/consent/communications', token).then((consent) => {
       if (!active) return
-      const value = me?.user?.email || ''
-      setAccountEmail(value)
-      setEmail(value)
       const known = {
         personal_data_advertising: consent?.personal_data_advertising === true,
         marketing_communications: consent?.marketing_communications === true,
       }
       setKnownConsents(known)
       setConsents(known)
-    }).catch(() => { /* account details are a nice-to-have prefill, not required */ })
+    }).catch(() => { /* consent details are a nice-to-have, not required */ })
 
     return () => { active = false }
-  }, [open, token])
+  }, [open, otpVerified, token])
 
   useEffect(() => {
     if (resendTimer <= 0) return
@@ -139,8 +133,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
       const res = await apiPost('/auth/verify-otp', { email: email.trim(), code: code.trim() })
       if (!res?.ok || !res?.access_token) throw new Error('verify_otp_failed')
       setToken(res.access_token)
-      // The account consent form below (shared with already-logged-in
-      // visitors) takes over once `token` is set — nothing else to do here.
+      setOtpVerified(true)
     } catch {
       setError('Неверный или истёкший код. Попробуйте ещё раз.')
     } finally {
@@ -162,15 +155,12 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   }
 
   const canSubmit = /^\S+@\S+\.\S+$/.test(email.trim()) &&
+    otpVerified && Boolean(token) &&
     consents.personal_data_advertising && consents.marketing_communications && !submitting
 
   const submit = async (event) => {
     event.preventDefault()
     if (!canSubmit) return
-    if (!accountEmail || email.trim().toLowerCase() !== accountEmail.toLowerCase()) {
-      setError('Укажите почту вашего аккаунта RestaurantSecret.')
-      return
-    }
     setSubmitting(true)
     setError('')
     try {
@@ -221,7 +211,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             <div><span className="rs-anyeat__icon"><BookText size={19} /></span><strong>Дневник</strong><small>Всё в одном месте</small></div>
           </div>
 
-          {!token && otpStep === 'email' && (
+          {!otpVerified && otpStep === 'email' && (
             <form className="rs-anyeat__form" onSubmit={requestOtp}>
               <div className="rs-anyeat__formrow">
                 <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
@@ -232,7 +222,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             </form>
           )}
 
-          {!token && otpStep === 'code' && (
+          {!otpVerified && otpStep === 'code' && (
             <form className="rs-anyeat__form" onSubmit={verifyOtp}>
               <div className="rs-anyeat__formrow">
                 <label className="rs-anyeat__field" htmlFor="rs-anyeat-code"><Mail size={20} /><input id="rs-anyeat-code" type="text" inputMode="numeric" maxLength={6} placeholder="Код из письма" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').trim())} required /></label>
@@ -249,7 +239,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             </form>
           )}
 
-          {token && (
+          {otpVerified && token && (
             <form className="rs-anyeat__form" onSubmit={submit}>
               <div className="rs-anyeat__formrow">
                 <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
