@@ -245,6 +245,15 @@ body[data-rs-menu-v2] main {
 
 /* ---------- Filter bar ---------- */
 
+.rsm2-filter-shell {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(253, 249, 241, 0.97), rgba(249, 243, 232, 0.94));
+  box-shadow: 0 6px 16px -10px rgba(119, 98, 61, 0.4);
+}
+
 .rsm2-filters {
   border-bottom: 1px solid var(--rsm2-hairline);
   padding: 16px 36px;
@@ -252,12 +261,15 @@ body[data-rs-menu-v2] main {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  backdrop-filter: blur(10px);
-  background: linear-gradient(180deg, rgba(253, 249, 241, 0.97), rgba(249, 243, 232, 0.94));
-  box-shadow: 0 6px 16px -10px rgba(119, 98, 61, 0.4);
+  background: transparent;
+}
+
+.rsm2-category-bar {
+  padding: 0 36px 16px;
+}
+
+.rsm2-category-bar .rsm2-cats {
+  align-items: center;
 }
 
 .rsm2-search {
@@ -1200,9 +1212,18 @@ body[data-rs-menu-v2] main {
 
   .rsm2-filters {
     padding: 12px 16px 14px;
+    background: var(--rsm2-cream-alt);
+  }
+
+  .rsm2-filter-shell {
     position: static;
     backdrop-filter: none;
     background: var(--rsm2-cream-alt);
+    box-shadow: none;
+  }
+
+  .rsm2-category-bar {
+    padding: 0 16px 14px;
   }
 
   .rsm2-content {

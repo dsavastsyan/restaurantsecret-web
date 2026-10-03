@@ -209,72 +209,79 @@ export default function MenuRedesignView({
         </div>
       </div>
 
-      <div className="rsm2-filters">
-        <div className="rsm2-search">
-          <SearchIcon size={17} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Поиск по блюду"
-            aria-label="Поиск блюда"
-          />
-        </div>
+      <div className="rsm2-filter-shell">
+        <div className="rsm2-filters">
+          <div className="rsm2-search">
+            <SearchIcon size={17} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Поиск по блюду"
+              aria-label="Поиск блюда"
+            />
+          </div>
 
-        <div className="rsm2-cats rsm2-desktop-only" style={{ display: 'flex' }}>
-          {renderCatPills()}
-        </div>
+          <div className="rsm2-chips">{renderChips()}</div>
 
-        <div className="rsm2-chips">{renderChips()}</div>
-
-        {/* Grouped so the two disclosures always share a single row */}
-        <div className="rsm2-disclosures">
-          <button
-            type="button"
-            className={`rsm2-disclosure ${isAdvancedFiltersOpen ? 'is-on' : ''}`}
-            onClick={() => setIsAdvancedFiltersOpen((prev) => !prev)}
-          >
-            Свои КБЖУ<span className="rsm2-disclosure__caret">{isAdvancedFiltersOpen ? '▴' : '▾'}</span>
-          </button>
-          {/* Hidden entirely when the restaurant filled in no compositions —
-              there would be nothing to pick from. */}
-          {hasCompositions && (
+          {/* Grouped so the two disclosures always share a single row */}
+          <div className="rsm2-disclosures">
             <button
               type="button"
-              className={`rsm2-disclosure ${isIngredientFilterOpen || selectedIngredientCount ? 'is-on' : ''}`}
-              onClick={() => setIsIngredientFilterOpen((prev) => !prev)}
+              className={`rsm2-disclosure ${isAdvancedFiltersOpen ? 'is-on' : ''}`}
+              onClick={() => setIsAdvancedFiltersOpen((prev) => !prev)}
             >
-              Фильтр по ингредиентам
-              {selectedIngredientCount > 0 && (
-                <span className="rsm2-disclosure__badge">{selectedIngredientCount}</span>
-              )}
-              <span className="rsm2-disclosure__caret">{isIngredientFilterOpen ? '▴' : '▾'}</span>
+              Свои КБЖУ<span className="rsm2-disclosure__caret">{isAdvancedFiltersOpen ? '▴' : '▾'}</span>
             </button>
+
+            {/* Hidden entirely when the restaurant filled in no compositions —
+                there would be nothing to pick from. */}
+            {hasCompositions && (
+              <button
+                type="button"
+                className={`rsm2-disclosure ${isIngredientFilterOpen || selectedIngredientCount ? 'is-on' : ''}`}
+                onClick={() => setIsIngredientFilterOpen((prev) => !prev)}
+              >
+                Фильтр по ингредиентам
+                {selectedIngredientCount > 0 && (
+                  <span className="rsm2-disclosure__badge">{selectedIngredientCount}</span>
+                )}
+                <span className="rsm2-disclosure__caret">{isIngredientFilterOpen ? '▴' : '▾'}</span>
+              </button>
+            )}
+          </div>
+
+          <div className={`rsm2-advanced ${isAdvancedFiltersOpen ? 'is-open' : ''}`}>
+            <div className="rsm2-advanced__panel">
+              <RangeField label="Калории" value={range.kcal} onChange={(edge, val) => updateRange('kcal', edge, val)} />
+              <RangeField label="Белки, г" value={range.protein} onChange={(edge, val) => updateRange('protein', edge, val)} />
+              <RangeField label="Жиры, г" value={range.fat} onChange={(edge, val) => updateRange('fat', edge, val)} />
+              <RangeField label="Углеводы, г" value={range.carbs} onChange={(edge, val) => updateRange('carbs', edge, val)} />
+              <button type="button" className="rsm2-advanced__reset" onClick={resetFilters}>
+                Сбросить всё
+              </button>
+            </div>
+          </div>
+
+          {hasCompositions && isIngredientFilterOpen && (
+            <div className="rsm2-advanced is-open" style={{ order: 11 }}>
+              <IngredientPanel
+                options={ingredientOptions}
+                filter={ingredientFilter}
+                onToggle={toggleIngredient}
+                onModeChange={setIngredientMode}
+                onClear={clearIngredients}
+              />
+            </div>
           )}
         </div>
 
-        <div className={`rsm2-advanced ${isAdvancedFiltersOpen ? 'is-open' : ''}`}>
-          <div className="rsm2-advanced__panel">
-            <RangeField label="Калории" value={range.kcal} onChange={(edge, val) => updateRange('kcal', edge, val)} />
-            <RangeField label="Белки, г" value={range.protein} onChange={(edge, val) => updateRange('protein', edge, val)} />
-            <RangeField label="Жиры, г" value={range.fat} onChange={(edge, val) => updateRange('fat', edge, val)} />
-            <RangeField label="Углеводы, г" value={range.carbs} onChange={(edge, val) => updateRange('carbs', edge, val)} />
-            <button type="button" className="rsm2-advanced__reset" onClick={resetFilters}>
-              Сбросить всё
-            </button>
-          </div>
-        </div>
+      </div>
 
-        {hasCompositions && isIngredientFilterOpen && (
-          <div className="rsm2-advanced is-open" style={{ order: 11 }}>
-            <IngredientPanel
-              options={ingredientOptions}
-              filter={ingredientFilter}
-              onToggle={toggleIngredient}
-              onModeChange={setIngredientMode}
-              onClear={clearIngredients}
-            />
-          </div>
-        )}
+      {/* Categories stay outside the collapsible filter surface on desktop. */}
+      <div className="rsm2-category-bar rsm2-desktop-only">
+        <div className="rsm2-cats">
+          {renderCatPills()}
+        </div>
       </div>
 
       {/* Mobile-only category rail, kept in sync with the desktop pills above */}
