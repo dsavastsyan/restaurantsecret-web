@@ -25,12 +25,16 @@ test('preview runtime unregisters existing workers and clears all origin caches'
   assert.deepEqual(deleted, ['static-v3', 'api-v3', 'other-preview-cache'])
 })
 
-test('preview runtime does not register a new service worker', async () => {
-  let registered = false
+test('preview runtime updates an existing service worker with the retirement worker', async () => {
+  let registeredPath
+  let registeredOptions
   let loadListenerAdded = false
   const serviceWorker = {
-    getRegistrations: async () => [],
-    register: async () => { registered = true },
+    getRegistrations: async () => [{}],
+    register: async (path, options) => {
+      registeredPath = path
+      registeredOptions = options
+    },
   }
 
   configureServiceWorker({
@@ -41,8 +45,27 @@ test('preview runtime does not register a new service worker', async () => {
   })
 
   await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(registered, false)
+  assert.equal(registeredPath, '/service-worker.js')
+  assert.deepEqual(registeredOptions, { updateViaCache: 'none' })
   assert.equal(loadListenerAdded, false)
+})
+
+test('preview runtime does not register the retirement worker without an existing worker', async () => {
+  let registered = false
+  const serviceWorker = {
+    getRegistrations: async () => [],
+    register: async () => { registered = true },
+  }
+
+  configureServiceWorker({
+    isPreview: true,
+    serviceWorker,
+    cacheStorage: { keys: async () => [] },
+    windowObject: { addEventListener: () => {} },
+  })
+
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(registered, false)
 })
 
 test('production runtime still registers its service worker after load', async () => {
