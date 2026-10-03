@@ -84,6 +84,20 @@ test('menu defaults to food, then expands into curated category order', async ({
   await expect(headings).toHaveText(['Кофе', 'Холодные напитки'])
 })
 
+test('places the outdated-menu action after the hero icons', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+
+  await expect.poll(() => page.locator('.rsm2-hero__actions > button').evaluateAll((buttons) => (
+    buttons.map((button) => button.getAttribute('aria-label') || button.textContent.trim())
+  ))).toEqual([
+    'Добавить ресторан в избранное',
+    'Показать на карте',
+    'Поделиться',
+    'Меню устарело?',
+  ])
+})
+
 test('first onboarding hint collapses filters without applying one and shows the second hint', async ({ page }) => {
   await mockMenu(page, mixedMenu)
   await page.goto('/restaurants/test-menu/menu')
@@ -101,8 +115,7 @@ test('first onboarding hint collapses filters without applying one and shows the
   await expect(page.locator('.rsm2-guide--dish')).toContainText('Добавляйте любимые меню и рестораны в избранное')
 
   await filterToggle.click()
-  await expect(filterToggle).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.getByRole('tab', { name: 'Еда' })).toBeVisible()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
 })
 
 test('favorites guide bridges the restaurant and first dish hearts on desktop and mobile', async ({ page }) => {
