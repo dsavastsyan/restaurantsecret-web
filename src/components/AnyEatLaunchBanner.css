@@ -1,0 +1,75 @@
+.rs-anyeat-banner {
+  background: linear-gradient(90deg, var(--rs-primary), #fb8d3d);
+  color: #fff;
+}
+
+.rs-anyeat-banner__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.rs-anyeat-banner__icon {
+  flex: none;
+  opacity: 0.9;
+}
+
+.rs-anyeat-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.rs-anyeat-banner__cta {
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 6px 13px;
+  cursor: pointer;
+}
+
+.rs-anyeat-banner__cta:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.rs-anyeat-banner__close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.rs-anyeat-banner__close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+@media (max-width: 480px) {
+  .rs-anyeat-banner__inner {
+    padding: 8px 12px;
+    font-size: 12.5px;
+  }
+  .rs-anyeat-banner__text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
