@@ -1019,6 +1019,13 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   position: relative;
 }
 
+.rsm2-section__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
+
 .rsm2-section__title {
   margin: 0;
   font: 400 34px/1 "DM Serif Display", Georgia, serif;
@@ -1078,9 +1085,10 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   text-overflow: ellipsis;
 }
 
-.rsm2-sort-control__direction-label {
+.rsm2-sort-control__direction {
   color: var(--rsm2-muted);
-  font-size: 11px;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .rsm2-sort-control__caret {
@@ -1093,7 +1101,9 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
-  width: 282px;
+  width: min(282px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
   padding: 12px;
   border: 1px solid var(--rsm2-border);
   border-radius: 14px;
@@ -1178,6 +1188,10 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 }
 
 .rsm2-sort-control__directions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 34px;
   padding: 7px 6px;
   border-radius: 8px;
@@ -1824,18 +1838,37 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   }
 
   .rsm2-section__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "heading sort"
+      "rule rule";
+    align-items: start;
+    column-gap: 10px;
+    row-gap: 8px;
+  }
+
+  .rsm2-section__heading {
+    grid-area: heading;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 4px 10px;
+  }
+
+  .rsm2-sort-control {
+    grid-area: sort;
   }
 
   .rsm2-section__rule {
-    order: 3;
-    flex-basis: 100%;
+    grid-area: rule;
+    width: 100%;
+  }
+
+  .rsm2-section__rule {
+    order: initial;
   }
 
   .rsm2-sort-control__menu {
-    right: -4px;
-    max-width: calc(100vw - 32px);
+    right: 0;
   }
 
   .rsm2-guide {

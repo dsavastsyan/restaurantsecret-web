@@ -115,6 +115,7 @@ test('section switch stays hidden when the menu has only food', async ({ page })
 test('keeps the curated order by default and sorts only after an explicit choice', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('rs_access', 'active-token')
+    sessionStorage.setItem('rs_menu_guide_v2', 'dismissed')
   })
   await page.route((url) => isApiRequest(url, '/api/subscriptions/status'), (route) => route.fulfill({
     json: { status: 'active', statusNorm: 'active' },
@@ -158,12 +159,14 @@ test('keeps the curated order by default and sorts only after an explicit choice
   await sortMenu.getByRole('button', { name: 'Только категория' }).click()
   await sortMenu.getByRole('button', { name: 'По возрастанию' }).click()
 
+  await expect(firstSort).toContainText('↑')
   await expect(firstCards).toHaveText(['Калорийная закуска', 'Лёгкая закуска'])
   await expect(secondCards).toHaveText(['Сытный салат', 'Свежий салат'])
 
   await firstSort.click()
   sortMenu = page.getByRole('menu')
   await sortMenu.getByRole('button', { name: 'По убыванию' }).click()
+  await expect(firstSort).toContainText('↓')
   await expect(firstCards).toHaveText(['Лёгкая закуска', 'Калорийная закуска'])
 
   await firstSort.click()
@@ -191,6 +194,32 @@ test('sends a guest to the subscription flow when sorting is attempted', async (
   const firstSort = page.locator('.rsm2-section__head').first().getByRole('button', { name: /Сортировка категории/ })
   await firstSort.click()
   await expect(page).toHaveURL(/\/login$/)
+})
+
+test('keeps sorting beside the category title and inside the mobile viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.addInitScript(() => {
+    localStorage.setItem('rs_access', 'active-token')
+    sessionStorage.setItem('rs_menu_guide_v2', 'dismissed')
+  })
+  await page.route((url) => isApiRequest(url, '/api/subscriptions/status'), (route) => route.fulfill({
+    json: { status: 'active', statusNorm: 'active' },
+  }))
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+
+  const section = page.locator('.rsm2-section__head').first()
+  const titleBox = await section.locator('.rsm2-section__title').boundingBox()
+  const sortButton = section.getByRole('button', { name: /Сортировка категории/ })
+  const sortBox = await sortButton.boundingBox()
+
+  expect(sortBox.x).toBeGreaterThan(titleBox.x)
+  expect(sortBox.y).toBeLessThan(titleBox.y + titleBox.height + 4)
+
+  await sortButton.click()
+  const menuBox = await page.getByRole('menu').boundingBox()
+  expect(menuBox.x).toBeGreaterThanOrEqual(0)
+  expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(390)
 })
 
 test('diary CTA opens the AnyEat waitlist modal instead of writing to the web diary', async ({ page }) => {
