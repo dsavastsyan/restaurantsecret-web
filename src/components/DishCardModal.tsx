@@ -68,7 +68,7 @@ export default function DishCardModal() {
 
   useEffect(() => {
     if (!isOpen || isReadOnly || !hasDishAccess || !data) return;
-    try { ym(108992733, 'reachGoal', 'dish_kbju_view'); } catch { /* ym not loaded */ }
+    analytics.reachGoal('dish_kbju_view');
   }, [isOpen, isReadOnly, hasDishAccess, data]);
 
   const handleSubscribeClick = () => {
@@ -94,6 +94,10 @@ export default function DishCardModal() {
 
     if (reason === "other" && !comment.trim()) {
       setFormError("Добавьте комментарий");
+      analytics.track("dish_feedback_validation_failed", {
+        dish_id: data.id,
+        reason,
+      });
       return;
     }
 
@@ -108,10 +112,21 @@ export default function DishCardModal() {
         comment: comment.trim() || undefined,
       });
       toast.success("Спасибо, мы проверим");
+      analytics.track("dish_feedback_submitted", {
+        dish_id: data.id,
+        restaurant_slug: data.restaurantSlug,
+        reason,
+      });
       setIsOutdatedOpen(false);
       resetOutdatedForm();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to submit outdated dish", err);
+      analytics.track("dish_feedback_failed", {
+        dish_id: data.id,
+        restaurant_slug: data.restaurantSlug,
+        reason,
+        error_status: err?.status || "request_failed",
+      });
       toast.error("Не удалось отправить сообщение. Попробуйте позже.");
     } finally {
       setIsSubmitting(false);
@@ -298,7 +313,13 @@ export default function DishCardModal() {
             onSubscribeClick={handleSubscribeClick}
             onFavoriteClick={handleFavoriteClick}
             onDiaryAdd={handleDiaryAdd}
-            onReportOutdated={() => setIsOutdatedOpen(true)}
+            onReportOutdated={() => {
+              analytics.track("dish_feedback_opened", {
+                dish_id: data?.id,
+                restaurant_slug: data?.restaurantSlug,
+              });
+              setIsOutdatedOpen(true);
+            }}
           />
         )}
       </div>

@@ -29,8 +29,9 @@ export default function NavBar({ forceGuest = false }: { forceGuest?: boolean })
   const goBackToCatalog = () => navigate("/catalog");
 
   // Полная «лендинговая» шапка: для гостей везде, а для авторизованных —
-  // на каталоге, чтобы навигация по разделам не пропадала после входа.
-  const showFullNav = forceGuest || !token || isCatalogPage;
+  // на каталоге и в меню ресторана, чтобы основные разделы были доступны
+  // из публичного пользовательского сценария.
+  const showFullNav = forceGuest || !token || isCatalogPage || isRestaurantMenuPage;
 
   if (showFullNav) {
     const isGuestView = forceGuest || !token;
@@ -38,17 +39,29 @@ export default function NavBar({ forceGuest = false }: { forceGuest?: boolean })
     return (
       <header className="navbar navbar--guest">
         <div className="navbar__inner navbar__inner--guest">
-          <Link
-            to={isRestaurantMenuPage ? "/catalog" : "/"}
-            className="navbar__brand navbar__brand--guest"
-            aria-label={isRestaurantMenuPage ? "Назад к меню ресторанов" : "RestaurantSecret"}
-          >
-            {isRestaurantMenuPage ? <BackIcon className="navbar__back-icon" /> : <HomeIcon />}
-            <span>RestaurantSecret</span>
-          </Link>
+          <div className="navbar__left navbar__brand-group">
+            {isRestaurantMenuPage ? (
+              <button
+                type="button"
+                className="navbar__home navbar__menu-back"
+                onClick={goBackToCatalog}
+                aria-label="Назад к каталогу ресторанов"
+              >
+                <BackIcon />
+              </button>
+            ) : (
+              <Link to="/" className="navbar__home" aria-label="На главную">
+                <HomeIcon />
+              </Link>
+            )}
+
+            <Link to="/" className="navbar__brand navbar__brand--guest">
+              <span>RestaurantSecret</span>
+            </Link>
+          </div>
 
           <nav className="navbar__center" aria-label="Разделы">
-            <Link to="/catalog/">Рестораны</Link>
+            <Link to="/catalog/" data-rs-menu-nav="restaurants">Рестораны</Link>
             <Link to="/how-it-works">Как работает</Link>
             <Link to="/tariffs">Тарифы</Link>
             <a href="https://t.me/RestSecretSupport_bot" target="_blank" rel="noopener noreferrer">Поддержка</a>

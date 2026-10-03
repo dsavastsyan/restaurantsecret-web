@@ -1,4 +1,4 @@
-import { PD_API_BASE } from "@/config/api";
+import { ANALYTICS_ENABLED, PD_API_BASE } from "@/config/api";
 import { tryRefresh } from "@/lib/api";
 
 export const COOKIE_POLICY_VERSION = "cookies_v1_2026-01-16";
@@ -158,6 +158,7 @@ class AnalyticsService {
     }
 
     getConsentStatus() {
+        if (!ANALYTICS_ENABLED) return "denied";
         try {
             const stored = localStorage.getItem(CONSENT_KEY);
             if (!stored) return "unset";
@@ -203,6 +204,7 @@ class AnalyticsService {
     }
 
     async setConsent(status) {
+        if (!ANALYTICS_ENABLED) return;
         const validStatuses = ["granted", "denied"];
         if (!validStatuses.includes(status)) return;
 
@@ -281,6 +283,9 @@ class AnalyticsService {
         if (status === "granted") {
             this.trackSessionStart().catch(() => { });
             this.trackLandingAttribution().catch(() => { });
+            // Yandex Metrika only loads once consent is granted (see index.html);
+            // kick it off immediately instead of waiting for the next page load/interaction.
+            window.__loadYandexMetrika?.();
         }
     }
 
@@ -345,6 +350,7 @@ class AnalyticsService {
     }
 
     async track(eventName, props = {}, options = {}) {
+        if (!ANALYTICS_ENABLED) return false;
         if (isCrawlerUserAgent()) return false;
 
         const { ignoreConsent = false, withAttribution = true } = options;
@@ -409,6 +415,7 @@ class AnalyticsService {
      * Линкует все прошлые анонимные события с user_id на сервере.
      */
     async identify() {
+        if (!ANALYTICS_ENABLED) return;
         const token = this.getAccessToken();
         if (!token) return;
         const anonId = this.getAnonId();
@@ -429,6 +436,7 @@ class AnalyticsService {
     }
 
     reachGoal(goalName, props = {}) {
+        if (!ANALYTICS_ENABLED) return false;
         if (!goalName || typeof window === "undefined") return false;
 
         try {
@@ -442,6 +450,7 @@ class AnalyticsService {
     }
 
     trackPageView(url = window.location.href) {
+        if (!ANALYTICS_ENABLED) return false;
         if (typeof window === "undefined") return false;
 
         try {
@@ -462,6 +471,7 @@ class AnalyticsService {
      * Called upon login.
      */
     async recordPolicyAcceptance() {
+        if (!ANALYTICS_ENABLED) return;
         const sendPolicy = async (tokenOverride) => {
             const token = tokenOverride || this.getAccessToken();
             if (!token || typeof token !== "string" || token.split('.').length !== 3) return null;

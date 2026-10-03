@@ -7,10 +7,17 @@ import { MenuOutdatedModal } from '@/components/MenuOutdatedModal';
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx';
 import DishTileV2 from './DishTileV2';
 import DishRowV2 from './DishRowV2';
-import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon } from './icons';
+import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon, LockIcon } from './icons';
+import {
+  MENU_SORT_OPTIONS,
+  getDefaultMenuSortDirection,
+  getMenuSortOption,
+  toggleMenuSortDirection,
+} from '@/lib/menuSorting';
 import '@/pages/menu-redesign.css';
 
 const CATS_VISIBLE = 3;
+const MENU_GUIDE_STORAGE_KEY = 'rs_menu_guide_v2';
 
 // AppShell wraps every page in `.container--menu`, which adds a max-width and
 // side/top padding. This page is edge-to-edge by design, so we flag the body
@@ -31,12 +38,24 @@ function buildDishAccessKey(dish) {
   return `name:${String(dish?.name || '').trim().toLowerCase()}`;
 }
 
+function getInitialGuideStep(readOnly) {
+  if (readOnly || typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage.getItem(MENU_GUIDE_STORAGE_KEY) ? null : 'filters';
+  } catch {
+    return 'filters';
+  }
+}
+
 export default function MenuRedesignView({
   seoRestaurantName,
   heroDishCount,
   dishes,
   filtered,
   groupedDishes,
+  filteredDishCount,
+  isFilteredResultsLocked,
+  onViewFilteredDishes,
   capturedAt,
   freeDishKeys,
   slug,
@@ -46,6 +65,9 @@ export default function MenuRedesignView({
 
   query,
   setQuery,
+  selectedSection,
+  setSelectedSection,
+  sectionOptions,
   selectedCategory,
   setSelectedCategory,
   categoryOptions,
@@ -70,6 +92,11 @@ export default function MenuRedesignView({
   setIngredientMode,
   clearIngredients,
 
+  menuSort,
+  categorySorts,
+  onSortChange,
+  onSortReset,
+
   isFavoriteRestaurant,
   handleToggleRestaurantFavorite,
   handleShare,
@@ -85,13 +112,97 @@ export default function MenuRedesignView({
 }) {
   useFullBleedLayout();
 
+  const [guideStep, setGuideStep] = useState(() => getInitialGuideStep(readOnly));
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(() => Boolean(getInitialGuideStep(readOnly)));
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    if (guideStep) {
+      document.body.setAttribute('data-rs-menu-guide-step', guideStep);
+    } else {
+      document.body.removeAttribute('data-rs-menu-guide-step');
+    }
+    return () => document.body.removeAttribute('data-rs-menu-guide-step');
+  }, [guideStep]);
+
+  useEffect(() => {
+    if (!guideStep || typeof window === 'undefined') return undefined;
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setGuideStep(null);
+        try {
+          window.sessionStorage.setItem(MENU_GUIDE_STORAGE_KEY, 'dismissed');
+        } catch {
+          // Session storage is optional; the in-memory dismissal still applies.
+        }
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [guideStep]);
+
+  const dismissGuide = () => {
+    setGuideStep(null);
+    try {
+      window.sessionStorage.setItem(MENU_GUIDE_STORAGE_KEY, 'dismissed');
+    } catch {
+      // Session storage is optional; the in-memory dismissal still applies.
+    }
+  };
+
+  const completeGuide = () => {
+    setGuideStep(null);
+    try {
+      window.sessionStorage.setItem(MENU_GUIDE_STORAGE_KEY, 'completed');
+    } catch {
+      // Session storage is optional; the in-memory completion still applies.
+    }
+  };
+
+  const advanceGuide = () => {
+    if (guideStep === 'filters') {
+      setIsFilterPanelOpen(false);
+      setGuideStep('dish');
+    } else if (guideStep === 'dish') {
+      setGuideStep('restaurants');
+    } else {
+      completeGuide();
+    }
+  };
+
+  useEffect(() => {
+    if (guideStep !== 'restaurants' || typeof document === 'undefined') return undefined;
+    const handleNavigationClick = (event) => {
+      if (event.target.closest('[data-rs-menu-nav="restaurants"]')) completeGuide();
+    };
+    document.addEventListener('click', handleNavigationClick);
+    return () => document.removeEventListener('click', handleNavigationClick);
+  }, [guideStep]);
+
+  const markGuideAction = advanceGuide;
+
+  // A guest who applies a restrictive filter sees the subscription gate instead
+  // of a dish grid. Do not leave the second onboarding scrim over that state:
+  // there is no dish for the second hint to point at.
+  useEffect(() => {
+    if (guideStep === 'dish' && isFilteredResultsLocked) completeGuide();
+  }, [guideStep, isFilteredResultsLocked]);
+
   const selectedIngredientCount = ingredientFilter?.selected?.length ?? 0;
+  const hasCustomRange = Object.values(range).some((bounds) => bounds.min !== '' || bounds.max !== '');
+  const activeFilterCount = [
+    query.trim(),
+    selectedCategory !== 'all',
+    Object.values(presets).some(Boolean),
+    hasCustomRange,
+    selectedIngredientCount > 0,
+  ].filter(Boolean).length;
   const visibleCats = allCategoriesExpanded ? categoryOptions : categoryOptions.slice(0, CATS_VISIBLE);
   const hasMoreCats = !allCategoriesExpanded && categoryOptions.length > CATS_VISIBLE;
 
   const renderCatPills = () => (
     <>
-      <button type="button" className={`rsm2-cat ${selectedCategory === 'all' ? 'is-on' : ''}`} onClick={() => setSelectedCategory('all')}>
+      <button type="button" className={`rsm2-cat ${selectedCategory === 'all' ? 'is-on' : ''}`} onClick={() => { setSelectedCategory('all'); markGuideAction(); }}>
         Все
       </button>
       {visibleCats.map((name) => (
@@ -99,7 +210,7 @@ export default function MenuRedesignView({
           key={name}
           type="button"
           className={`rsm2-cat ${selectedCategory === name ? 'is-on' : ''}`}
-          onClick={() => setSelectedCategory(name)}
+          onClick={() => { setSelectedCategory(name); markGuideAction(); }}
         >
           {name}
         </button>
@@ -114,23 +225,23 @@ export default function MenuRedesignView({
 
   const renderChips = () => (
     <>
-      <button type="button" className={`rsm2-chip ${presets.lowKcal ? 'is-on' : ''}`} onClick={() => togglePreset('lowKcal')}>
+      <button type="button" className={`rsm2-chip ${presets.lowKcal ? 'is-on' : ''}`} onClick={() => { togglePreset('lowKcal'); markGuideAction(); }}>
         <span className="rsm2-chip__t">Мало калорий</span>
         <span className="rsm2-chip__d">≤ 400 ккал</span>
       </button>
-      <button type="button" className={`rsm2-chip ${presets.highProtein ? 'is-on' : ''}`} onClick={() => togglePreset('highProtein')}>
+      <button type="button" className={`rsm2-chip ${presets.highProtein ? 'is-on' : ''}`} onClick={() => { togglePreset('highProtein'); markGuideAction(); }}>
         <span className="rsm2-chip__t">Много белка</span>
         <span className="rsm2-chip__d">≥ 25 г</span>
       </button>
-      <button type="button" className={`rsm2-chip ${presets.lowFat ? 'is-on' : ''}`} onClick={() => togglePreset('lowFat')}>
+      <button type="button" className={`rsm2-chip ${presets.lowFat ? 'is-on' : ''}`} onClick={() => { togglePreset('lowFat'); markGuideAction(); }}>
         <span className="rsm2-chip__t">Мало жиров</span>
         <span className="rsm2-chip__d">≤ 10 г</span>
       </button>
     </>
   );
 
-  const openDish = (dish) => {
-    const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
+  const openDish = (dish, groupIsFree = false) => {
+    const isFreeAccess = groupIsFree || freeDishKeys.has(buildDishAccessKey(dish));
     const draft = {
       id: dish.id,
       dishName: dish.name,
@@ -142,24 +253,21 @@ export default function MenuRedesignView({
       openPreviewDishCard(dish, draft, menu?.menuCapturedAt);
       return;
     }
+    if (guideStep === 'dish') advanceGuide();
     openDishCard(draft);
   };
 
   return (
-    <div className="rsm2-root">
+    <div className={`rsm2-root ${guideStep ? 'rsm2-root--guide-open' : ''}`}>
+      {guideStep && (
+        <div
+          className="rsm2-guide-scrim"
+          aria-hidden="true"
+          onClick={dismissGuide}
+        />
+      )}
+      {guideStep === 'restaurants' && <MenuGuide step="restaurants" onDismiss={dismissGuide} />}
       <div className="rsm2-hero">
-        {/* Reporting a stale menu makes no sense inside the partner's own
-            draft preview, so the trigger is omitted there rather than shown
-            as a dead button. */}
-        {!readOnly && (
-          <button
-            type="button"
-            className="rsm2-hero__report"
-            onClick={() => setIsOutdatedOpen(true)}
-          >
-            Меню устарело?
-          </button>
-        )}
         <div className="rsm2-hero__grid">
           <div className="rsm2-hero__lead">
             <h1 className="rsm2-hero__title" aria-label={`Меню ${seoRestaurantName} с КБЖУ`}>
@@ -188,29 +296,44 @@ export default function MenuRedesignView({
             )}
           </div>
           <div className="rsm2-hero__actions">
+            {/* Reporting a stale menu makes no sense inside the partner's own
+                draft preview, so the trigger is omitted there rather than shown
+                as a dead button. */}
             {!readOnly && (
               <button
                 type="button"
-                className="rsm2-icon-btn"
-                onClick={handleToggleRestaurantFavorite}
+                className="rsm2-hero__report"
+                onClick={() => setIsOutdatedOpen(true)}
+              >
+                Меню устарело?
+              </button>
+            )}
+            {!readOnly && (
+              <button
+                type="button"
+                className={`rsm2-icon-btn ${guideStep === 'dish' ? 'is-guide-target' : ''}`}
+                onClick={async () => {
+                  await handleToggleRestaurantFavorite();
+                  if (guideStep === 'dish') advanceGuide();
+                }}
                 aria-label={isFavoriteRestaurant ? 'Удалить ресторан из избранного' : 'Добавить ресторан в избранное'}
                 style={isFavoriteRestaurant ? { color: '#f0855a' } : undefined}
               >
-                <HeartIcon filled={isFavoriteRestaurant} size={22} />
+                <HeartIcon filled={isFavoriteRestaurant} size={18} />
               </button>
             )}
             <button type="button" className="rsm2-icon-btn" onClick={openMapInBrowser} aria-label="Показать на карте">
-              <MapPinIcon size={20} />
+              <MapPinIcon size={17} />
             </button>
             <button type="button" className="rsm2-icon-btn" onClick={handleShare} aria-label="Поделиться">
-              <ShareIcon size={20} />
+              <ShareIcon size={17} />
             </button>
           </div>
         </div>
       </div>
 
-      <div className="rsm2-filter-shell">
-        <div className="rsm2-filters">
+      <div className="rsm2-filters">
+        <div className="rsm2-filter-toolbar">
           <div className="rsm2-search">
             <SearchIcon size={17} />
             <input
@@ -220,68 +343,110 @@ export default function MenuRedesignView({
               aria-label="Поиск блюда"
             />
           </div>
+          <button
+            type="button"
+            className={`rsm2-filter-toggle ${isFilterPanelOpen ? 'is-on' : ''}`}
+            aria-expanded={isFilterPanelOpen}
+            onClick={() => setIsFilterPanelOpen((prev) => !prev)}
+          >
+            Фильтры
+            {activeFilterCount > 0 && <span className="rsm2-filter-toggle__count">{activeFilterCount}</span>}
+            <span className="rsm2-filter-toggle__caret" aria-hidden="true">{isFilterPanelOpen ? '▴' : '▾'}</span>
+          </button>
+        </div>
 
-          <div className="rsm2-chips">{renderChips()}</div>
+        {isFilterPanelOpen && (
+          <div className="rsm2-filter-panel">
+            <div className={`rsm2-filter-cluster ${guideStep === 'filters' ? 'is-guide-target' : ''}`}>
+              <div className="rsm2-chips">{renderChips()}</div>
 
-          {/* Grouped so the two disclosures always share a single row */}
-          <div className="rsm2-disclosures">
-            <button
-              type="button"
-              className={`rsm2-disclosure ${isAdvancedFiltersOpen ? 'is-on' : ''}`}
-              onClick={() => setIsAdvancedFiltersOpen((prev) => !prev)}
-            >
-              Свои КБЖУ<span className="rsm2-disclosure__caret">{isAdvancedFiltersOpen ? '▴' : '▾'}</span>
-            </button>
-
-            {/* Hidden entirely when the restaurant filled in no compositions —
-                there would be nothing to pick from. */}
-            {hasCompositions && (
-              <button
-                type="button"
-                className={`rsm2-disclosure ${isIngredientFilterOpen || selectedIngredientCount ? 'is-on' : ''}`}
-                onClick={() => setIsIngredientFilterOpen((prev) => !prev)}
-              >
-                Фильтр по ингредиентам
-                {selectedIngredientCount > 0 && (
-                  <span className="rsm2-disclosure__badge">{selectedIngredientCount}</span>
+              {/* Keep the advanced controls in the same visual group as the quick filters. */}
+              <div className="rsm2-disclosures">
+                <button
+                  type="button"
+                  className={`rsm2-disclosure ${isAdvancedFiltersOpen ? 'is-on' : ''}`}
+                  onClick={() => setIsAdvancedFiltersOpen((prev) => !prev)}
+                >
+                  Свои КБЖУ<span className="rsm2-disclosure__caret">{isAdvancedFiltersOpen ? '▴' : '▾'}</span>
+                </button>
+                {/* Hidden entirely when the restaurant filled in no compositions —
+                    there would be nothing to pick from. */}
+                {hasCompositions && (
+                  <button
+                    type="button"
+                    className={`rsm2-disclosure ${isIngredientFilterOpen || selectedIngredientCount ? 'is-on' : ''}`}
+                    onClick={() => setIsIngredientFilterOpen((prev) => !prev)}
+                  >
+                    Фильтр по ингредиентам
+                    {selectedIngredientCount > 0 && (
+                      <span className="rsm2-disclosure__badge">{selectedIngredientCount}</span>
+                    )}
+                    <span className="rsm2-disclosure__caret">{isIngredientFilterOpen ? '▴' : '▾'}</span>
+                  </button>
                 )}
-                <span className="rsm2-disclosure__caret">{isIngredientFilterOpen ? '▴' : '▾'}</span>
-              </button>
+              </div>
+
+              <div className={`rsm2-advanced ${isAdvancedFiltersOpen ? 'is-open' : ''}`}>
+                <div className="rsm2-advanced__panel">
+                  <RangeField label="Калории" value={range.kcal} onChange={(edge, val) => updateRange('kcal', edge, val)} />
+                  <RangeField label="Белки, г" value={range.protein} onChange={(edge, val) => updateRange('protein', edge, val)} />
+                  <RangeField label="Жиры, г" value={range.fat} onChange={(edge, val) => updateRange('fat', edge, val)} />
+                  <RangeField label="Углеводы, г" value={range.carbs} onChange={(edge, val) => updateRange('carbs', edge, val)} />
+                  <button type="button" className="rsm2-advanced__reset" onClick={resetFilters}>
+                    Сбросить всё
+                  </button>
+                </div>
+              </div>
+
+              {hasCompositions && isIngredientFilterOpen && (
+                <div className="rsm2-advanced is-open">
+                  <IngredientPanel
+                    options={ingredientOptions}
+                    filter={ingredientFilter}
+                    onToggle={toggleIngredient}
+                    onModeChange={setIngredientMode}
+                    onClear={clearIngredients}
+                  />
+                </div>
+              )}
+            </div>
+
+            {sectionOptions.length > 1 && (
+              <div className="rsm2-section-switch" role="tablist" aria-label="Раздел меню">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedSection === 'food'}
+                  className={selectedSection === 'food' ? 'is-on' : ''}
+                  onClick={() => setSelectedSection('food')}
+                >
+                  Еда
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedSection === 'drinks'}
+                  className={selectedSection === 'drinks' ? 'is-on' : ''}
+                  onClick={() => setSelectedSection('drinks')}
+                >
+                  Напитки
+                </button>
+              </div>
             )}
-          </div>
 
-          <div className={`rsm2-advanced ${isAdvancedFiltersOpen ? 'is-open' : ''}`}>
-            <div className="rsm2-advanced__panel">
-              <RangeField label="Калории" value={range.kcal} onChange={(edge, val) => updateRange('kcal', edge, val)} />
-              <RangeField label="Белки, г" value={range.protein} onChange={(edge, val) => updateRange('protein', edge, val)} />
-              <RangeField label="Жиры, г" value={range.fat} onChange={(edge, val) => updateRange('fat', edge, val)} />
-              <RangeField label="Углеводы, г" value={range.carbs} onChange={(edge, val) => updateRange('carbs', edge, val)} />
-              <button type="button" className="rsm2-advanced__reset" onClick={resetFilters}>
-                Сбросить всё
-              </button>
-            </div>
           </div>
+        )}
 
-          {hasCompositions && isIngredientFilterOpen && (
-            <div className="rsm2-advanced is-open" style={{ order: 11 }}>
-              <IngredientPanel
-                options={ingredientOptions}
-                filter={ingredientFilter}
-                onToggle={toggleIngredient}
-                onModeChange={setIngredientMode}
-                onClear={clearIngredients}
-              />
-            </div>
-          )}
+        {/* Categories stay visible while the optional filter panel is closed. */}
+        <div className="rsm2-category-bar rsm2-desktop-only">
+          <div className="rsm2-cats">
+            {renderCatPills()}
+          </div>
         </div>
 
-      </div>
-
-      {/* Categories stay outside the collapsible filter surface on desktop. */}
-      <div className="rsm2-category-bar rsm2-desktop-only">
-        <div className="rsm2-cats">
-          {renderCatPills()}
-        </div>
+        {isFilterPanelOpen && !loading && !error && guideStep === 'filters' && (
+          <MenuGuide step="filters" onDismiss={dismissGuide} />
+        )}
       </div>
 
       {/* Mobile-only category rail, kept in sync with the desktop pills above */}
@@ -293,20 +458,54 @@ export default function MenuRedesignView({
 
       <div className="rsm2-content">
         {loading && <p className="rsm2-loading">Загружаем меню…</p>}
-        {!!error && !loading && <p className="rsm2-loading">{error}</p>}
+        {!!error && !loading && (
+          error.kind === 'blocked' ? (
+            <div className="rsm2-status-block">
+              <LockIcon size={22} />
+              <p>{error.message}</p>
+              <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
+            </div>
+          ) : (
+            <p className="rsm2-loading">{error.message}</p>
+          )
+        )}
 
         {!loading && !error && (
-          groupedDishes.length ? (
-            groupedDishes.map((section) => (
+          isFilteredResultsLocked ? (
+            <div className="rsm2-filtered-access" role="status" aria-live="polite">
+              <span className="rsm2-filtered-access__count">{formatPositionCount(filteredDishCount)}</span>
+              <h2 className="rsm2-filtered-access__title">
+                {filteredDishCount > 0
+                  ? 'Подходящие блюда найдены'
+                  : 'Подходящие блюда не найдены. Попробуйте изменить фильтры.'}
+              </h2>
+              {filteredDishCount > 0 && (
+                <button type="button" className="rsm2-filtered-access__cta" onClick={onViewFilteredDishes}>
+                  Посмотреть бесплатно
+                </button>
+              )}
+            </div>
+          ) : groupedDishes.length ? (
+            <>
+              {guideStep === 'dish' && <MenuGuide step="dish" onDismiss={dismissGuide} />}
+              {groupedDishes.map((section, sectionIndex) => (
               <div key={section.name}>
                 <div className="rsm2-section__head">
                   <h2 className="rsm2-section__title">{section.name}</h2>
                   <span className="rsm2-section__count">{formatPositionCount(section.dishes.length)}</span>
                   <div className="rsm2-section__rule" />
+                  <SortControl
+                    categoryName={section.name}
+                    sort={categorySorts?.[section.name] || menuSort}
+                    globalSort={menuSort}
+                    hasCategoryOverride={Boolean(categorySorts?.[section.name])}
+                    onChange={onSortChange}
+                    onReset={onSortReset}
+                  />
                 </div>
 
                 <div className="rsm2-grid rsm2-desktop-only">
-                  {section.dishes.map((dish) => {
+                  {section.dishes.map((dish, dishIndex) => {
                     const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
                     return (
                       <DishTileV2
@@ -317,14 +516,16 @@ export default function MenuRedesignView({
                         isFreeAccess={isFreeAccess}
                         interactive
                         readOnly={readOnly}
-                        onClick={() => openDish(dish)}
+                        guideFavoriteTarget={guideStep === 'dish' && sectionIndex === 0 && dishIndex === 0}
+                        onGuideFavorite={guideStep === 'dish' ? advanceGuide : undefined}
+                        onClick={(selectedDish) => openDish(selectedDish, isFreeAccess)}
                       />
                     );
                   })}
                 </div>
 
                 <div className="rsm2-grid rsm2-mobile-only">
-                  {section.dishes.map((dish) => {
+                  {section.dishes.map((dish, dishIndex) => {
                     const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
                     return (
                       <DishRowV2
@@ -335,13 +536,16 @@ export default function MenuRedesignView({
                         isFreeAccess={isFreeAccess}
                         interactive
                         readOnly={readOnly}
-                        onClick={() => openDish(dish)}
+                        guideFavoriteTarget={guideStep === 'dish' && sectionIndex === 0 && dishIndex === 0}
+                        onGuideFavorite={guideStep === 'dish' ? advanceGuide : undefined}
+                        onClick={(selectedDish) => openDish(selectedDish, isFreeAccess)}
                       />
                     );
                   })}
                 </div>
               </div>
-            ))
+              ))}
+            </>
           ) : (
             <div className="rsm2-empty">
               <p className="rsm2-empty__title">
@@ -365,6 +569,145 @@ export default function MenuRedesignView({
         />
       )}
     </div>
+  );
+}
+
+function SortControl({ categoryName, sort, globalSort, hasCategoryOverride, onChange, onReset }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [scope, setScope] = useState(hasCategoryOverride ? 'category' : 'menu');
+  const selectedOption = getMenuSortOption(sort?.field);
+  const selectedDirection = sort?.direction || selectedOption.defaultDirection;
+
+  useEffect(() => {
+    if (!isOpen) setScope(hasCategoryOverride ? 'category' : 'menu');
+  }, [hasCategoryOverride, isOpen]);
+
+  const chooseSort = (field, direction = null) => {
+    const scopeSort = scope === 'menu' ? globalSort : sort;
+    const nextDirection = direction || (
+      field === scopeSort?.field
+        ? scopeSort.direction
+        : getDefaultMenuSortDirection(field)
+    );
+    onChange(scope, categoryName, { field, direction: nextDirection });
+    setIsOpen(false);
+  };
+
+  const toggleDirection = (field) => {
+    const scopeSort = scope === 'menu' ? globalSort : sort;
+    const currentDirection = field === scopeSort?.field
+      ? scopeSort.direction
+      : getDefaultMenuSortDirection(field);
+    chooseSort(field, toggleMenuSortDirection(currentDirection));
+  };
+
+  const reset = () => {
+    onReset(scope, categoryName);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="rsm2-sort-control">
+      <button
+        type="button"
+        className={`rsm2-sort-control__trigger ${isOpen || hasCategoryOverride ? 'is-on' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-label={`Сортировка категории «${categoryName}»`}
+        onClick={() => setIsOpen((previous) => !previous)}
+      >
+        <span className="rsm2-sort-control__label">{selectedOption.label}</span>
+        <span aria-hidden="true">{selectedDirection === 'asc' ? '↑' : '↓'}</span>
+        <span className="rsm2-sort-control__caret" aria-hidden="true">{isOpen ? '▴' : '▾'}</span>
+      </button>
+
+      {isOpen && (
+        <div className="rsm2-sort-control__menu" role="menu" aria-label={`Сортировка «${categoryName}»`}>
+          <div className="rsm2-sort-control__scope" role="group" aria-label="Область сортировки">
+            <button
+              type="button"
+              className={scope === 'menu' ? 'is-on' : ''}
+              aria-pressed={scope === 'menu'}
+              onClick={() => setScope('menu')}
+            >
+              Всё меню
+            </button>
+            <button
+              type="button"
+              className={scope === 'category' ? 'is-on' : ''}
+              aria-pressed={scope === 'category'}
+              onClick={() => setScope('category')}
+            >
+              Только категория
+            </button>
+          </div>
+
+          <div className="rsm2-sort-control__options">
+            {MENU_SORT_OPTIONS.map((option) => {
+              const isSelected = option.field === sort?.field;
+              const direction = isSelected ? selectedDirection : option.defaultDirection;
+              return (
+                <div className={`rsm2-sort-control__option ${isSelected ? 'is-selected' : ''}`} key={option.field}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => chooseSort(option.field)}
+                  >
+                    {option.label}
+                  </button>
+                  <button
+                    type="button"
+                    className="rsm2-sort-control__direction"
+                    aria-label={`${option.label}: по ${direction === 'asc' ? 'убыванию' : 'возрастанию'}`}
+                    onClick={() => toggleDirection(option.field)}
+                  >
+                    {direction === 'asc' ? '↑' : '↓'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <button type="button" className="rsm2-sort-control__reset" onClick={reset}>
+            Сбросить сортировку
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenuGuide({ step, onDismiss }) {
+  const isFiltersStep = step === 'filters';
+  const isDishStep = step === 'dish';
+  const stepNumber = isFiltersStep ? '1' : isDishStep ? '2' : '3';
+
+  return (
+    <aside className={`rsm2-guide rsm2-guide--${step}`} aria-label="Подсказка по меню" aria-live="polite">
+      <span className="rsm2-guide__mark" aria-hidden="true">✦</span>
+      <div className="rsm2-guide__copy">
+        <div className="rsm2-guide__meta">
+          Подсказка · {stepNumber} из 3
+        </div>
+        <h2 className="rsm2-guide__title">
+          {isFiltersStep
+            ? 'Попробуй быстрые фильтры'
+            : isDishStep
+              ? 'Добавляйте любимые меню и рестораны в избранное'
+              : 'Выбирайте заранее без стресса'}
+        </h2>
+        <p className="rsm2-guide__text">
+          {isFiltersStep
+            ? 'Настрой меню под себя одним нажатием.'
+            : isDishStep
+              ? 'Сравнивайте позиции и быстро возвращайтесь к любимым местам и блюдам'
+              : 'Более 700 ресторанов в 12 городах с полным КБЖУ блюд и быстрыми фильтрами.'}
+        </p>
+      </div>
+      <button type="button" className="rsm2-guide__dismiss" onClick={onDismiss}>
+        Не сейчас
+      </button>
+    </aside>
   );
 }
 

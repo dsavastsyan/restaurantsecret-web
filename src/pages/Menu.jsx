@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiGet } from '@/lib/requests'
-import { flattenMenuDishes } from '@/lib/nutrition'
+import { flattenMenuDishes, flattenMenuGroups } from '@/lib/nutrition'
 import { formatDescription, matchesSearchQuery } from '@/lib/text'
 import {
   buildIngredientOptions,
@@ -12,6 +12,9 @@ import {
   menuHasCompositions,
 } from '@/lib/ingredients'
 import { formatMenuCapturedAt } from '@/lib/dates'
+import { parseCatalogNutritionCriteria } from '@/lib/catalogFilterParams'
+import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
+import { createDefaultMenuSort, sortMenuDishes } from '@/lib/menuSorting'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { useDishCardStore } from '@/store/dishCard'
@@ -33,6 +36,35 @@ const createDefaultRange = () => ({
 // mode; 'include' flips the filter into "только с этим ингредиентом".
 const createDefaultIngredientFilter = () => ({ mode: 'exclude', selected: [] })
 
+const CATALOG_TO_MENU_PRESETS = [
+  { key: 'lowKcal', field: 'calories', bound: 'max', value: 400 },
+  { key: 'highProtein', field: 'protein', bound: 'min', value: 25 },
+  { key: 'lowFat', field: 'fat', bound: 'max', value: 10 },
+]
+
+const createMenuFiltersFromCatalog = (searchParams) => {
+  const criteria = parseCatalogNutritionCriteria(searchParams)
+  const presets = createDefaultPresets()
+  const range = {
+    kcal: { ...criteria.calories },
+    protein: { ...criteria.protein },
+    fat: { ...criteria.fat },
+    carbs: { ...criteria.carbs },
+  }
+
+  CATALOG_TO_MENU_PRESETS.forEach(({ key, field, bound, value }) => {
+    const current = criteria[field] || {}
+    const oppositeBound = bound === 'min' ? 'max' : 'min'
+    if (current[oppositeBound] === '' && String(current[bound] ?? '') === String(value)) {
+      presets[key] = true
+      const menuField = field === 'calories' ? 'kcal' : field
+      range[menuField] = { min: '', max: '' }
+    }
+  })
+
+  return { presets, range }
+}
+
 // Russian numeral agreement: 1 блюдо / 2-4 блюда / 5+ блюд (11-14 always
 // take the "many" form regardless of the last digit, hence the % 100 check).
 const pluralizeRu = (n, [one, few, many]) => {
@@ -41,6 +73,42 @@ const pluralizeRu = (n, [one, few, many]) => {
   if (mod10 === 1 && mod100 !== 11) return one
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
   return many
+}
+
+const formatRetryAfter = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) return null
+  if (seconds >= 60) {
+    const minutes = Math.ceil(seconds / 60)
+    return `${minutes} ${pluralizeRu(minutes, ['минуту', 'минуты', 'минут'])}`
+  }
+  return `${seconds} ${pluralizeRu(seconds, ['секунду', 'секунды', 'секунд'])}`
+}
+
+// Maps a load failure to the message a visitor should actually see. The API
+// distinguishes real anti-bot gates (rate-limited/temporarily blocked, or an
+// unsolved Turnstile challenge) from generic network errors via `err.code`
+// (set in `@/lib/requests`) — before this, every one of these looked like a
+// plain "site is broken" error (incident 2026-09-29).
+const buildMenuError = (err) => {
+  if (err?.code === 'temporarily_blocked' || err?.code === 'rate_limited') {
+    const retryAfter = formatRetryAfter(Number(err?.body?.retry_after))
+    return {
+      kind: 'blocked',
+      message: retryAfter
+        ? `Слишком много запросов подряд — это защита от ботов, не ошибка сайта. Попробуйте снова примерно через ${retryAfter}.`
+        : 'Слишком много запросов подряд — это защита от ботов, не ошибка сайта. Подождите немного и обновите страницу.',
+    }
+  }
+  if (err?.code === 'captcha_cancelled' || err?.code === 'captcha_error' || err?.code === 'captcha_required') {
+    return {
+      kind: 'blocked',
+      message: 'Не удалось подтвердить, что вы не робот. Обновите страницу, чтобы попробовать снова.',
+    }
+  }
+  return {
+    kind: 'network',
+    message: 'Не удалось загрузить меню. Попробуйте обновить страницу позже.',
+  }
 }
 
 // Reads the {name, dishCount} the prerender embedded in the static page
@@ -85,10 +153,16 @@ export default function Menu({
   const { slug: routeSlug } = useParams()
   const slug = previewRestaurantSlug || routeSlug
   const [routeSearchParams] = useSearchParams()
+  const routeFilterKey = routeSearchParams.toString()
+  const initialMenuFilters = useMemo(
+    () => createMenuFiltersFromCatalog(routeSearchParams),
+    [routeFilterKey],
+  )
   const city = routeSearchParams.get('city') || 'Москва'
   const navigate = useNavigate()
   const accessToken = useAuth((state) => state.accessToken)
-  const { fetchStatus } = useSubscriptionStore((state) => ({
+  const { hasActiveSub, fetchStatus } = useSubscriptionStore((state) => ({
+    hasActiveSub: state.hasActiveSub,
     fetchStatus: state.fetchStatus,
   }))
   const open = useDishCardStore((state) => state.open)
@@ -106,37 +180,44 @@ export default function Menu({
   const [menu, setMenu] = useState(() => previewMode ? normalizeMenu(previewMenu) : null)
   const [seoHint] = useState(() => (previewMode ? null : readSeoHint()))
   const [loading, setLoading] = useState(!previewMode)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(null)
   const [isOutdatedOpen, setIsOutdatedOpen] = useState(false)
   const [restaurantPoint, setRestaurantPoint] = useState(null)
 
   const [query, setQuery] = useState('')
+  const [selectedSection, setSelectedSection] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
-  const [presets, setPresets] = useState(createDefaultPresets)
-  const [range, setRange] = useState(createDefaultRange)
+  const [presets, setPresets] = useState(() => initialMenuFilters.presets)
+  const [range, setRange] = useState(() => initialMenuFilters.range)
   const [allCategoriesExpanded, setAllCategoriesExpanded] = useState(false)
   const [isIngredientFilterOpen, setIsIngredientFilterOpen] = useState(false)
   const [ingredientFilter, setIngredientFilter] = useState(createDefaultIngredientFilter)
+  const [menuSort, setMenuSort] = useState(createDefaultMenuSort)
+  const [categorySorts, setCategorySorts] = useState({})
 
-  // Reset filters whenever the restaurant slug changes.
+  // Reset menu-local filters when the restaurant or incoming catalog filters change.
   useEffect(() => {
     setQuery('')
+    setSelectedSection('all')
     setSelectedCategory('all')
     setIsAdvancedFiltersOpen(false)
-    setPresets(createDefaultPresets())
-    setRange(createDefaultRange())
     setAllCategoriesExpanded(false)
     setIsIngredientFilterOpen(false)
     setIngredientFilter(createDefaultIngredientFilter())
-  }, [city, slug])
+    setMenuSort(createDefaultMenuSort())
+    setCategorySorts({})
+    const nextMenuFilters = createMenuFiltersFromCatalog(routeSearchParams)
+    setPresets(nextMenuFilters.presets)
+    setRange(nextMenuFilters.range)
+  }, [city, routeFilterKey, slug])
 
   // Fetch the menu.
   useEffect(() => {
     if (previewMode) {
       setMenu(normalizeMenu(previewMenu))
       setLoading(false)
-      setError('')
+      setError(null)
       return undefined
     }
 
@@ -146,7 +227,7 @@ export default function Menu({
         try {
           await fetchStatus(accessToken)
           setLoading(true)
-          setError('')
+          setError(null)
           const raw = await apiGet(
             `/restaurants/${slug}/menu?city=${encodeURIComponent(city)}`,
             accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
@@ -156,7 +237,7 @@ export default function Menu({
             const normalizedMenu = normalizeMenu(data)
             setMenu(normalizedMenu)
             analytics.track('restaurant_menu_open', { slug, name: normalizedMenu.name || slug })
-            try { ym(108992733, 'reachGoal', 'restaurant_view'); } catch { /* ym not loaded */ }
+            analytics.reachGoal('restaurant_view');
           }
         } catch (err) {
           if (!aborted) {
@@ -168,7 +249,7 @@ export default function Menu({
               return
             }
             console.error('Failed to load menu', err)
-            setError('Не удалось загрузить меню. Попробуйте обновить страницу позже.')
+            setError(buildMenuError(err))
           }
         } finally {
           if (!aborted) setLoading(false)
@@ -213,32 +294,75 @@ export default function Menu({
   }, [city, slug])
 
   const dishes = useMemo(() => flattenMenuDishes(menu), [menu])
+  const menuGroups = useMemo(() => flattenMenuGroups(menu), [menu])
+  const sectionOptions = useMemo(() => {
+    const categories = Array.isArray(menu?.categories) ? menu.categories : []
+    if (!categories.length || categories.some((category) => !['food', 'drinks'].includes(category?.menuSection))) {
+      return []
+    }
+    return ['food', 'drinks'].filter((section) => categories.some((category) => category.menuSection === section))
+  }, [menu?.categories])
+
+  useEffect(() => {
+    const nextSection = sectionOptions.includes('food') ? 'food' : sectionOptions[0] || 'all'
+    setSelectedSection(nextSection)
+    setSelectedCategory('all')
+    setAllCategoriesExpanded(false)
+  }, [sectionOptions])
+
+  const handleSectionChange = (section) => {
+    setSelectedSection(section)
+    setSelectedCategory('all')
+    setAllCategoriesExpanded(false)
+  }
   const freeDishKeys = useMemo(() => {
     const isQrAccess = !previewMode && hasQrMenuAccess(slug)
-    const visibleDishes = (previewMode || isQrAccess) ? dishes : dishes.slice(0, 3)
-    return new Set(visibleDishes.map((dish) => buildDishAccessKey(dish)))
-  }, [dishes, previewMode, slug])
+    const visibleGroups = (previewMode || isQrAccess) ? menuGroups : menuGroups.slice(0, 3)
+    return new Set(visibleGroups.map((group) => buildDishAccessKey(group)))
+  }, [menuGroups, previewMode, slug])
   const capturedAt = useMemo(() => formatMenuCapturedAt(menu?.menuCapturedAt), [menu?.menuCapturedAt])
 
-  // Apply search and macro filters locally to keep the UI responsive.
+  // Apply search and macro filters to atomic variants, then keep only the
+  // matching variants inside each visible base item. This prevents a filtered
+  // result from re-opening all hidden milk/size combinations.
   const filtered = useMemo(() => {
     const q = query.trim()
-    return dishes.filter((dish) => {
-      const categoryName = formatDescription(dish.category, '') || 'Без категории'
-      if (selectedCategory !== 'all' && categoryName !== selectedCategory) return false
-      const searchableComposition = formatDescription(dish.ingredients ?? dish.description, '')
-      if (q && !matchesSearchQuery(dish.name, q) && !matchesSearchQuery(searchableComposition, q)) return false
-      if (presets.highProtein && !(dish.protein >= 25)) return false
-      if (presets.lowFat && !(dish.fat <= 10)) return false
-      if (presets.lowKcal && !(dish.kcal <= 400)) return false
-      if (!inRange(dish.kcal, range.kcal.min, range.kcal.max)) return false
-      if (!inRange(dish.protein, range.protein.min, range.protein.max)) return false
-      if (!inRange(dish.fat, range.fat.min, range.fat.max)) return false
-      if (!inRange(dish.carbs, range.carbs.min, range.carbs.max)) return false
-      if (!dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)) return false
-      return true
+    return menuGroups.flatMap((group) => {
+      if (selectedSection !== 'all' && group.menuSection !== selectedSection) return []
+      const categoryName = formatDescription(group.category, '') || 'Без категории'
+      if (selectedCategory !== 'all' && categoryName !== selectedCategory) return []
+      const variants = Array.isArray(group.variants) && group.variants.length ? group.variants : [group]
+      const groupNameMatches = q && matchesSearchQuery(group.name, q)
+      const matchingVariants = variants.filter((dish) => {
+        const searchableComposition = formatDescription(dish.ingredients ?? dish.description, '')
+        if (q && !groupNameMatches && !matchesSearchQuery(dish.name, q) && !matchesSearchQuery(searchableComposition, q)) return false
+        if (presets.highProtein && !(dish.protein >= 25)) return false
+        if (presets.lowFat && !(dish.fat <= 10)) return false
+        if (presets.lowKcal && !(dish.kcal <= 400)) return false
+        if (!inRange(dish.kcal, range.kcal.min, range.kcal.max)) return false
+        if (!inRange(dish.protein, range.protein.min, range.protein.max)) return false
+        if (!inRange(dish.fat, range.fat.min, range.fat.max)) return false
+        if (!inRange(dish.carbs, range.carbs.min, range.carbs.max)) return false
+        if (!dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)) return false
+        return true
+      })
+      if (!matchingVariants.length) return []
+      return [{ ...group, variants: matchingVariants, variantCount: matchingVariants.length, ...matchingVariants[0], name: group.name }]
     })
-  }, [dishes, query, selectedCategory, presets, range, ingredientFilter])
+  }, [menuGroups, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
+
+  const hasRestrictedMenuFilters = useMemo(() => {
+    const hasCustomRange = Object.values(range).some((bounds) => bounds.min !== '' || bounds.max !== '')
+    return Boolean(
+      query.trim()
+      || selectedCategory !== 'all'
+      || Object.values(presets).some(Boolean)
+      || hasCustomRange
+      || ingredientFilter.selected.length,
+    )
+  }, [ingredientFilter.selected.length, presets, query, range, selectedCategory])
+  const hasFullDishAccess = previewMode || hasActiveSub || hasQrMenuAccess(slug)
+  const isFilteredResultsLocked = hasRestrictedMenuFilters && !hasFullDishAccess
 
   // The ingredient control only makes sense when the restaurant actually filled
   // compositions in — many menus have none, and an empty picker is worse than
@@ -266,10 +390,11 @@ export default function Menu({
   const categoryOptions = useMemo(() => {
     const source = Array.isArray(menu?.categories) ? menu.categories : []
     const names = source
+      .filter((category) => selectedSection === 'all' || category?.menuSection === selectedSection)
       .map((category) => formatDescription(category?.name, '') || 'Без категории')
       .filter(Boolean)
     return Array.from(new Set(names))
-  }, [menu?.categories])
+  }, [menu?.categories, selectedSection])
 
   const groupedDishes = useMemo(() => {
     if (!menu?.categories?.length) {
@@ -301,19 +426,41 @@ export default function Menu({
 
     return ordered.filter((section) => section.dishes.length)
   }, [filtered, menu?.categories])
-  // Within each category, dishes with a photo come first (stable sort), so the
-  // grid never mixes photo and photo-less cards into a ragged rhythm. Only the
-  // partner draft preview supplies photos today; the public menu API does not.
+  const handleSortChange = (scope, categoryName, nextSort) => {
+    if (scope === 'menu') {
+      setMenuSort(nextSort)
+      setCategorySorts({})
+      return
+    }
+    setCategorySorts((previous) => ({ ...previous, [categoryName]: nextSort }))
+  }
+
+  const handleSortReset = (scope, categoryName) => {
+    if (scope === 'menu') {
+      setMenuSort(createDefaultMenuSort())
+      setCategorySorts({})
+      return
+    }
+    setCategorySorts((previous) => {
+      const next = { ...previous }
+      delete next[categoryName]
+      return next
+    })
+  }
+
+  const resetSorting = () => {
+    setMenuSort(createDefaultMenuSort())
+    setCategorySorts({})
+  }
+
+  // Sort within each category so the curated category order remains intact.
+  // A category-level choice overrides the global sort only for that category.
   const groupedDishesSorted = useMemo(
     () => groupedDishes.map((section) => ({
       ...section,
-      dishes: [...section.dishes].sort((a, b) => {
-        const aHasPhoto = a.photoUrl || a.photo_url ? 1 : 0
-        const bHasPhoto = b.photoUrl || b.photo_url ? 1 : 0
-        return bHasPhoto - aHasPhoto
-      }),
+      dishes: sortMenuDishes(section.dishes, categorySorts[section.name] || menuSort),
     })),
-    [groupedDishes]
+    [categorySorts, groupedDishes, menuSort]
   )
   const restaurantLinkUrl = useMemo(() => normalizeRestaurantLinkUrl(menu?.instagramUrl), [menu?.instagramUrl])
   // A slug ("horoshaya-devochka-nan") must never stand in for a real name —
@@ -327,8 +474,8 @@ export default function Menu({
     rawSeoName && !isSlugLike(rawSeoName)
       ? rawSeoName.charAt(0).toUpperCase() + rawSeoName.slice(1)
       : 'ресторана'
-  const seoDishCount = menu ? dishes.length : (seoHint?.dishCount ?? dishes.length)
-  const seoDishWord = pluralizeRu(seoDishCount, ['блюдо', 'блюда', 'блюд'])
+  const seoDishCount = menu ? menuGroups.length : (seoHint?.dishCount ?? menuGroups.length)
+  const seoDishWord = pluralizeRu(seoDishCount, ['позиция', 'позиции', 'позиций'])
   const seoDescription = useMemo(
     () => `${seoDishCount} ${seoDishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${seoRestaurantName} перед посещением ресторана.`,
     [seoDishCount, seoDishWord, seoRestaurantName]
@@ -355,6 +502,7 @@ export default function Menu({
       : `Меню ${seoRestaurantName} с полным КБЖУ — калории, белки, жиры, углеводы`,
     description: seoDescription,
     canonical: previewMode ? undefined : `https://restaurantsecret.ru${canonicalPath}`,
+    robots: !previewMode && menu?.chainHubPath ? 'noindex, follow' : undefined,
   })
 
   // Toggle a preset chip and re-run memoized filtering.
@@ -380,6 +528,7 @@ export default function Menu({
     setPresets(createDefaultPresets())
     setRange(createDefaultRange())
     setIngredientFilter(createDefaultIngredientFilter())
+    resetSorting()
   }
 
   const openMapInBrowser = () => {
@@ -431,6 +580,12 @@ export default function Menu({
     await toggleFavoriteRestaurant(accessToken, slug)
   }
 
+  const handleViewFilteredDishes = () => {
+    const returnTo = window.location.pathname + window.location.search
+    const checkoutLink = getSubscriptionCheckoutLink(accessToken, returnTo)
+    navigate(checkoutLink.to, { state: checkoutLink.state })
+  }
+
   return (
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
@@ -438,6 +593,9 @@ export default function Menu({
       dishes={dishes}
       filtered={filtered}
       groupedDishes={groupedDishesSorted}
+      filteredDishCount={filtered.length}
+      isFilteredResultsLocked={isFilteredResultsLocked}
+      onViewFilteredDishes={handleViewFilteredDishes}
       capturedAt={capturedAt}
       freeDishKeys={freeDishKeys}
       slug={slug}
@@ -446,6 +604,9 @@ export default function Menu({
       menu={menu}
       query={query}
       setQuery={setQuery}
+      selectedSection={selectedSection}
+      setSelectedSection={handleSectionChange}
+      sectionOptions={sectionOptions}
       selectedCategory={selectedCategory}
       setSelectedCategory={setSelectedCategory}
       categoryOptions={categoryOptions}
@@ -458,6 +619,10 @@ export default function Menu({
       range={range}
       updateRange={updateRange}
       resetFilters={resetFilters}
+      menuSort={menuSort}
+      categorySorts={categorySorts}
+      onSortChange={handleSortChange}
+      onSortReset={handleSortReset}
       isIngredientFilterOpen={isIngredientFilterOpen}
       setIsIngredientFilterOpen={setIsIngredientFilterOpen}
       hasCompositions={hasCompositions}

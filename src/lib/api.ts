@@ -1,6 +1,7 @@
 // src/lib/api.ts
-import { PD_API_BASE, PUBLIC_API_BASE } from "@/config/api";
+import { IS_PREVIEW, PD_API_BASE, PUBLIC_API_BASE } from "@/config/api";
 import { markOnboardingCompletedForToken } from "@/lib/onboarding";
+import { requestTurnstileToken } from "@/lib/turnstile";
 import { setToken } from "@/store/auth";
 
 export type SearchSuggestionRestaurant = {
@@ -32,6 +33,10 @@ export type Restaurant = {
 
 export type RestaurantListResponse = {
   items: Restaurant[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+  hasMore?: boolean;
 };
 
 export type SearchRestaurant = {
@@ -164,15 +169,33 @@ async function doFetch(path: string, init: RequestInit = {}, token?: string) {
 }
 
 async function publicGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${PUBLIC_API_BASE}${path}`, {
+  const fetchPublic = (captchaToken?: string) => fetch(`${PUBLIC_API_BASE}${path}`, {
     method: "GET",
     // Same-origin production requests must carry the Anubis clearance cookie.
     // Browsers still omit credentials automatically for the absolute staging
     // origin because `same-origin` never sends them cross-origin.
     credentials: "same-origin",
+    headers: captchaToken ? { "X-Captcha-Token": captchaToken } : undefined,
   });
+
+  let res = await fetchPublic();
+  if (res.status === 403) {
+    const payload = await parseBody(res);
+    const captchaRequired =
+      payload && typeof payload === "object" && "error" in payload && payload.error === "captcha_required";
+    const sitekey =
+      payload && typeof payload === "object" && "sitekey" in payload && typeof payload.sitekey === "string"
+        ? payload.sitekey
+        : "";
+
+    if (captchaRequired && sitekey) {
+      const token = await requestTurnstileToken(sitekey);
+      res = await fetchPublic(token);
+    }
+  }
+
   if (!res.ok) {
-    throw new Error(`Public API error ${res.status}`);
+    await toApiError(res);
   }
   return res.json();
 }
@@ -180,6 +203,18 @@ async function publicGet<T>(path: string): Promise<T> {
 export const isUnauthorizedError = (error: unknown): error is ApiError => {
   return error instanceof ApiError && error.status === 401;
 };
+
+function notifyPreviewAuthRequired(token?: string) {
+  if (!IS_PREVIEW || !token || typeof window === "undefined") return;
+
+  try {
+    if (window.localStorage.getItem("rs_preview_persona")) {
+      window.dispatchEvent(new CustomEvent("rs:preview-auth-required"));
+    }
+  } catch {
+    // Ignore storage or event errors in restricted browser contexts.
+  }
+}
 
 export function apiPostAuth(path: string, body?: unknown, token?: string) {
   return fetch(`${PD_API_BASE}${path}`, {
@@ -235,6 +270,8 @@ export async function apiGet<T = unknown>(path: string, token?: string): Promise
     }
   }
 
+  if (res.status === 401) notifyPreviewAuthRequired(token);
+
   return handleResponse<T>(res);
 }
 
@@ -264,6 +301,8 @@ export async function apiPost<T = unknown>(path: string, body?: unknown, token?:
     }
   }
 
+  if (res.status === 401) notifyPreviewAuthRequired(token);
+
   return handleResponse<T>(res);
 }
 
@@ -276,6 +315,8 @@ export async function apiDelete<T = unknown>(path: string, token?: string): Prom
       res = await doFetch(path, { method: "DELETE" }, newToken); // ретрай 1 раз
     }
   }
+
+  if (res.status === 401) notifyPreviewAuthRequired(token);
 
   return handleResponse<T>(res);
 }
@@ -423,6 +464,8 @@ export async function getRestaurants(limit = 2000, city = "Москва"): Promi
   return publicGet<RestaurantListResponse>(`/restaurants?limit=${limit}&city=${encodeURIComponent(city)}`);
 }
 // Goals
+const USER_GOALS_PATH = "/api/v1/goals";
+
 export type UserGoalData = {
   user_id?: string;
   gender: 'male' | 'female' | null;
@@ -440,11 +483,11 @@ export type UserGoalData = {
 };
 
 export async function fetchUserGoals(token: string) {
-  return apiGet<{ ok: boolean; goals: UserGoalData | null }>("/api/goals", token);
+  return apiGet<{ ok: boolean; goals: UserGoalData | null }>(USER_GOALS_PATH, token);
 }
 
 export async function updateUserGoals(data: Partial<UserGoalData>, token: string) {
-  return apiPut("/api/goals", data, token);
+  return apiPut(USER_GOALS_PATH, data, token);
 }
 
 export async function apiPut<T = unknown>(path: string, body?: unknown, token?: string): Promise<T> {

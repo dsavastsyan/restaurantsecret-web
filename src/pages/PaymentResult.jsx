@@ -21,17 +21,18 @@ export default function PaymentResult() {
   }, [status]);
 
   useEffect(() => {
-    if (!status) return;
     const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
+    const paymentId = searchParams.get("payment_id") || sessionStorage.getItem("rs_checkout_payment_id") || null;
     sessionStorage.removeItem("rs_checkout_plan");
-    if (isSuccess) {
-      analytics.track("payment_success", { plan });
-    } else if (status === 'canceled') {
-      analytics.track("payment_canceled", { plan });
-    } else {
-      analytics.track("payment_failed", { plan, reason: status });
-    }
-  }, [status, isSuccess]);
+    sessionStorage.removeItem("rs_checkout_payment_id");
+    analytics.track("payment_returned", {
+      payment_id: paymentId,
+      plan,
+      return_status: status || "not_provided",
+      interpreted_result: status ? (isSuccess ? "success" : "failure") : "unknown",
+      return_path: window.location.pathname,
+    });
+  }, [status, isSuccess, searchParams]);
 
   const title = isSuccess ? "Спасибо! Ваша подписка оформлена" : "Не удалось получить оплату";
   const description = isSuccess

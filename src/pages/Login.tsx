@@ -1,7 +1,7 @@
 // src/pages/Login.tsx
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { apiPost } from "@/lib/api";
+import { ApiError, apiPost } from "@/lib/api";
 import { resetImmersiveViewport, useImmersiveViewport } from "@/hooks/useImmersiveViewport";
 import { SUBSCRIPTION_CHECKOUT_PATH } from "@/lib/subscriptionCta";
 import { useAuth, selectSetToken } from "@/store/auth"; // <— меняем импорт
@@ -11,11 +11,19 @@ import mobileDayBackground from "@/assets/login/Login bacground mobile day.png";
 import desktopDayBackground from "@/assets/login/Login bachround desctop day.png";
 
 const COMMUNICATION_CONSENT_VERSION = "restaurantsecret-communications-2026-09-16";
+const OTP_RATE_LIMIT_SECONDS = 10 * 60;
+const OTP_RATE_LIMIT_ERROR = "otp_rate_limit";
+
+const trackOtpFailure = (eventName: string, reason: string, error?: any) => {
+  analytics.track(eventName, {
+    reason,
+    error_status: error?.status || error?.response?.status || undefined,
+  });
+};
 
 type PendingLogin = {
   token: string;
   nextPath: string;
-  needsOnboarding: boolean;
 };
 
 const normalizeAppPath = (value: unknown) => {
@@ -48,6 +56,7 @@ export default function LoginPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [otpRateLimitSeconds, setOtpRateLimitSeconds] = useState(0);
   const [pendingLogin, setPendingLogin] = useState<PendingLogin | null>(null);
   const [personalDataAdvertising, setPersonalDataAdvertising] = useState(false);
   const [marketingCommunications, setMarketingCommunications] = useState(false);
@@ -88,15 +97,12 @@ export default function LoginPage() {
     return hasActiveSubscription ? returnTo : redirectTo;
   };
 
-  const finishLogin = (token: string, needsOnboarding: boolean, nextPath: string) => {
+  const finishLogin = (token: string, nextPath: string) => {
     setToken(token);
     analytics.recordPolicyAcceptance();
+    analytics.identify();
     resetImmersiveViewport({ blurActiveElement: true });
-    if (needsOnboarding) {
-      navigate("/onboarding/welcome", { replace: true, state: { next: nextPath } });
-    } else {
-      navigate(nextPath, { replace: true });
-    }
+    navigate(nextPath, { replace: true });
   };
 
   useEffect(() => {
@@ -105,10 +111,26 @@ export default function LoginPage() {
     return () => clearInterval(id);
   }, [timer]);
 
+  useEffect(() => {
+    if (otpRateLimitSeconds <= 0) return;
+    const id = setTimeout(() => setOtpRateLimitSeconds((seconds) => Math.max(seconds - 1, 0)), 1000);
+    return () => clearTimeout(id);
+  }, [otpRateLimitSeconds]);
+
+  useEffect(() => {
+    if (otpRateLimitSeconds === 0 && err === OTP_RATE_LIMIT_ERROR) {
+      setErr(null);
+    }
+  }, [err, otpRateLimitSeconds]);
+
+  const otpRateLimited = otpRateLimitSeconds > 0;
+  const otpRateLimitMessage = `Слишком много попыток. Попробуйте снова через ${Math.ceil(otpRateLimitSeconds / 60)} мин.`;
+
   const sendCode = async () => {
     setErr(null);
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       setErr("Укажите корректный e-mail");
+      trackOtpFailure("otp_request_failed", "invalid_email");
       return;
     }
     setLoading(true);
@@ -118,12 +140,21 @@ export default function LoginPage() {
         resetImmersiveViewport({ blurActiveElement: true });
         setStep("code");
         setTimer(60);
+        setOtpRateLimitSeconds(0);
         analytics.track("otp_request");
       } else {
         setErr(res?.message || "Не удалось отправить код");
+        trackOtpFailure("otp_request_failed", "api_rejected", res);
       }
-    } catch {
-      setErr("Не удалось отправить код");
+    } catch (error) {
+      setErr(error instanceof ApiError && error.status === 429
+        ? "Слишком много запросов. Попробуйте снова через 10 минут."
+        : "Не удалось отправить код");
+      trackOtpFailure(
+        "otp_request_failed",
+        error instanceof ApiError && error.status === 429 ? "rate_limited" : "request_failed",
+        error,
+      );
     } finally {
       setLoading(false);
     }
@@ -133,6 +164,7 @@ export default function LoginPage() {
     setErr(null);
     if (!code || code.length < 4) {
       setErr("Введите код из письма");
+      trackOtpFailure("otp_verify_failed", "invalid_code_format");
       return;
     }
     setLoading(true);
@@ -141,27 +173,32 @@ export default function LoginPage() {
       if (res?.ok && res?.access_token) {
         const nextPath = await resolvePostLoginRedirect(res.access_token);
 
-        const needsOnboarding = res.onboarding_completed !== true;
-
-        if (res.created && needsOnboarding) {
+        if (res.created) {
           analytics.reachGoal("signup_completed", { source_page: "login" });
           analytics.track("signup_completed", { source_page: "login" });
-          analytics.track("onboarding_started", { step: "welcome" });
         }
         analytics.track("login_success", { source_page: "login" });
 
         if (res.communication_consents_required === true) {
-          setPendingLogin({ token: res.access_token, nextPath, needsOnboarding });
+          setPendingLogin({ token: res.access_token, nextPath });
           resetImmersiveViewport({ blurActiveElement: true });
           setStep("consent");
         } else {
-          finishLogin(res.access_token, needsOnboarding, nextPath);
+          finishLogin(res.access_token, nextPath);
         }
       } else {
         setErr(res?.message || "Неверный код");
+        trackOtpFailure("otp_verify_failed", "invalid_code", res);
       }
-    } catch {
-      setErr("Не удалось подтвердить код");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 429) {
+        setOtpRateLimitSeconds(OTP_RATE_LIMIT_SECONDS);
+        setErr(OTP_RATE_LIMIT_ERROR);
+        trackOtpFailure("otp_verify_failed", "rate_limited", error);
+      } else {
+        setErr("Не удалось подтвердить код");
+        trackOtpFailure("otp_verify_failed", "request_failed", error);
+      }
     } finally {
       setLoading(false);
     }
@@ -181,7 +218,7 @@ export default function LoginPage() {
         },
         pendingLogin.token,
       );
-      finishLogin(pendingLogin.token, pendingLogin.needsOnboarding, pendingLogin.nextPath);
+      finishLogin(pendingLogin.token, pendingLogin.nextPath);
     } catch {
       setErr("Не удалось сохранить выбор. Попробуйте ещё раз");
     } finally {
@@ -201,6 +238,7 @@ export default function LoginPage() {
     setCode("");
     setErr(null);
     setTimer(0);
+    setOtpRateLimitSeconds(0);
   };
 
   return (
@@ -221,7 +259,9 @@ export default function LoginPage() {
               {step === "code" ? "Отправили код на почту" : "Ешь вкусно, выбирай осознанно"}
             </p>
 
-            {err && <div className="login__alert">{err}</div>}
+            {err && <div className="login__alert">
+              {err === OTP_RATE_LIMIT_ERROR ? otpRateLimitMessage : err}
+            </div>}
 
             {step === "enter" && (
               <div className="login__form">
@@ -274,11 +314,11 @@ export default function LoginPage() {
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, "").trim())}
                     autoFocus={shouldAutoFocus}
-                    disabled={loading}
+                    disabled={loading || otpRateLimited}
                     aria-invalid={!!err}
                   />
                 </div>
-                <button className="login__submit" onClick={verifyCode} disabled={loading}>
+                <button className="login__submit" onClick={verifyCode} disabled={loading || otpRateLimited}>
                   {loading ? "Проверяем…" : "Войти"}
                 </button>
                 <button
@@ -294,11 +334,15 @@ export default function LoginPage() {
                   type="button"
                   className="login__resend"
                   onClick={resend}
-                  disabled={loading || timer > 0}
-                  aria-disabled={loading || timer > 0}
+                  disabled={loading || timer > 0 || otpRateLimited}
+                  aria-disabled={loading || timer > 0 || otpRateLimited}
                   title={timer > 0 ? `Повторно через ${timer} сек` : "Отправить код ещё раз"}
                 >
-                  {timer > 0 ? `Отправить код ещё раз — через ${timer} сек` : "Отправить код ещё раз"}
+                  {otpRateLimited
+                    ? "Повторная отправка временно заблокирована"
+                    : timer > 0
+                      ? `Отправить код ещё раз — через ${timer} сек`
+                      : "Отправить код ещё раз"}
                 </button>
 
                 <p className="login__hint">

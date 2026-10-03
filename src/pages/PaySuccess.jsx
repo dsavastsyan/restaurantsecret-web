@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { PD_API_BASE } from '@/config/api'
 import { useAuth } from '@/store/auth'
+import { analytics } from '@/services/analytics'
 
 const queryErrors = {
   no_id: 'Платёж не найден. Попробуйте оформить подписку ещё раз.',
@@ -35,13 +36,17 @@ export default function PaySuccess() {
   const [message, setMessage] = useState('')
   const [expiresAt, setExpiresAt] = useState(access?.expiresAt ?? null)
 
-  // Fire payment_success Metrika goal immediately on page load.
-  // We fire it here (not inside refreshAccess) because:
-  // 1. The user definitely completed payment to land on this page.
-  // 2. refreshAccess is manual and isActive may be false due to webhook delay.
+  // Landing here proves that the provider redirected the browser back, but it
+  // does not prove that YooKassa's webhook has activated the subscription.
   useEffect(() => {
-    window.__loadYandexMetrika?.();
-    try { ym(108992733, 'reachGoal', 'payment_success'); } catch { /* ym not yet ready — queued */ }
+    const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
+    const paymentId = searchParams.get("payment_id") || sessionStorage.getItem("rs_checkout_payment_id") || null;
+    analytics.track("payment_returned", {
+      payment_id: paymentId,
+      plan,
+      return_status: searchParams.get("status") || "not_provided",
+      return_path: window.location.pathname,
+    });
   }, []);
 
   // Keep the local expiration date in sync with context updates.
@@ -100,13 +105,12 @@ export default function PaySuccess() {
         setMessage('Доступ подтверждён.')
 
         // Analytics — read plan stored before payment redirect
-        import('@/services/analytics').then(({ analytics }) => {
-          const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
-          sessionStorage.removeItem("rs_checkout_plan");
-          analytics.track("subscription_activated", { plan });
-          analytics.track("payment_success", { plan });
-          try { ym(108992733, 'reachGoal', 'payment_success'); } catch { /* ym not loaded */ }
-        });
+        const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
+        const paymentId = sessionStorage.getItem("rs_checkout_payment_id") || null;
+        sessionStorage.removeItem("rs_checkout_plan");
+        sessionStorage.removeItem("rs_checkout_payment_id");
+        analytics.track("subscription_activated", { plan });
+        analytics.track("payment_access_confirmed", { payment_id: paymentId, plan });
       } else {
         setStatus('inactive')
         setExpiresAt(detail.expiresAt)

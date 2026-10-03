@@ -309,6 +309,40 @@
     box-shadow: none;
 }
 
+.rsCheckoutActions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rsCheckoutSupport {
+    color: var(--rs-plan-muted);
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: 600;
+    text-align: center;
+}
+
+.rsCheckoutSupport a {
+    color: var(--rs-plan-green-dark);
+    font-weight: 800;
+    text-underline-offset: 2px;
+}
+
+.rsCheckoutSupport a:focus-visible {
+    border-radius: 3px;
+    outline: 2px solid var(--rs-plan-green);
+    outline-offset: 2px;
+}
+
+html[data-rs-theme="night"] .rsCheckoutSupport {
+    color: #9fb0c5;
+}
+
+html[data-rs-theme="night"] .rsCheckoutSupport a {
+    color: #bbf7d0;
+}
+
 .rsPromoBox {
     border: 1px solid var(--rs-plan-rule);
     border-radius: 8px;
@@ -609,6 +643,10 @@
     .rsMainCta {
         height: 48px;
         font-size: 16px;
+    }
+
+    .rsCheckoutSupport {
+        font-size: 13px;
     }
 }
 

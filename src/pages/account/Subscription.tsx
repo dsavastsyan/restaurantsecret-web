@@ -456,18 +456,21 @@ export default function AccountSubscription() {
       setPaymentPlan(plan);
       const apiPlan = mapUiPlanToApi(plan);
 
-      analytics.track("checkout_started", { plan, source_page: "subscription_management" });
+      analytics.track("checkout_started", {
+        plan,
+        payment_flow: "initial",
+        source_page: "subscription_management",
+      });
       // Force Metrika to load now (it's normally lazy) so the goal is sent
       // before we redirect away from this page.
-      window.__loadYandexMetrika?.();
-      try { ym(108992733, 'reachGoal', 'checkout_started'); } catch { /* ym not loaded */ }
+      analytics.reachGoal('checkout_started');
 
       try {
         const body: any = { plan: apiPlan, autopay_consent: true };
         if (code) body.promo_code = code;
         if (deferUntilPeriodEnd) body.defer_until_period_end = true;
 
-        const res = await apiPost<{ confirmation_url?: string; error?: string }>(
+        const res = await apiPost<{ confirmation_url?: string; payment_id?: string; error?: string }>(
           "/api/payments/create",
           body,
           accessToken,
@@ -480,7 +483,16 @@ export default function AccountSubscription() {
 
         if (confirmationUrl) {
           // Persist plan so PaySuccess / PaymentResult can read it after redirect.
-          try { sessionStorage.setItem("rs_checkout_plan", plan); } catch { /* ignore */ }
+          try {
+            sessionStorage.setItem("rs_checkout_plan", plan);
+            if (res.payment_id) sessionStorage.setItem("rs_checkout_payment_id", res.payment_id);
+          } catch { /* ignore */ }
+          analytics.track("payment_redirect_opened", {
+            payment_id: res.payment_id || null,
+            plan,
+            payment_flow: "initial",
+            source_page: "subscription_management",
+          });
           // Wait 400ms so Metrika has time to send the checkout_started beacon
           // before the browser navigates away to YooKassa.
           await new Promise((r) => setTimeout(r, 400));
@@ -492,6 +504,12 @@ export default function AccountSubscription() {
           typeof res?.error === "string" && res.error.trim()
             ? res.error.trim()
             : "Не удалось создать платёж. Попробуйте позже.";
+        analytics.track("payment_creation_failed", {
+          plan,
+          payment_flow: "initial",
+          source_page: "subscription_management",
+          reason: "missing_confirmation_url",
+        });
         setPaymentError(message);
       } catch (err) {
         if (isUnauthorizedError(err)) {
@@ -501,6 +519,12 @@ export default function AccountSubscription() {
           return;
         }
         console.error("Failed to create payment", err);
+        analytics.track("payment_creation_failed", {
+          plan,
+          payment_flow: "initial",
+          source_page: "subscription_management",
+          reason: "request_error",
+        });
         setPaymentError("Не удалось создать платёж. Попробуйте позже.");
       } finally {
         setPaymentPlan(null);
@@ -517,13 +541,12 @@ export default function AccountSubscription() {
       setPaymentPlan(plan);
       const apiPlan = mapUiPlanToApi(plan);
 
-      analytics.track("checkout_started", {
+      analytics.track("payment_method_attach_started", {
         plan,
         source_page: "subscription_management",
         method: "intro_trial_attach",
       });
-      window.__loadYandexMetrika?.();
-      try { ym(108992733, 'reachGoal', 'checkout_started'); } catch { /* ym not loaded */ }
+      analytics.reachGoal('payment_method_attach_started');
 
       try {
         const attachRes = await attachPaymentMethod(accessToken, {
@@ -538,13 +561,28 @@ export default function AccountSubscription() {
             : null;
 
         if (confirmationUrl) {
-          try { sessionStorage.setItem("rs_checkout_plan", plan); } catch { /* ignore */ }
+          try {
+            sessionStorage.setItem("rs_checkout_plan", plan);
+            if (attachRes.payment_id) sessionStorage.setItem("rs_checkout_payment_id", attachRes.payment_id);
+          } catch { /* ignore */ }
           rememberPendingTrialPayment(attachRes.payment_id);
+          analytics.track("payment_method_attach_redirect_opened", {
+            payment_id: attachRes.payment_id || null,
+            plan,
+            payment_flow: "intro_trial",
+            source_page: "subscription_management",
+          });
           await new Promise((r) => setTimeout(r, 400));
           window.location.href = confirmationUrl;
           return;
         }
 
+        analytics.track("payment_method_attach_failed", {
+          plan,
+          payment_flow: "intro_trial",
+          source_page: "subscription_management",
+          reason: "missing_confirmation_url",
+        });
         setPaymentError("Не удалось начать пробный период. Попробуйте позже.");
       } catch (err) {
         if (isUnauthorizedError(err)) {
@@ -560,6 +598,12 @@ export default function AccountSubscription() {
           setPaymentError(code ? ERROR_LABELS[code] ?? code : "Не удалось начать пробный период. Попробуйте позже.");
         } else {
           console.error("Failed to attach payment method for trial", err);
+          analytics.track("payment_method_attach_failed", {
+            plan,
+            payment_flow: "intro_trial",
+            source_page: "subscription_management",
+            reason: "request_error",
+          });
           setPaymentError("Не удалось начать пробный период. Попробуйте позже.");
         }
       } finally {
@@ -620,19 +664,38 @@ export default function AccountSubscription() {
           if (promoQuote?.plan === 'monthly') planToUse = 'month';
           if (!planToUse) planToUse = 'month';
 
+          analytics.track("payment_method_attach_started", {
+            plan: planToUse,
+            source_page: "subscription_management",
+            method: "promo_attach",
+          });
           const attachRes = await attachPaymentMethod(accessToken, {
             promo_code: trimmedCode,
             plan: mapUiPlanToApi(planToUse),
             return_url: window.location.origin + '/account/subscription'
           });
 
-          analytics.track("checkout_started", { plan: planToUse, source_page: "subscription_management", method: "promo_attach" });
-
           if (attachRes?.confirmation_url) {
+            try {
+              sessionStorage.setItem("rs_checkout_plan", planToUse);
+              if (attachRes.payment_id) sessionStorage.setItem("rs_checkout_payment_id", attachRes.payment_id);
+            } catch { /* ignore */ }
             rememberPendingTrialPayment(attachRes.payment_id);
+            analytics.track("payment_method_attach_redirect_opened", {
+              payment_id: attachRes.payment_id || null,
+              plan: planToUse,
+              payment_flow: "promo_attach",
+              source_page: "subscription_management",
+            });
             window.location.href = attachRes.confirmation_url;
             return;
           }
+          analytics.track("payment_method_attach_failed", {
+            plan: planToUse,
+            payment_flow: "promo_attach",
+            source_page: "subscription_management",
+            reason: "missing_confirmation_url",
+          });
         } else if (res.next_step === 'payment') {
           // Use selected plan or default
           let planToUse: UiPlan | null = selectedPlan;
@@ -1104,8 +1167,6 @@ export default function AccountSubscription() {
                               <span>{activePlanPrice}</span>
                               {activePlanPeriod && <small>{activePlanPeriod}</small>}
                             </p>
-
-                            {renderActiveSubscriptionAction("desktop")}
                           </div>
                         </div>
 
@@ -1128,26 +1189,12 @@ export default function AccountSubscription() {
                           </p>
                         </div>
 
+                        {renderActiveSubscriptionAction("desktop")}
                         {renderActiveSubscriptionAction("mobile")}
                       </div>
                     </div>
 
                     <div className="account-subscription-v2__subscriber-notes" aria-label="Информация для подписчика">
-                      <div className="account-subscription-v2__subscriber-note account-subscription-v2__subscriber-note--olive">
-                        <span className="account-subscription-v2__subscriber-icon" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-                            <path d="M20.8 4.6c-1.6-1.5-4.1-1.4-5.6.2L12 8.1 8.8 4.8C7.3 3.2 4.8 3.1 3.2 4.6 1.5 6.2 1.4 8.9 3 10.6L12 20l9-9.4c1.6-1.7 1.5-4.4-.2-6Z" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </span>
-                        <p>
-                          Рады, что ты теперь с нами! Подписывайся на наш{" "}
-                          <a href="https://t.me/restaurantsecret" target="_blank" rel="noreferrer">
-                            телеграм канал
-                          </a>{" "}
-                          для всех новостей, акций и предложений
-                        </p>
-                      </div>
-
                       <div className="account-subscription-v2__subscriber-note account-subscription-v2__subscriber-note--gold">
                         <span className="account-subscription-v2__subscriber-icon" aria-hidden="true">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">

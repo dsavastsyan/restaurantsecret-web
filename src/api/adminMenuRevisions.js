@@ -1,5 +1,5 @@
 const env = typeof import.meta !== 'undefined' ? (import.meta.env ?? {}) : {}
-const API_BASE = (env.VITE_RESTAURANT_API_BASE || 'https://tg.restaurantsecret.ru').replace(/\/+$/, '')
+const API_BASE = (env.VITE_RESTAURANT_API_BASE || (env.DEV ? 'https://tg.restaurantsecret.ru' : '')).replace(/\/+$/, '')
 const CSRF_HEADER = 'X-CSRF-Token'
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -137,14 +137,32 @@ export const adminMenuRevisionsApi = {
     request(`/api/admin/kbju-flags/${encodeURIComponent(kind)}/${encodeURIComponent(itemId)}/approve`, {
       method: 'POST',
     }),
-  restaurantAttributeReviews: (status = 'pending') => {
+  restaurantAttributeReviews: (status = 'pending', { field = '', city = '' } = {}) => {
     const params = new URLSearchParams({ status })
+    if (field) params.set('field', field)
+    if (city) params.set('city', city)
     return request(`/api/admin/restaurant-attribute-reviews?${params}`)
   },
   decideRestaurantAttributeReview: (reviewId, decision, value) =>
     request(`/api/admin/restaurant-attribute-reviews/${encodeURIComponent(reviewId)}/decision`, {
       method: 'POST',
       body: value === undefined ? { decision } : { decision, value },
+    }),
+  googlePlaceNetworkReviews: (status = 'pending') => {
+    const params = new URLSearchParams({ status })
+    return request(`/api/admin/google-place-network-reviews?${params}`)
+  },
+  decideGooglePlaceNetworkReview: (reviewId, body) =>
+    request(`/api/admin/google-place-network-reviews/${encodeURIComponent(reviewId)}/decision`, {
+      method: 'POST',
+      body,
+    }),
+  googlePlaceBranchReviews: () => request('/api/admin/google-place-branch-reviews'),
+  googlePlacesUsage: () => request('/api/admin/google-places-usage'),
+  decideGooglePlaceBranchReview: (locationId, body) =>
+    request(`/api/admin/google-place-branch-reviews/${encodeURIComponent(locationId)}/decision`, {
+      method: 'POST',
+      body,
     }),
   searchRestaurants: (query) => {
     const params = new URLSearchParams({ query })

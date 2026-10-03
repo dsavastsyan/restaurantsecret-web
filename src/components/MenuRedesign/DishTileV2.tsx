@@ -1,13 +1,14 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { computeMacroGeometry, formatNumeric, formatPortionLabel, formatPriceRub } from '@/lib/nutrition';
 import { useAuth } from '@/store/auth';
 import { useSubscriptionStore } from '@/store/subscription';
 import { useFavoritesStore } from '@/store/favorites';
-import { useDiaryStore } from '@/store/diary';
+import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal';
 import { analytics } from '@/services/analytics';
 import MacroRing from './MacroRing';
 import { HeartIcon } from './icons';
+import VariantPicker from './VariantPicker';
 
 type DishTileV2Props = {
   dish: any;
@@ -16,15 +17,17 @@ type DishTileV2Props = {
   isFreeAccess?: boolean;
   interactive?: boolean;
   readOnly?: boolean;
-  onClick?: () => void;
+  guideFavoriteTarget?: boolean;
+  onGuideFavorite?: () => void;
+  onClick?: (dish: any) => void;
 };
 
 // Redesigned desktop grid card. Mirrors DishCard.tsx's data/handlers 1:1 for
-// functional parity (favorite, diary add, subscribe redirect) but renders
+// functional parity (favorite, AnyEat launch CTA, subscribe redirect) but renders
 // the new visual language. Photos are not yet part of the data model, so
 // every card renders the "plaque" (photo-less) cover today — the photo
 // branch below is future-proofing per the design handoff.
-export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFreeAccess = false, interactive = true, readOnly = false, onClick }: DishTileV2Props) {
+export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFreeAccess = false, interactive = true, readOnly = false, guideFavoriteTarget = false, onGuideFavorite, onClick }: DishTileV2Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const accessToken = useAuth((state) => state.accessToken);
@@ -32,20 +35,24 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
     hasActiveSub: state.hasActiveSub,
     hasSubscriptionHistory: state.hasSubscriptionHistory,
   }));
+  const variants = Array.isArray(dish.variants) ? dish.variants : [];
+  const [selectedVariantId, setSelectedVariantId] = useState(dish.id);
+  useEffect(() => {
+    if (!variants.some((variant) => variant.id === selectedVariantId)) setSelectedVariantId(variants[0]?.id ?? dish.id);
+  }, [dish.id, selectedVariantId, variants]);
+  const selectedDish = variants.find((variant) => variant.id === selectedVariantId) || dish;
   const { isFavorite, toggle } = useFavoritesStore((state) => ({
-    isFavorite: state.isFavorite(Number(dish.id)),
+    isFavorite: state.isFavorite(Number(selectedDish.id)),
     toggle: state.toggle,
   }));
-  const addDiaryEntry = useDiaryStore((s) => s.addEntry);
-
   const favorited = isFavorite;
   const hasDishAccess = hasActiveSub || isFreeAccess;
   const subscriptionCtaText = hasSubscriptionHistory ? 'Возобновить подписку' : 'Попробовать бесплатно';
-  const photoUrl = dish.photoUrl || dish.photo_url || null;
+  const photoUrl = selectedDish.photoUrl || selectedDish.photo_url || null;
 
-  const geometry = useMemo(() => computeMacroGeometry(dish.protein, dish.fat, dish.carbs), [dish.protein, dish.fat, dish.carbs]);
-  const price = formatPriceRub(dish.price);
-  const portion = formatPortionLabel(dish);
+  const geometry = useMemo(() => computeMacroGeometry(selectedDish.protein, selectedDish.fat, selectedDish.carbs), [selectedDish.protein, selectedDish.fat, selectedDish.carbs]);
+  const price = formatPriceRub(selectedDish.price);
+  const portion = formatPortionLabel(selectedDish);
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,41 +66,18 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
       return;
     }
     if (!favorited) {
-      analytics.track('favorite_add', { type: 'dish', dish_id: dish.id, name: dish.name });
+      analytics.track('favorite_add', { type: 'dish', dish_id: selectedDish.id, name: selectedDish.name });
     } else {
-      analytics.track('favorite_remove', { type: 'dish', dish_id: dish.id, name: dish.name });
+      analytics.track('favorite_remove', { type: 'dish', dish_id: selectedDish.id, name: selectedDish.name });
     }
-    await toggle(accessToken, Number(dish.id), restaurantSlug);
+    await toggle(accessToken, Number(selectedDish.id), restaurantSlug);
+    onGuideFavorite?.();
   };
 
-  const handleDiaryAdd = async (e: React.MouseEvent) => {
+  const handleDiaryAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (readOnly) return;
-    if (!accessToken) {
-      navigate('/login', { state: { from: location.pathname + location.search } });
-      return;
-    }
-    if (!hasDishAccess) {
-      navigate('/account/subscription', { state: { from: location.pathname + location.search } });
-      return;
-    }
-    const safeNum = (val: any) => {
-      const n = Number(val);
-      return Number.isFinite(n) ? n : 0;
-    };
-    const dishId = Number(dish.id);
-    await addDiaryEntry(accessToken, {
-      date: new Date().toISOString().split('T')[0],
-      dish_id: Number.isFinite(dishId) ? dishId : undefined,
-      restaurant_slug: restaurantSlug,
-      restaurant_name: restaurantName || undefined,
-      name: dish.name || 'Блюдо',
-      calories: safeNum(dish.kcal),
-      protein: safeNum(dish.protein),
-      fat: safeNum(dish.fat),
-      carbs: safeNum(dish.carbs),
-      weight: safeNum(dish.weight) || undefined,
-    });
+    openAnyEatLaunchModal();
   };
 
   const handleSubscribe = (e: React.MouseEvent) => {
@@ -108,7 +92,7 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
 
   const handleTileClick = () => {
     if (!interactive) return;
-    onClick?.();
+    onClick?.(selectedDish);
   };
 
   return (
@@ -164,6 +148,13 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
       </div>
 
       <div className="rsm2-tile__body">
+        {hasDishAccess && variants.length > 1 && (
+          <VariantPicker
+            variants={variants}
+            selected={selectedDish}
+            onChange={(variant) => setSelectedVariantId(variant.id)}
+          />
+        )}
         {hasDishAccess ? (
           <button type="button" className="rsm2-composition-btn" onClick={handleTileClick}>
             Посмотреть состав
@@ -176,7 +167,7 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
         )}
 
         <div className={`rsm2-nutrition ${hasDishAccess ? '' : 'rsm2-nutrition--teaser'}`}>
-          <MacroRing geometry={geometry} kcal={dish.kcal} size="tile" />
+            <MacroRing geometry={geometry} kcal={selectedDish.kcal} size="tile" concealed={!hasDishAccess} />
           <div>
             <div className="rsm2-macrobar" aria-hidden="true">
               <span className="rsm2-macrobar__seg rsm2-macrobar__seg--protein" style={{ width: `${geometry.proteinPct}%` }} />
@@ -184,16 +175,16 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
               <span className="rsm2-macrobar__seg rsm2-macrobar__seg--carb" style={{ width: `${geometry.carbPct}%` }} />
             </div>
             <div className="rsm2-legend">
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--protein" />Б {formatNumeric(dish.protein)}г</span>
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--fat" />Ж {formatNumeric(dish.fat)}г</span>
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--carb" />У {formatNumeric(dish.carbs)}г</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--protein" />Б {hasDishAccess ? `${formatNumeric(selectedDish.protein)}г` : '—'}</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--fat" />Ж {hasDishAccess ? `${formatNumeric(selectedDish.fat)}г` : '—'}</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--carb" />У {hasDishAccess ? `${formatNumeric(selectedDish.carbs)}г` : '—'}</span>
             </div>
           </div>
         </div>
 
         {!readOnly && (
           <div className="rsm2-tile__footer">
-            <button type="button" className="rsm2-fav" onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
+            <button type="button" className={`rsm2-fav ${guideFavoriteTarget ? 'is-guide-target' : ''}`} onClick={handleFavoriteClick} aria-label={favorited ? 'Удалить из избранного' : 'Добавить в избранное'}>
               <HeartIcon filled={favorited} size={24} />
             </button>
             <button type="button" className="rsm2-dbtn" onClick={handleDiaryAdd}>

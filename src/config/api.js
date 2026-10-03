@@ -24,3 +24,4 @@ export const API_BASE = normalizedPublic
 export const PUBLIC_API_BASE = normalizedPublic
 export const PD_API_BASE = normalizedPd
 export const IS_PREVIEW = env.VITE_DEPLOY_ENV === 'preview'
+export const ANALYTICS_ENABLED = env.VITE_ANALYTICS_ENABLED !== 'false' && !IS_PREVIEW

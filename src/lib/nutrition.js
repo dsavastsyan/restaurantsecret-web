@@ -267,6 +267,33 @@ export function flattenMenuDishes(menu) {
   return result
 }
 
+// Flatten the server's grouped menu representation while keeping every
+// atomic variant available for filtering and logging. Older API responses do
+// not have `groups`, so each legacy dish becomes a one-variant group.
+export function flattenMenuGroups(menu) {
+  if (!menu?.categories) return []
+  const result = []
+  for (const category of menu.categories) {
+    const sourceGroups = Array.isArray(category?.groups)
+      ? category.groups
+      : (category?.dishes ?? []).map((dish) => ({ ...dish, variants: [dish], hasVariants: false, variantCount: 1 }))
+    for (const group of sourceGroups) {
+      const variants = (Array.isArray(group?.variants) && group.variants.length ? group.variants : [group])
+        .map((variant) => normalizeDish(variant, category?.name))
+      const representative = variants[0]
+      result.push({
+        ...normalizeDish({ ...group, ...representative, name: group?.name || representative?.name }, category?.name),
+        name: group?.name || representative?.name || '',
+        id: group?.id ?? representative?.id,
+        hasVariants: Boolean(group?.hasVariants && variants.length > 1),
+        variantCount: variants.length,
+        variants,
+      })
+    }
+  }
+  return result
+}
+
 // Present numbers rounded to the nearest integer or fallback to an em dash.
 export function formatNumeric(value) {
   return Number.isFinite(value) ? Math.round(value) : '—'
@@ -339,4 +366,3 @@ export function computeMacroGeometry(proteinRaw, fatRaw, carbsRaw) {
     ringGradient: `conic-gradient(var(--rsm2-protein) 0deg ${proteinDeg}deg, var(--rsm2-fat) ${proteinDeg}deg ${proteinFatDeg}deg, var(--rsm2-carb) ${proteinFatDeg}deg 360deg)`,
   }
 }
-

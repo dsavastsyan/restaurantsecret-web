@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+const STAGING_API_HOSTNAME = 'restaurantsecret-api-staging.dsavastyan.workers.dev'
+
 const waitForSuccessfulResponse = (page, predicate) =>
   page.waitForResponse((response) => {
     if (!predicate(response)) return false
@@ -7,6 +9,20 @@ const waitForSuccessfulResponse = (page, predicate) =>
   })
 
 test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) => {
+  // This is a deployed-preview integration check against the full staging
+  // catalog, not a mocked UI test. The real catalog response can take longer
+  // than Playwright's 30s default while D1 is under load.
+  test.setTimeout(60_000)
+  const mapRuntimeErrors = []
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Worker failed to load|Map has no maxZoom/i.test(message.text())) {
+      mapRuntimeErrors.push(message.text())
+    }
+  })
+  page.on('pageerror', (error) => {
+    if (/Worker failed to load|Map has no maxZoom/i.test(error.message)) mapRuntimeErrors.push(error.message)
+  })
+
   const landingStatsResponsePromise = waitForSuccessfulResponse(page, (response) => {
     const path = new URL(response.url()).pathname
     return path.endsWith('/landing/stats') && response.request().method() === 'GET'
@@ -18,6 +34,10 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   const landingStats = await landingStatsResponse.json()
   expect(landingStats?.restaurants).toBeGreaterThan(0)
   expect(landingStats?.dishes).toBeGreaterThan(0)
+
+  const heroStatValues = page.locator('.landing-warm__stat > p')
+  await expect(heroStatValues.nth(0)).toHaveText(Number(landingStats.restaurants).toLocaleString('ru-RU'))
+  await expect(heroStatValues.nth(1)).toHaveText(Number(landingStats.dishes).toLocaleString('ru-RU'))
 
   // Dismiss the cookie consent banner if it's shown — it overlays the page
   // and blocks interaction with everything behind it. ConsentBanner.jsx only
@@ -33,8 +53,13 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
 
   // Moving past the landing page should fetch the catalog data.
   const catalogResponsePromise = waitForSuccessfulResponse(page, (response) => {
-    const path = new URL(response.url()).pathname
-    return path.endsWith('/restaurants') && response.request().method() === 'GET'
+    const url = new URL(response.url())
+    const limit = Number(url.searchParams.get('limit'))
+    return url.pathname.endsWith('/restaurants')
+      && Number.isInteger(limit)
+      && limit > 0
+      && limit <= 48
+      && response.request().method() === 'GET'
   })
 
   await Promise.all([
@@ -49,16 +74,34 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // don't assume identity between the two, just that results exist.
   expect(catalogPayload?.items?.length).toBeGreaterThan(0)
 
-  const cards = page.locator('.catalog-card')
-  const firstCardButton = cards.first().getByRole('button', { name: 'Открыть меню' })
+  await expect(page.locator('.catalog-map-panel')).toBeVisible()
+  await expect(page.locator('.catalog-results')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .maplibregl-canvas')).toBeVisible()
+  await expect(page.locator('.catalog-map-panel .leaflet-control-attribution')).toContainText('OpenFreeMap')
+  await expect(page.locator('.catalog-map-panel .leaflet-tile-pane img')).toHaveCount(0)
+  await page.waitForTimeout(1000)
+  expect(mapRuntimeErrors).toEqual([])
+  const previewPersonaToggle = page.locator('.preview-persona-panel__toggle')
+  if (await previewPersonaToggle.isVisible() && await previewPersonaToggle.getAttribute('aria-expanded') === 'true') {
+    await previewPersonaToggle.click()
+  }
+  const firstCardButton = page
+    .locator('.catalog-card:not(.catalog-card--chain)')
+    .first()
+    .getByRole('button', { name: 'Открыть меню' })
   await expect(firstCardButton).toBeVisible()
 
   // Opening a restaurant navigates straight into its menu (no blocking modal
   // — the site now gates per dish, showing the first few free and hiding the
   // rest behind a subscribe prompt on each card).
   const restaurantResponsePromise = waitForSuccessfulResponse(page, (response) => {
-    const path = new URL(response.url()).pathname
-    return /^\/restaurants\/[^/]+\/menu\/?$/.test(path) && response.request().method() === 'GET'
+    const url = new URL(response.url())
+    const isDirectStagingRequest = url.hostname === STAGING_API_HOSTNAME
+      && /^\/restaurants\/[^/]+\/menu\/?$/.test(url.pathname)
+    const isSameOriginProxyRequest = /^\/api(?:\/catalog)?\/restaurants\/[^/]+\/menu\/?$/.test(url.pathname)
+
+    return (isDirectStagingRequest || isSameOriginProxyRequest)
+      && response.request().method() === 'GET'
   })
 
   await Promise.all([

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/store/auth';
 import { useGoalsStore } from '@/store/goals';
+import { analytics } from '@/services/analytics';
 
 import goalMenuImg from '@/assets/icons/goal-menu.png';
 
@@ -58,10 +59,12 @@ export default function Goals() {
     const isAutoCalculated = data?.is_auto_calculated !== false;
 
     const handleProfileClick = () => {
+        analytics.track('goals_profile_opened');
         navigate('/account');
     };
 
     const handleShowManualForm = () => {
+        analytics.track('goals_manual_editor_opened');
         setShowManualForm(true);
     };
 
@@ -104,8 +107,10 @@ export default function Goals() {
                 is_auto_calculated: false
             });
             setShowManualForm(false);
+            analytics.track('goals_manual_updated');
         } catch (err) {
             console.error('Error saving manual goals:', err);
+            analytics.track('goals_manual_update_failed', { error_status: err?.status || 'request_failed' });
             alert('Ошибка при сохранении целей');
         }
     };
@@ -115,8 +120,10 @@ export default function Goals() {
 
         try {
             await recalculate(token);
+            analytics.track('goals_auto_recalculated');
         } catch (err) {
             console.error('Error recalculating goals:', err);
+            analytics.track('goals_auto_recalculate_failed', { error_status: err?.status || 'request_failed' });
             alert('Ошибка при пересчёте целей');
         }
     };

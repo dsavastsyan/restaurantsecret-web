@@ -7,6 +7,15 @@ import { expect, test } from '@playwright/test'
 // (chainHubPath: null) must keep pointing at itself. Mocking the API here
 // makes the test deterministic and independent of whether staging has this
 // backend change deployed yet.
+const STAGING_API_HOSTNAME = 'restaurantsecret-api-staging.dsavastyan.workers.dev'
+
+const isMenuApiUrl = (url, slug) => {
+  const isKnownApiOrigin = url.hostname === STAGING_API_HOSTNAME
+    || /^\/api(?:\/catalog)?\//.test(url.pathname)
+
+  return isKnownApiOrigin && url.pathname.endsWith(`/restaurants/${slug}/menu`)
+}
+
 const MENU_FIXTURE = {
   name: 'Сыроварня',
   slug: 'syrovarnya-almetevsk',
@@ -24,11 +33,9 @@ const MENU_FIXTURE = {
 }
 
 test('@smoke a chain branch menu page canonicalizes to the chain hub', async ({ page }) => {
-  // Match only the API fetch (dev mode points at the staging Worker's own
-  // origin — see src/config/api.js), not the SPA's own /restaurants/.../menu
-  // route, which the app's client-side router also navigates to and which a
-  // bare "**/restaurants/.../menu*" glob would incorrectly intercept too.
-  await page.route('**restaurantsecret-api-staging*/restaurants/syrovarnya-almetevsk/menu*', (route) =>
+  // Match direct staging requests and the same-origin Pages/production proxy,
+  // but never the SPA's own /restaurants/.../menu navigation.
+  await page.route((url) => isMenuApiUrl(url, 'syrovarnya-almetevsk'), (route) =>
     route.fulfill({ json: MENU_FIXTURE })
   )
 
@@ -39,10 +46,11 @@ test('@smoke a chain branch menu page canonicalizes to the chain hub', async ({ 
     'href',
     'https://restaurantsecret.ru/restaurants/syrovarnya/'
   )
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow')
 })
 
 test('@smoke a standalone restaurant menu page still canonicalizes to itself', async ({ page }) => {
-  await page.route('**restaurantsecret-api-staging*/restaurants/solo-restaurant/menu*', (route) =>
+  await page.route((url) => isMenuApiUrl(url, 'solo-restaurant'), (route) =>
     route.fulfill({
       json: {
         ...MENU_FIXTURE,
@@ -64,4 +72,5 @@ test('@smoke a standalone restaurant menu page still canonicalizes to itself', a
     'href',
     'https://restaurantsecret.ru/restaurants/solo-restaurant/menu/'
   )
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0)
 })

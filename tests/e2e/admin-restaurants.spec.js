@@ -249,6 +249,7 @@ test('administrator sees parser status, source and error without leaving the res
       ok: true,
       parsers: [{
         parser_id: 'sage', enabled: true, restaurant_name: 'Sage', cities: ['Москва'],
+        public_menu_url: '/restaurants/sage/menu',
         published_at: '2026-09-09T06:00:00Z',
         run: {
           status: 'error', finished_at: '2026-09-10T06:00:05Z', last_success_at: '2026-09-08T06:00:05Z',
@@ -269,6 +270,7 @@ test('administrator sees parser status, source and error without leaving the res
   const row = page.getByRole('row').filter({ hasText: 'Sage' })
   await expect(row.getByText('Ошибка', { exact: true })).toBeVisible()
   await expect(row.getByRole('link', { name: 'Открыть' })).toHaveAttribute('href', 'https://sage.example/menu')
+  await expect(row.getByRole('link', { name: /09\.09\.2026/ })).toHaveAttribute('href', '/restaurants/sage/menu')
   await row.getByText('Что случилось').click()
   await expect(row.getByText('Не найден список блюд')).toBeVisible()
   await expect(row.getByText('ValueError: menu is empty')).toBeVisible()

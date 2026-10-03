@@ -3,7 +3,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { PD_API_BASE } from '@/config/api'
-import { fetchCurrentUser, isUnauthorizedError } from '@/lib/api'
 import { loadTelegramWebApp } from '@/lib/telegram'
 import { toast } from '@/lib/toast'
 import { useAuth } from '@/store/auth'
@@ -17,6 +16,7 @@ const DishCardModal = lazy(() => import('@/components/DishCardModal'))
 // const DiaryFloatingButton = lazy(() => import('@/components/DiaryFloatingButton'))
 const Footer = lazy(() => import('@/components/Footer.jsx'))
 const AnyEatLaunchModal = lazy(() => import('@/components/AnyEatLaunchModal.jsx'))
+const AnyEatLaunchBanner = lazy(() => import('@/components/AnyEatLaunchBanner.jsx'))
 
 // Default shape for the subscription/access status persisted in localStorage.
 const defaultAccess = { ok: false, isActive: false, expiresAt: null, event: null }
@@ -44,7 +44,6 @@ export default function AppShell() {
   const navigate = useNavigate()
   const location = useLocation()
   const accessToken = useAuth((state) => state.accessToken)
-  const logout = useAuth((state) => state.logout)
   const fetchSubscriptionStatus = useSubscriptionStore((state) => state.fetchStatus)
   const [access, setAccess] = useState(() => {
     if (typeof window === 'undefined') return defaultAccess
@@ -264,20 +263,25 @@ export default function AppShell() {
   const isTariffsPage = normalizedPath === '/tariffs'
   const isHowItWorksPage = normalizedPath === '/how-it-works'
   const isLoginPage = normalizedPath === '/login'
-  const isOnboardingPage = normalizedPath.startsWith('/onboarding')
   const isAccountPage = normalizedPath.startsWith('/account')
-  const isImmersivePage = isLoginPage || isOnboardingPage || isAccountPage
+  const isImmersivePage = isLoginPage || isAccountPage
   const isMarketingPage = isLanding || isTariffsPage || isHowItWorksPage
   const isRestaurantMenuPage = /^\/(?:restaurants|r)\/[^/]+\/menu\/?$/.test(location.pathname)
   const isRestaurantsCatalogPage =
     normalizedPath === '/restaurants' ||
     normalizedPath === '/catalog' ||
-    normalizedPath === '/app/catalog'
+    normalizedPath.startsWith('/catalog/') ||
+    normalizedPath === '/app/catalog' ||
+    normalizedPath.startsWith('/app/catalog/')
   // A chain's bare URL (e.g. /restaurants/syrovarnya) — the hub page, not a
   // single restaurant's menu, so it's excluded by isRestaurantMenuPage's
   // /menu suffix requirement and needs its own, equally full-width container.
   const isChainHubPage = /^\/restaurants\/[^/]+\/?$/.test(normalizedPath)
   const isSearchPage = normalizedPath === '/search' || normalizedPath === '/app/search'
+  // Broader than the modal's own auto-trigger pages — the banner is meant to
+  // be a persistent presence on every key page, including the account area.
+  const isAnyEatBannerEligible =
+    isLanding || isRestaurantsCatalogPage || isSearchPage || isRestaurantMenuPage || isAccountPage
 
   // Idle guard for QR-scanned menu access: any interaction resets the clock,
   // and 15 minutes of inactivity revokes the temporary pass and, if the user
@@ -305,36 +309,6 @@ export default function AppShell() {
       window.clearInterval(interval)
     }
   }, [navigate])
-
-  useEffect(() => {
-    if (!accessToken || isOnboardingPage || isLoginPage) return
-
-    let isCancelled = false
-
-    ;(async () => {
-      try {
-        const me = await fetchCurrentUser(accessToken)
-        if (isCancelled) return
-        if (me?.user?.onboarding_completed === true) return
-
-        const currentPath = `${location.pathname}${location.search || ''}`
-        navigate('/onboarding/welcome', {
-          replace: true,
-          state: { from: currentPath }
-        })
-      } catch (err) {
-        if (isUnauthorizedError(err)) {
-          logout()
-          return
-        }
-        console.error('Failed to check onboarding status', err)
-      }
-    })()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [accessToken, isLoginPage, isOnboardingPage, location.pathname, location.search, logout, navigate])
 
   // Keep the app in the light theme and expose it via html/body dataset.
   useEffect(() => {
@@ -370,7 +344,8 @@ export default function AppShell() {
 
   return (
     <div className={`min-h-screen flex flex-col app-theme app-theme--day${isSearchPage ? ' app-theme--search' : ''}`}>
-      <Suspense fallback={null}><AnyEatLaunchModal eligible={isLanding || isRestaurantsCatalogPage || isSearchPage || isRestaurantMenuPage} /></Suspense>
+      <Suspense fallback={null}><AnyEatLaunchBanner eligible={isAnyEatBannerEligible} /></Suspense>
+      <Suspense fallback={null}><AnyEatLaunchModal /></Suspense>
       <Suspense fallback={null}>
         {!isMarketingPage && !isImmersivePage && <NavBar forceGuest={isFeedbackPage} />}
         {!isMarketingPage && <DishCardModal />}

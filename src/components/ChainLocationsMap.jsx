@@ -3,12 +3,13 @@
 // already has every location's coordinates in hand from the hub payload, so
 // this just plots them and links each pin to its menu page.
 import { useEffect, useMemo, useRef } from 'react'
-import { MapContainer, TileLayer, useMap } from 'react-leaflet'
+import { AttributionControl, MapContainer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import L from 'leaflet'
 import 'leaflet.markercluster'
+import CleanMapBaseLayer from './map/CleanMapBaseLayer'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -16,9 +17,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 })
-
-const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -85,8 +83,17 @@ export default function ChainLocationsMap({ locations }) {
 
   return (
     <div className="chain-hub-map">
-      <MapContainer center={[points[0].lat, points[0].lon]} zoom={12} scrollWheelZoom={false} attributionControl={false}>
-        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
+      <MapContainer
+        center={[points[0].lat, points[0].lon]}
+        zoom={12}
+        minZoom={2}
+        maxZoom={20}
+        scrollWheelZoom={false}
+        attributionControl={false}
+        className="rs-clean-map"
+      >
+        <CleanMapBaseLayer />
+        <AttributionControl prefix={false} />
         <FitToPoints points={points} />
         <MarkersLayer points={points} />
       </MapContainer>
