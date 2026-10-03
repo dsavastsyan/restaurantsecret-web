@@ -28273,15 +28273,19 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
 .preview-persona-panel {
   position: fixed;
   z-index: 10020;
-  top: 12px;
-  right: 12px;
-  width: min(360px, calc(100vw - 24px));
+  bottom: 16px;
+  left: 16px;
+  width: min(320px, calc(100vw - 32px));
   border: 1px solid rgba(126, 52, 24, 0.25);
   border-radius: 14px;
   background: #fff7ed;
   box-shadow: 0 14px 40px rgba(67, 33, 18, 0.2);
   color: #3f2317;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.preview-persona-panel:not(.is-expanded) {
+  width: min(250px, calc(100vw - 32px));
 }
 
 .preview-persona-panel__toggle {
@@ -28368,9 +28372,13 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
 
 @media (max-width: 640px) {
   .preview-persona-panel {
-    top: 8px;
-    right: 8px;
-    width: calc(100vw - 16px);
+    bottom: 8px;
+    left: 8px;
+    width: min(320px, calc(100vw - 16px));
+  }
+
+  .preview-persona-panel:not(.is-expanded) {
+    width: min(230px, calc(100vw - 16px));
   }
 }
 
