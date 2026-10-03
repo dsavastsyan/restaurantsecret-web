@@ -35,16 +35,16 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   const [email, setEmail] = useState('')
   const [consents, setConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
   const [knownConsents, setKnownConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
+  const [accountEmail, setAccountEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
-  // Every visitor goes through the same email → OTP code → consent flow as
-  // regular registration (/login). This also prevents a stale access token
-  // from bypassing OTP and showing the account-linked form immediately.
+  // Guests go through the same email → OTP code flow as regular registration
+  // (/login). An authenticated visitor uses the email already attached to
+  // their account for the consent submission.
   const [otpStep, setOtpStep] = useState('email') // 'email' | 'code'
   const [code, setCode] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
-  const [otpVerified, setOtpVerified] = useState(false)
 
   const segment = token && hasActiveSub ? 'active' : 'default'
 
@@ -62,25 +62,30 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return () => window.removeEventListener('rs:anyeat-launch-open', show)
   }, [embedded])
 
-  // Load the account's known consent after the OTP step so the form can skip
-  // questions the account has already answered. The verified email remains the
-  // source of truth for this flow.
+  // Load the account email and known consent for authenticated visitors so
+  // the email cannot drift away from the identity represented by the token.
   useEffect(() => {
-    if (!open || !otpVerified || !token) return
+    if (!open || !token) return
     let active = true
 
-    apiGet('/api/consent/communications', token).then((consent) => {
+    Promise.all([
+      apiGet('/api/v1/me', token),
+      apiGet('/api/consent/communications', token),
+    ]).then(([me, consent]) => {
       if (!active) return
+      const value = me?.user?.email || ''
+      setAccountEmail(value)
+      setEmail(value)
       const known = {
         personal_data_advertising: consent?.personal_data_advertising === true,
         marketing_communications: consent?.marketing_communications === true,
       }
       setKnownConsents(known)
       setConsents(known)
-    }).catch(() => { /* consent details are a nice-to-have, not required */ })
+    }).catch(() => { /* account details are a nice-to-have, not required */ })
 
     return () => { active = false }
-  }, [open, otpVerified, token])
+  }, [open, token])
 
   useEffect(() => {
     if (resendTimer <= 0) return
@@ -133,7 +138,6 @@ export default function AnyEatLaunchModal({ embedded = false }) {
       const res = await apiPost('/auth/verify-otp', { email: email.trim(), code: code.trim() })
       if (!res?.ok || !res?.access_token) throw new Error('verify_otp_failed')
       setToken(res.access_token)
-      setOtpVerified(true)
     } catch {
       setError('Неверный или истёкший код. Попробуйте ещё раз.')
     } finally {
@@ -155,7 +159,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   }
 
   const canSubmit = /^\S+@\S+\.\S+$/.test(email.trim()) &&
-    otpVerified && Boolean(token) &&
+    Boolean(token) && Boolean(accountEmail) &&
     consents.personal_data_advertising && consents.marketing_communications && !submitting
 
   const submit = async (event) => {
@@ -211,7 +215,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             <div><span className="rs-anyeat__icon"><BookText size={19} /></span><strong>Дневник</strong><small>Всё в одном месте</small></div>
           </div>
 
-          {!otpVerified && otpStep === 'email' && (
+          {!token && otpStep === 'email' && (
             <form className="rs-anyeat__form" onSubmit={requestOtp}>
               <div className="rs-anyeat__formrow">
                 <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
@@ -222,7 +226,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             </form>
           )}
 
-          {!otpVerified && otpStep === 'code' && (
+          {!token && otpStep === 'code' && (
             <form className="rs-anyeat__form" onSubmit={verifyOtp}>
               <div className="rs-anyeat__formrow">
                 <label className="rs-anyeat__field" htmlFor="rs-anyeat-code"><Mail size={20} /><input id="rs-anyeat-code" type="text" inputMode="numeric" maxLength={6} placeholder="Код из письма" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').trim())} required /></label>
@@ -239,10 +243,10 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             </form>
           )}
 
-          {otpVerified && token && (
+          {token && (
             <form className="rs-anyeat__form" onSubmit={submit}>
               <div className="rs-anyeat__formrow">
-                <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+                <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="off" placeholder="Ваша почта" value={email} readOnly aria-readonly="true" required /></label>
                 <button className="rs-anyeat__submit" type="submit" disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
               </div>
               {(!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
