@@ -55,7 +55,7 @@ async function mockMenu(page, payload) {
 async function dismissMenuGuide(page) {
   const dismiss = page.locator('.rsm2-guide__dismiss')
   await expect(dismiss).toBeVisible()
-  await dismiss.click({ force: true })
+  await dismiss.click()
   await expect(page.locator('.rsm2-guide-scrim')).toHaveCount(0)
 }
 
@@ -84,7 +84,7 @@ test('menu defaults to food, then expands into curated category order', async ({
   await expect(headings).toHaveText(['Кофе', 'Холодные напитки'])
 })
 
-test('onboarding filter action collapses the panel until the user reopens it', async ({ page }) => {
+test('first onboarding hint collapses filters without applying one and shows the second hint', async ({ page }) => {
   await mockMenu(page, mixedMenu)
   await page.goto('/restaurants/test-menu/menu')
 
@@ -96,6 +96,8 @@ test('onboarding filter action collapses the panel until the user reopens it', a
   await lowKcal.click()
   await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
   await expect(page.locator('.rsm2-filter-cluster')).toHaveCount(0)
+  await expect(page.locator('.rsm2-filter-toggle__count')).toHaveCount(0)
+  await expect(page.locator('.rsm2-guide--dish')).toContainText('Добавляйте любимые меню и рестораны в избранное')
 
   await filterToggle.click()
   await expect(filterToggle).toHaveAttribute('aria-expanded', 'true')
@@ -133,6 +135,7 @@ test('sorts all categories or one category and can reset the choice', async ({ p
     ],
   })
   await page.goto('/restaurants/test-menu/menu')
+  await dismissMenuGuide(page)
 
   const sections = page.locator('.rsm2-section__head')
   const firstSort = sections.nth(0).getByRole('button', { name: /Сортировка категории/ })
