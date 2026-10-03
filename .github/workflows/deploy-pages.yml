@@ -34,6 +34,7 @@ jobs:
       - name: Wait for linked backend production deployments
         env:
           BACKEND_RELEASE_TOKEN: ${{ secrets.BACKEND_RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           BACKEND_RELEASE_ENV: production
         run: node scripts/verify-backend-release.mjs
 
