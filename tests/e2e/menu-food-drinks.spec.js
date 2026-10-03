@@ -104,6 +104,99 @@ test('first onboarding hint collapses filters without applying one and shows the
   await expect(page.getByRole('tab', { name: 'Еда' })).toBeVisible()
 })
 
+test('favorites guide bridges the restaurant and first dish hearts on desktop and mobile', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/restaurants/test-menu/menu')
+    await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+
+    const category = viewport.width <= 640
+      ? page.locator('.rsm2-mobile-only .rsm2-cat').first()
+      : page.locator('.rsm2-category-bar .rsm2-cat').first()
+    await category.click()
+    await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+    await expect.poll(async () => page.evaluate(() => {
+      const guide = document.querySelector('.rsm2-guide--dish')?.getBoundingClientRect()
+      const restaurant = document.querySelector('.rsm2-icon-btn.is-guide-target')?.getBoundingClientRect()
+      const dish = [...document.querySelectorAll('.rsm2-fav.is-guide-target')]
+        .map((element) => element.getBoundingClientRect())
+        .find((rect) => rect.width > 0 && rect.height > 0)
+      if (!guide || !restaurant || !dish) return Number.POSITIVE_INFINITY
+      const guideCenter = guide.top + guide.height / 2
+      const targetCenter = (
+        restaurant.top + restaurant.height / 2 + dish.top + dish.height / 2
+      ) / 2
+      return Math.abs(guideCenter - targetCenter)
+    })).toBeLessThan(8)
+
+    await expect(page.locator('.rsm2-guide-connectors line')).toHaveCount(2)
+    const guideBox = await page.locator('.rsm2-guide--dish').boundingBox()
+    expect(guideBox.width).toBe(viewport.width <= 640 ? viewport.width - 32 : 820)
+  }
+})
+
+test('favorite targets advance the tour without changing favorites', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  const favoriteRequests = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.includes('/api/favorites')) favoriteRequests.push(request)
+  })
+
+  await page.goto('/restaurants/test-menu/menu')
+  await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+  await page.locator('.rsm2-category-bar .rsm2-cat').first().click()
+  await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+
+  await page.locator('.rsm2-icon-btn.is-guide-target').click()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+  expect(favoriteRequests).toHaveLength(0)
+
+  await page.reload()
+  await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+  await page.locator('.rsm2-category-bar .rsm2-cat').first().click()
+  await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+
+  await page.locator('.rsm2-grid.rsm2-desktop-only .rsm2-fav.is-guide-target').click()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+  expect(favoriteRequests).toHaveLength(0)
+})
+
+test('third hint closes and consumes any click', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+  await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+  await page.locator('.rsm2-category-bar .rsm2-cat').first().click()
+  await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+  await page.locator('.rsm2-icon-btn.is-guide-target').click()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Рестораны' }).click()
+  await expect(page.locator('.rsm2-guide')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/restaurants\/test-menu\/menu/)
+})
+
+test('guide locks page scrolling until the tour is dismissed', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+  await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+
+  await expect.poll(() => page.evaluate(() => window.getComputedStyle(document.documentElement).overflow))
+    .toBe('hidden')
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.mouse.wheel(0, 600)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  await page.locator('.rsm2-guide__dismiss').click()
+  await expect(page.locator('.rsm2-guide')).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => window.getComputedStyle(document.documentElement).overflow))
+    .not.toBe('hidden')
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.mouse.wheel(0, 600)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+})
+
 test('section switch stays hidden when the menu has only food', async ({ page }) => {
   await mockMenu(page, { ...mixedMenu, categories: mixedMenu.categories.filter((category) => category.menuSection === 'food') })
   await page.goto('/restaurants/test-menu/menu')

@@ -61,6 +61,10 @@
   color: var(--rsm2-ink);
 }
 
+.rsm2-root {
+  position: relative;
+}
+
 .rsm2-root * {
   box-sizing: border-box;
 }
@@ -80,6 +84,12 @@ body[data-rs-menu-v2] .container--menu {
 
 body[data-rs-menu-v2] main {
   padding: 0;
+}
+
+html[data-rs-menu-guide-lock],
+html[data-rs-menu-guide-lock] body {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .rsm2-serif {
@@ -551,6 +561,22 @@ body[data-rs-menu-v2] main {
   animation: rsm2-guide-scrim-in 0.18s ease both;
 }
 
+.rsm2-guide-connectors {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1001;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.rsm2-guide-connectors line {
+  stroke: rgba(240, 133, 90, 0.8);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+  stroke-linecap: round;
+}
+
 .rsm2-guide {
   position: relative;
   display: grid;
@@ -585,18 +611,32 @@ body[data-rs-menu-v2] main {
 }
 
 .rsm2-guide--dish {
-  align-self: flex-start;
-  width: min(560px, 100%);
-  /* Float the second hint up over the filter surface so the first dish row
-     remains visible below it. The guide has a higher z-index than the sticky
-     filter bar, so this intentionally allows a small overlap. */
-  margin: -220px 0 -18px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(820px, calc(100% - 72px));
+  margin: 0;
+  transform: translateX(-50%);
+  animation-name: rsm2-guide-dish-in;
 }
 
 .rsm2-guide--dish::before {
-  top: auto;
+  top: -7px;
+  left: calc(var(--rsm2-guide-top-tail-x, 50%) - 6px);
+  transform: rotate(45deg);
+}
+
+.rsm2-guide--dish::after {
+  content: '';
+  position: absolute;
   bottom: -7px;
-  transform: rotate(225deg);
+  left: calc(var(--rsm2-guide-bottom-tail-x, 50%) - 6px);
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid var(--rsm2-border-hover-2);
+  border-bottom: 1px solid var(--rsm2-border-hover-2);
+  background: #fffaf1;
+  transform: rotate(45deg);
 }
 
 .rsm2-guide--restaurants {
@@ -691,6 +731,17 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes rsm2-guide-dish-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 }
 
@@ -1884,7 +1935,15 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   }
 
   .rsm2-guide--dish {
-    margin: -190px 0 -6px;
+    width: calc(100% - 32px);
+    left: 16px;
+    transform: none;
+    padding-right: 14px;
+    animation-name: rsm2-guide-in;
+  }
+
+  .rsm2-guide--dish .rsm2-guide__text {
+    max-width: none;
   }
 
   .rsm2-guide--restaurants {
