@@ -212,8 +212,8 @@ export default function MenuRedesignView({
     </>
   );
 
-  const openDish = (dish) => {
-    const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
+  const openDish = (dish, groupIsFree = false) => {
+    const isFreeAccess = groupIsFree || freeDishKeys.has(buildDishAccessKey(dish));
     const draft = {
       id: dish.id,
       dishName: dish.name,
@@ -462,7 +462,7 @@ export default function MenuRedesignView({
                         readOnly={readOnly}
                         guideFavoriteTarget={guideStep === 'dish' && sectionIndex === 0 && dishIndex === 0}
                         onGuideFavorite={guideStep === 'dish' ? advanceGuide : undefined}
-                        onClick={() => openDish(dish)}
+                        onClick={(selectedDish) => openDish(selectedDish, isFreeAccess)}
                       />
                     );
                   })}
@@ -482,7 +482,7 @@ export default function MenuRedesignView({
                         readOnly={readOnly}
                         guideFavoriteTarget={guideStep === 'dish' && sectionIndex === 0 && dishIndex === 0}
                         onGuideFavorite={guideStep === 'dish' ? advanceGuide : undefined}
-                        onClick={() => openDish(dish)}
+                        onClick={(selectedDish) => openDish(selectedDish, isFreeAccess)}
                       />
                     );
                   })}
