@@ -92,6 +92,7 @@ test('first onboarding hint collapses filters without applying one and shows the
   await expect(filterToggle).toHaveAttribute('aria-expanded', 'true')
   const lowKcal = page.locator('.rsm2-filter-cluster .rsm2-chip').first()
   await expect(lowKcal).toBeVisible()
+  await expect(page.locator('.rsm2-filter-panel .rsm2-guide--filters')).toBeVisible()
 
   await lowKcal.click()
   await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
@@ -132,6 +133,32 @@ test('favorites guide bridges the restaurant and first dish hearts on desktop an
     })).toBeLessThan(8)
 
     await expect(page.locator('.rsm2-guide-connectors line')).toHaveCount(2)
+    const connectorEnds = await page.evaluate(() => {
+      const root = document.querySelector('.rsm2-root')
+      const svg = document.querySelector('.rsm2-guide-connectors')
+      const restaurant = document.querySelector('.rsm2-icon-btn.is-guide-target')
+      const dish = [...document.querySelectorAll('.rsm2-fav.is-guide-target')]
+        .find((element) => element.getBoundingClientRect().width > 0)
+      if (!root || !svg || !restaurant || !dish) return null
+
+      const rootRect = root.getBoundingClientRect()
+      const toLocal = (rect) => ({
+        top: rect.top - rootRect.top,
+        bottom: rect.bottom - rootRect.top,
+      })
+      const lines = [...svg.querySelectorAll('line')]
+      return {
+        restaurant: toLocal(restaurant.getBoundingClientRect()),
+        dish: toLocal(dish.getBoundingClientRect()),
+        restaurantLineY: Number(lines[0].getAttribute('y1')),
+        dishLineY: Number(lines[1].getAttribute('y2')),
+      }
+    })
+    expect(connectorEnds).not.toBeNull()
+    expect(connectorEnds.restaurantLineY).toBeGreaterThan(connectorEnds.restaurant.top + 1)
+    expect(connectorEnds.restaurantLineY).toBeLessThanOrEqual(connectorEnds.restaurant.bottom + 1)
+    expect(connectorEnds.dishLineY).toBeGreaterThanOrEqual(connectorEnds.dish.top - 1)
+    expect(connectorEnds.dishLineY).toBeLessThan(connectorEnds.dish.bottom - 1)
     const guideBox = await page.locator('.rsm2-guide--dish').boundingBox()
     expect(guideBox.width).toBe(viewport.width <= 640 ? viewport.width - 32 : 820)
   }
@@ -163,6 +190,17 @@ test('favorite targets advance the tour without changing favorites', async ({ pa
   expect(favoriteRequests).toHaveLength(0)
 })
 
+test('second hint advances when its card is clicked away from the target', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+
+  await page.locator('.rsm2-category-bar .rsm2-cat').first().click()
+  await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+
+  await page.locator('.rsm2-guide--dish .rsm2-guide__copy').click()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+})
+
 test('third hint closes and consumes any click', async ({ page }) => {
   await mockMenu(page, mixedMenu)
   await page.goto('/restaurants/test-menu/menu')
@@ -171,6 +209,8 @@ test('third hint closes and consumes any click', async ({ page }) => {
   await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
   await page.locator('.rsm2-icon-btn.is-guide-target').click()
   await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+  await expect(page.locator('.rsm2-guide--restaurants')).toContainText('Более 600 ресторанов')
+  await expect(page.locator('.rsm2-guide--restaurants')).toHaveCSS('position', 'absolute')
 
   await page.getByRole('link', { name: 'Рестораны' }).click()
   await expect(page.locator('.rsm2-guide')).toHaveCount(0)
@@ -203,6 +243,55 @@ test('section switch stays hidden when the menu has only food', async ({ page })
 
   await expect(page.getByRole('tablist', { name: 'Раздел меню' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Закуски' })).toBeVisible()
+})
+
+test('gives milk variants more room while keeping size-only filters on one line', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('rs_access', 'active-token')
+    sessionStorage.setItem('rs_menu_guide_v2', 'dismissed')
+  })
+  await page.route((url) => isApiRequest(url, '/api/subscriptions/status'), (route) => route.fulfill({
+    json: { status: 'active', statusNorm: 'active' },
+  }))
+  await mockMenu(page, {
+    name: 'Меню с вариантами',
+    categories: [{
+      name: 'Кофе',
+      menuSection: 'food',
+      dishes: [
+        {
+          ...dish(10, 'Айс-латте', 'food', 'Кофе'),
+          variants: [
+            { ...dish(10, 'Айс-латте', 'food', 'Кофе'), size: { key: 'grand', label: 'Grand' }, milk: { key: 'regular', label: 'Обычное' } },
+            { ...dish(11, 'Айс-латте', 'food', 'Кофе'), size: { key: 'tall', label: 'Tall' }, milk: { key: 'oat', label: 'Овсяное' } },
+          ],
+        },
+        {
+          ...dish(20, 'Американо', 'food', 'Кофе'),
+          variants: [
+            { ...dish(20, 'Американо', 'food', 'Кофе'), size: { key: 'grand', label: 'Grand' } },
+            { ...dish(21, 'Американо', 'food', 'Кофе'), size: { key: 'tall', label: 'Tall' } },
+          ],
+        },
+      ],
+    }],
+  })
+  await page.setViewportSize({ width: 499, height: 800 })
+  await page.goto('/restaurants/test-menu/menu')
+
+  const pickers = page.locator('.rsm2-row .rsm2-variant-picker')
+  await expect(pickers).toHaveCount(2)
+  const layouts = await pickers.evaluateAll((elements) => elements.map((picker) => {
+    const fields = [...picker.querySelectorAll('.rsm2-variant-picker__field')]
+    return {
+      fieldCount: fields.length,
+      sizeWidth: fields.find((field) => !field.classList.contains('rsm2-variant-picker__field--milk'))?.getBoundingClientRect().width || 0,
+      milkWidth: fields.find((field) => field.classList.contains('rsm2-variant-picker__field--milk'))?.getBoundingClientRect().width || 0,
+    }
+  }))
+
+  expect(layouts[0].milkWidth).toBeGreaterThan(layouts[0].sizeWidth)
+  expect(layouts[1].fieldCount).toBe(1)
 })
 
 test('keeps the curated order by default and sorts only after an explicit choice', async ({ page }) => {

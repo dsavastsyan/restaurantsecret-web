@@ -215,13 +215,15 @@ export default function MenuRedesignView({
 
     const handleGuideClick = (event) => {
       if (guideStep === 'dish') {
-        const target = event.target instanceof Element
-          ? event.target.closest('.rsm2-icon-btn.is-guide-target, .rsm2-fav.is-guide-target')
-          : null;
-        if (!target) return;
+        const dismissButton = document.querySelector('.rsm2-guide--dish .rsm2-guide__dismiss');
+        const clickedDismiss = dismissButton?.contains(event.target)
+          || event.composedPath?.().some((target) => (
+            target?.classList?.contains?.('rsm2-guide__dismiss')
+          ));
+        if (clickedDismiss) return;
 
-        // The second hint is a tour step, not a real favorite action. Stop the
-        // click before it reaches either favorite button and show step three.
+        // The second hint is a tour step, not a real page action. Stop the
+        // click before it reaches the page and show step three from anywhere.
         event.preventDefault();
         event.stopPropagation();
         setGuideStep('restaurants');
@@ -472,6 +474,10 @@ export default function MenuRedesignView({
               )}
             </div>
 
+            {guideStep === 'filters' && !loading && !error && (
+              <MenuGuide step="filters" onDismiss={dismissGuide} />
+            )}
+
             {sectionOptions.length > 1 && (
               <div className="rsm2-section-switch" role="tablist" aria-label="Раздел меню">
                 <button
@@ -504,10 +510,6 @@ export default function MenuRedesignView({
             {renderCatPills()}
           </div>
         </div>
-
-        {isFilterPanelOpen && !loading && !error && guideStep === 'filters' && (
-          <MenuGuide step="filters" onDismiss={dismissGuide} />
-        )}
       </div>
 
       {/* Mobile-only category rail, kept in sync with the desktop pills above */}
@@ -792,6 +794,21 @@ function SortControl({
   );
 }
 
+function getRectEdgePoint(rect, target) {
+  const dx = target.x - rect.x;
+  const dy = target.y - rect.y;
+  if (dx === 0 && dy === 0) return { x: rect.x, y: rect.y };
+
+  const scaleX = dx === 0 ? Number.POSITIVE_INFINITY : (rect.width / 2) / Math.abs(dx);
+  const scaleY = dy === 0 ? Number.POSITIVE_INFINITY : (rect.height / 2) / Math.abs(dy);
+  const scale = Math.min(scaleX, scaleY);
+
+  return {
+    x: rect.x + dx * scale,
+    y: rect.y + dy * scale,
+  };
+}
+
 function MenuGuide({ step, onDismiss }) {
   const isFiltersStep = step === 'filters';
   const isDishStep = step === 'dish';
@@ -845,6 +862,24 @@ function MenuGuide({ step, onDismiss }) {
           guideRect.width - 12,
           Math.max(12, dishPoint.x - guideLeft),
         );
+        const restaurantEdgePoint = getRectEdgePoint(
+          {
+            x: restaurantPoint.x,
+            y: restaurantPoint.y,
+            width: restaurantRect.width,
+            height: restaurantRect.height,
+          },
+          { x: guideLeft + guideTopX, y: guideTop },
+        );
+        const dishEdgePoint = getRectEdgePoint(
+          {
+            x: dishPoint.x,
+            y: dishPoint.y,
+            width: dishRect.width,
+            height: dishRect.height,
+          },
+          { x: guideLeft + guideBottomX, y: guideTop + guideRect.height },
+        );
         const rootHeight = Math.max(root.scrollHeight, rootRect.height);
 
         setDishGuideGeometry({
@@ -853,6 +888,8 @@ function MenuGuide({ step, onDismiss }) {
           rootHeight,
           restaurantPoint,
           dishPoint,
+          restaurantEdgePoint,
+          dishEdgePoint,
           guideTop,
           guideBottom: guideTop + guideRect.height,
           guideTopX: guideLeft + guideTopX,
@@ -901,16 +938,16 @@ function MenuGuide({ step, onDismiss }) {
           aria-hidden="true"
         >
           <line
-            x1={dishGuideGeometry.restaurantPoint.x}
-            y1={dishGuideGeometry.restaurantPoint.y}
+            x1={dishGuideGeometry.restaurantEdgePoint.x}
+            y1={dishGuideGeometry.restaurantEdgePoint.y}
             x2={dishGuideGeometry.guideTopX}
             y2={dishGuideGeometry.guideTop}
           />
           <line
             x1={dishGuideGeometry.guideBottomX}
             y1={dishGuideGeometry.guideBottom}
-            x2={dishGuideGeometry.dishPoint.x}
-            y2={dishGuideGeometry.dishPoint.y}
+            x2={dishGuideGeometry.dishEdgePoint.x}
+            y2={dishGuideGeometry.dishEdgePoint.y}
           />
         </svg>
       )}
@@ -938,7 +975,7 @@ function MenuGuide({ step, onDismiss }) {
               ? 'Настрой меню под себя одним нажатием'
               : isDishStep
                 ? 'Сравнивайте позиции и быстро возвращайтесь к любимым местам и блюдам'
-                : 'Более 700 ресторанов в 12 городах с полным КБЖУ блюд и быстрыми фильтрами'}
+                : 'Более 600 ресторанов с полным КБЖУ блюд и быстрыми фильтрами'}
           </p>
         </div>
         <button type="button" className="rsm2-guide__dismiss" onClick={onDismiss}>
