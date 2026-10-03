@@ -16,6 +16,31 @@ import {
   parseCatalogFilterState,
   serializeCatalogFilterState,
 } from '../src/lib/catalogFilterParams.js'
+import { flattenMenuGroups } from '../src/lib/nutrition.js'
+
+test('flattens grouped menu variants into one selectable menu group', () => {
+  const groups = flattenMenuGroups({
+    categories: [{
+      name: 'Кофе',
+      groups: [{
+        id: 101,
+        name: 'Капучино',
+        hasVariants: true,
+        variants: [
+          { id: 1011, name: 'Капучино Medium (овсяное молоко)', size: { key: 'medium', label: 'Medium' }, milk: { key: 'oat', label: 'Овсяное молоко' }, kcal: 120, price: 280 },
+          { id: 1012, name: 'Капучино Large (кокосовое молоко)', size: { key: 'large', label: 'Large' }, milk: { key: 'coconut', label: 'Кокосовое молоко' }, kcal: 180, price: 340 },
+        ],
+      }],
+    }],
+  })
+
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].name, 'Капучино')
+  assert.equal(groups[0].hasVariants, true)
+  assert.equal(groups[0].variantCount, 2)
+  assert.equal(groups[0].variants[1].kcal, 180)
+  assert.equal(groups[0].variants[1].price, 340)
+})
 
 test('counts matching dishes in a calorie range without exposing dish cards', () => {
   const restaurant = {

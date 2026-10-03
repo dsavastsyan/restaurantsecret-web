@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { computeMacroGeometry, formatNumeric, formatPortionLabel, formatPriceRub } from '@/lib/nutrition';
 import { useAuth } from '@/store/auth';
@@ -8,6 +8,7 @@ import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal';
 import { analytics } from '@/services/analytics';
 import MacroRing from './MacroRing';
 import { HeartIcon } from './icons';
+import VariantPicker from './VariantPicker';
 
 type DishTileV2Props = {
   dish: any;
@@ -16,7 +17,7 @@ type DishTileV2Props = {
   isFreeAccess?: boolean;
   interactive?: boolean;
   readOnly?: boolean;
-  onClick?: () => void;
+  onClick?: (dish: any) => void;
 };
 
 // Redesigned desktop grid card. Mirrors DishCard.tsx's data/handlers 1:1 for
@@ -32,18 +33,24 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
     hasActiveSub: state.hasActiveSub,
     hasSubscriptionHistory: state.hasSubscriptionHistory,
   }));
+  const variants = Array.isArray(dish.variants) ? dish.variants : [];
+  const [selectedVariantId, setSelectedVariantId] = useState(dish.id);
+  useEffect(() => {
+    if (!variants.some((variant) => variant.id === selectedVariantId)) setSelectedVariantId(variants[0]?.id ?? dish.id);
+  }, [dish.id, selectedVariantId, variants]);
+  const selectedDish = variants.find((variant) => variant.id === selectedVariantId) || dish;
   const { isFavorite, toggle } = useFavoritesStore((state) => ({
-    isFavorite: state.isFavorite(Number(dish.id)),
+    isFavorite: state.isFavorite(Number(selectedDish.id)),
     toggle: state.toggle,
   }));
   const favorited = isFavorite;
   const hasDishAccess = hasActiveSub || isFreeAccess;
   const subscriptionCtaText = hasSubscriptionHistory ? 'Возобновить подписку' : 'Попробовать бесплатно';
-  const photoUrl = dish.photoUrl || dish.photo_url || null;
+  const photoUrl = selectedDish.photoUrl || selectedDish.photo_url || null;
 
-  const geometry = useMemo(() => computeMacroGeometry(dish.protein, dish.fat, dish.carbs), [dish.protein, dish.fat, dish.carbs]);
-  const price = formatPriceRub(dish.price);
-  const portion = formatPortionLabel(dish);
+  const geometry = useMemo(() => computeMacroGeometry(selectedDish.protein, selectedDish.fat, selectedDish.carbs), [selectedDish.protein, selectedDish.fat, selectedDish.carbs]);
+  const price = formatPriceRub(selectedDish.price);
+  const portion = formatPortionLabel(selectedDish);
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -57,11 +64,11 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
       return;
     }
     if (!favorited) {
-      analytics.track('favorite_add', { type: 'dish', dish_id: dish.id, name: dish.name });
+      analytics.track('favorite_add', { type: 'dish', dish_id: selectedDish.id, name: selectedDish.name });
     } else {
-      analytics.track('favorite_remove', { type: 'dish', dish_id: dish.id, name: dish.name });
+      analytics.track('favorite_remove', { type: 'dish', dish_id: selectedDish.id, name: selectedDish.name });
     }
-    await toggle(accessToken, Number(dish.id), restaurantSlug);
+    await toggle(accessToken, Number(selectedDish.id), restaurantSlug);
   };
 
   const handleDiaryAdd = (e: React.MouseEvent) => {
@@ -82,7 +89,7 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
 
   const handleTileClick = () => {
     if (!interactive) return;
-    onClick?.();
+    onClick?.(selectedDish);
   };
 
   return (
@@ -138,6 +145,13 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
       </div>
 
       <div className="rsm2-tile__body">
+        {hasDishAccess && variants.length > 1 && (
+          <VariantPicker
+            variants={variants}
+            selected={selectedDish}
+            onChange={(variant) => setSelectedVariantId(variant.id)}
+          />
+        )}
         {hasDishAccess ? (
           <button type="button" className="rsm2-composition-btn" onClick={handleTileClick}>
             Посмотреть состав
@@ -150,7 +164,7 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
         )}
 
         <div className={`rsm2-nutrition ${hasDishAccess ? '' : 'rsm2-nutrition--teaser'}`}>
-          <MacroRing geometry={geometry} kcal={dish.kcal} size="tile" concealed={!hasDishAccess} />
+            <MacroRing geometry={geometry} kcal={selectedDish.kcal} size="tile" concealed={!hasDishAccess} />
           <div>
             <div className="rsm2-macrobar" aria-hidden="true">
               <span className="rsm2-macrobar__seg rsm2-macrobar__seg--protein" style={{ width: `${geometry.proteinPct}%` }} />
@@ -158,9 +172,9 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
               <span className="rsm2-macrobar__seg rsm2-macrobar__seg--carb" style={{ width: `${geometry.carbPct}%` }} />
             </div>
             <div className="rsm2-legend">
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--protein" />Б {hasDishAccess ? `${formatNumeric(dish.protein)}г` : '—'}</span>
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--fat" />Ж {hasDishAccess ? `${formatNumeric(dish.fat)}г` : '—'}</span>
-              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--carb" />У {hasDishAccess ? `${formatNumeric(dish.carbs)}г` : '—'}</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--protein" />Б {hasDishAccess ? `${formatNumeric(selectedDish.protein)}г` : '—'}</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--fat" />Ж {hasDishAccess ? `${formatNumeric(selectedDish.fat)}г` : '—'}</span>
+              <span className="rsm2-legend__item"><span className="rsm2-legend__dot rsm2-legend__dot--carb" />У {hasDishAccess ? `${formatNumeric(selectedDish.carbs)}г` : '—'}</span>
             </div>
           </div>
         </div>
