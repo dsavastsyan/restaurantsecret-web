@@ -1,7 +1,18 @@
 import { useMemo } from 'react'
 
+function milkOptionLabel(milk) {
+  const label = milk?.label?.trim()
+  if (!label) return ''
+
+  const withoutMilk = label
+    .replace(/(^|\s)молок[а-яё-]*/iu, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  return withoutMilk || 'обычное'
+}
+
 function optionLabel(variant) {
-  return [variant?.size?.label, variant?.milk?.label].filter(Boolean).join(' · ') || variant?.name || 'Вариант'
+  return [variant?.size?.label, milkOptionLabel(variant?.milk)].filter(Boolean).join(' · ') || variant?.name || 'Вариант'
 }
 
 export default function VariantPicker({ variants = [], selected, onChange }) {
@@ -40,7 +51,7 @@ export default function VariantPicker({ variants = [], selected, onChange }) {
         <label className="rsm2-variant-picker__field rsm2-variant-picker__field--milk">
           <span>Молоко</span>
           <select value={selected?.milk?.key || ''} onChange={(event) => selectVariant('milk', event.target.value)} aria-label="Молоко">
-            {milks.map((variant) => <option key={variant.milk.key} value={variant.milk.key}>{variant.milk.label}</option>)}
+            {milks.map((variant) => <option key={variant.milk.key} value={variant.milk.key}>{milkOptionLabel(variant.milk)}</option>)}
           </select>
         </label>
       )}
