@@ -215,13 +215,15 @@ export default function MenuRedesignView({
 
     const handleGuideClick = (event) => {
       if (guideStep === 'dish') {
-        const target = event.target instanceof Element
-          ? event.target.closest('.rsm2-icon-btn.is-guide-target, .rsm2-fav.is-guide-target')
-          : null;
-        if (!target) return;
+        const dismissButton = document.querySelector('.rsm2-guide--dish .rsm2-guide__dismiss');
+        const clickedDismiss = dismissButton?.contains(event.target)
+          || event.composedPath?.().some((target) => (
+            target?.classList?.contains?.('rsm2-guide__dismiss')
+          ));
+        if (clickedDismiss) return;
 
-        // The second hint is a tour step, not a real favorite action. Stop the
-        // click before it reaches either favorite button and show step three.
+        // The second hint is a tour step, not a real page action. Stop the
+        // click before it reaches the page and show step three from anywhere.
         event.preventDefault();
         event.stopPropagation();
         setGuideStep('restaurants');

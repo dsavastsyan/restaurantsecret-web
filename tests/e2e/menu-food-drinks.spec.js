@@ -190,6 +190,17 @@ test('favorite targets advance the tour without changing favorites', async ({ pa
   expect(favoriteRequests).toHaveLength(0)
 })
 
+test('second hint advances when its card is clicked away from the target', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+
+  await page.locator('.rsm2-category-bar .rsm2-cat').first().click()
+  await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+
+  await page.locator('.rsm2-guide--dish .rsm2-guide__copy').click()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+})
+
 test('third hint closes and consumes any click', async ({ page }) => {
   await mockMenu(page, mixedMenu)
   await page.goto('/restaurants/test-menu/menu')
