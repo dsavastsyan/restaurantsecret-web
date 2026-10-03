@@ -35,6 +35,6 @@ export function configureServiceWorker({
   }
 
   windowObject.addEventListener('load', () => {
-    serviceWorker.register('/service-worker.js').catch(() => { })
+    serviceWorker.register('/service-worker.js', { updateViaCache: 'none' }).catch(() => { })
   }, { once: true })
 }
