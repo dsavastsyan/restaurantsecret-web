@@ -132,6 +132,32 @@ test('favorites guide bridges the restaurant and first dish hearts on desktop an
     })).toBeLessThan(8)
 
     await expect(page.locator('.rsm2-guide-connectors line')).toHaveCount(2)
+    const connectorEnds = await page.evaluate(() => {
+      const root = document.querySelector('.rsm2-root')
+      const svg = document.querySelector('.rsm2-guide-connectors')
+      const restaurant = document.querySelector('.rsm2-icon-btn.is-guide-target')
+      const dish = [...document.querySelectorAll('.rsm2-fav.is-guide-target')]
+        .find((element) => element.getBoundingClientRect().width > 0)
+      if (!root || !svg || !restaurant || !dish) return null
+
+      const rootRect = root.getBoundingClientRect()
+      const toLocal = (rect) => ({
+        top: rect.top - rootRect.top,
+        bottom: rect.bottom - rootRect.top,
+      })
+      const lines = [...svg.querySelectorAll('line')]
+      return {
+        restaurant: toLocal(restaurant.getBoundingClientRect()),
+        dish: toLocal(dish.getBoundingClientRect()),
+        restaurantLineY: Number(lines[0].getAttribute('y1')),
+        dishLineY: Number(lines[1].getAttribute('y2')),
+      }
+    })
+    expect(connectorEnds).not.toBeNull()
+    expect(connectorEnds.restaurantLineY).toBeGreaterThan(connectorEnds.restaurant.top + 1)
+    expect(connectorEnds.restaurantLineY).toBeLessThanOrEqual(connectorEnds.restaurant.bottom + 1)
+    expect(connectorEnds.dishLineY).toBeGreaterThanOrEqual(connectorEnds.dish.top - 1)
+    expect(connectorEnds.dishLineY).toBeLessThan(connectorEnds.dish.bottom - 1)
     const guideBox = await page.locator('.rsm2-guide--dish').boundingBox()
     expect(guideBox.width).toBe(viewport.width <= 640 ? viewport.width - 32 : 820)
   }
