@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "services": {
+    "cloudflare": {
+      "repository": "dsavastsyan/RestaurantSecret",
+      "staging_pull_request": 502,
+      "production_pull_request": 502
+    },
+    "pd_api": {
+      "repository": "dsavastsyan/RestaurantSecret-pd-api",
+      "staging_pull_request": 214,
+      "production_pull_request": 215
+    }
+  }
+}

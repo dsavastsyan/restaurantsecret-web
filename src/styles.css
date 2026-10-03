@@ -94,6 +94,10 @@ body {
   justify-content: flex-start;
 }
 
+.navbar__brand-group {
+  gap: 10px;
+}
+
 .navbar__right {
   display: flex;
   align-items: center;
@@ -27371,6 +27375,147 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
   }
 }
 
+/* Subscription layout repair: keep the plan summary in a predictable flow.
+   The previous desktop compact pass pulled the metadata up with a negative
+   margin, which made it collide with the plan title at normal viewport widths. */
+.account-subscription-panel.is-active-subscription {
+  width: min(100%, 920px) !important;
+}
+
+.account-subscription-panel.is-active-subscription .account-subscription-v2__active-card {
+  min-height: 0 !important;
+  padding: clamp(24px, 3vw, 38px) !important;
+}
+
+.account-subscription-panel.is-active-subscription .account-subscription-v2__active-meta {
+  max-width: none !important;
+  margin-top: 16px !important;
+  margin-bottom: 0 !important;
+}
+
+.account-subscription-panel.is-active-subscription :is(button, a):focus-visible {
+  outline: 3px solid rgba(117, 132, 90, 0.5) !important;
+  outline-offset: 3px !important;
+}
+
+@media (min-width: 900px) {
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-content {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "badges badges"
+      "title price"
+      "meta meta"
+      "actions actions" !important;
+    align-items: start !important;
+    column-gap: clamp(28px, 4vw, 64px) !important;
+    row-gap: 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-badges {
+    grid-area: badges !important;
+    margin-bottom: 20px !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-plan-row {
+    display: contents !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-title {
+    grid-area: title !important;
+    align-self: start !important;
+    margin: 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price-column {
+    grid-area: price !important;
+    align-items: flex-end !important;
+    margin: 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price {
+    margin: 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-meta {
+    grid-area: meta !important;
+    margin: 20px 0 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-actions--desktop {
+    grid-area: actions !important;
+    align-items: flex-start !important;
+    margin-top: 18px !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-actions--mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 899px) {
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-card {
+    padding: 22px 18px 20px !important;
+    border-radius: 20px !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-content {
+    display: block !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-plan-row {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price-column {
+    margin-left: auto !important;
+    align-items: flex-end !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-meta {
+    margin: 16px 0 0 !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-actions--mobile {
+    display: flex !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-actions--desktop {
+    display: none !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-title,
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price,
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-meta,
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-note {
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-plan-row {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-price-column {
+    align-items: flex-start !important;
+    margin-left: 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-card,
+  .account-subscription-panel.is-active-subscription .account-subscription-v2__active-card:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
 /* Giveaway popup preview */
 .rs-giveaway {
   --rs-giveaway-bg: #f7f1e4;
@@ -28132,15 +28277,19 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
 .preview-persona-panel {
   position: fixed;
   z-index: 10020;
-  top: 12px;
-  right: 12px;
-  width: min(360px, calc(100vw - 24px));
+  bottom: 16px;
+  left: 16px;
+  width: min(320px, calc(100vw - 32px));
   border: 1px solid rgba(126, 52, 24, 0.25);
   border-radius: 14px;
   background: #fff7ed;
   box-shadow: 0 14px 40px rgba(67, 33, 18, 0.2);
   color: #3f2317;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.preview-persona-panel:not(.is-expanded) {
+  width: min(250px, calc(100vw - 32px));
 }
 
 .preview-persona-panel__toggle {
@@ -28227,9 +28376,13 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
 
 @media (max-width: 640px) {
   .preview-persona-panel {
-    top: 8px;
-    right: 8px;
-    width: calc(100vw - 16px);
+    bottom: 8px;
+    left: 8px;
+    width: min(320px, calc(100vw - 16px));
+  }
+
+  .preview-persona-panel:not(.is-expanded) {
+    width: min(230px, calc(100vw - 16px));
   }
 }
 
@@ -28259,4 +28412,45 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
 
 .turnstile-overlay__panel p {
   margin: 0;
+}
+
+/* Keep the active plan summary compact on mobile. */
+@media (max-width: 899px) {
+  .account-subscription-v2__active-card {
+    position: relative;
+  }
+
+  .account-subscription-v2__active-content {
+    min-width: 0;
+    padding-top: 30px;
+  }
+
+  .account-subscription-v2__active-badges {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    margin: 0 !important;
+  }
+
+  .account-subscription-v2__active-plan-row {
+    align-items: baseline !important;
+    justify-content: flex-start !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+  }
+
+  .account-subscription-v2__active-title {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  .account-subscription-v2__active-price-column {
+    flex: 0 0 auto !important;
+  }
+
+  .account-subscription-v2__active-price {
+    margin: 0 0 7px !important;
+    white-space: nowrap !important;
+  }
 }

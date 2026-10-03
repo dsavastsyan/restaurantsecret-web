@@ -7,10 +7,11 @@ import { MenuOutdatedModal } from '@/components/MenuOutdatedModal';
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx';
 import DishTileV2 from './DishTileV2';
 import DishRowV2 from './DishRowV2';
-import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon } from './icons';
+import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon, LockIcon } from './icons';
 import '@/pages/menu-redesign.css';
 
 const CATS_VISIBLE = 3;
+const MENU_GUIDE_STORAGE_KEY = 'rs_menu_guide_v1';
 
 // AppShell wraps every page in `.container--menu`, which adds a max-width and
 // side/top padding. This page is edge-to-edge by design, so we flag the body
@@ -29,6 +30,15 @@ function useFullBleedLayout() {
 function buildDishAccessKey(dish) {
   if (dish?.id != null && dish?.id !== '') return `id:${dish.id}`;
   return `name:${String(dish?.name || '').trim().toLowerCase()}`;
+}
+
+function getInitialGuideStep(readOnly) {
+  if (readOnly || typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage.getItem(MENU_GUIDE_STORAGE_KEY) ? null : 'filters';
+  } catch {
+    return 'filters';
+  }
 }
 
 export default function MenuRedesignView({
@@ -91,13 +101,53 @@ export default function MenuRedesignView({
 }) {
   useFullBleedLayout();
 
+  const [guideStep, setGuideStep] = useState(() => getInitialGuideStep(readOnly));
+
+  useEffect(() => {
+    if (!guideStep || typeof window === 'undefined') return undefined;
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setGuideStep(null);
+        try {
+          window.sessionStorage.setItem(MENU_GUIDE_STORAGE_KEY, 'dismissed');
+        } catch {
+          // Session storage is optional; the in-memory dismissal still applies.
+        }
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [guideStep]);
+
+  const dismissGuide = () => {
+    setGuideStep(null);
+    try {
+      window.sessionStorage.setItem(MENU_GUIDE_STORAGE_KEY, 'dismissed');
+    } catch {
+      // Session storage is optional; the in-memory dismissal still applies.
+    }
+  };
+
+  const markGuideAction = () => {
+    if (guideStep === 'filters') setGuideStep('dish');
+  };
+
+  const completeGuide = () => {
+    setGuideStep(null);
+    try {
+      window.sessionStorage.setItem(MENU_GUIDE_STORAGE_KEY, 'completed');
+    } catch {
+      // Session storage is optional; the in-memory completion still applies.
+    }
+  };
+
   const selectedIngredientCount = ingredientFilter?.selected?.length ?? 0;
   const visibleCats = allCategoriesExpanded ? categoryOptions : categoryOptions.slice(0, CATS_VISIBLE);
   const hasMoreCats = !allCategoriesExpanded && categoryOptions.length > CATS_VISIBLE;
 
   const renderCatPills = () => (
     <>
-      <button type="button" className={`rsm2-cat ${selectedCategory === 'all' ? 'is-on' : ''}`} onClick={() => setSelectedCategory('all')}>
+      <button type="button" className={`rsm2-cat ${selectedCategory === 'all' ? 'is-on' : ''}`} onClick={() => { setSelectedCategory('all'); markGuideAction(); }}>
         Все
       </button>
       {visibleCats.map((name) => (
@@ -105,7 +155,7 @@ export default function MenuRedesignView({
           key={name}
           type="button"
           className={`rsm2-cat ${selectedCategory === name ? 'is-on' : ''}`}
-          onClick={() => setSelectedCategory(name)}
+          onClick={() => { setSelectedCategory(name); markGuideAction(); }}
         >
           {name}
         </button>
@@ -120,15 +170,15 @@ export default function MenuRedesignView({
 
   const renderChips = () => (
     <>
-      <button type="button" className={`rsm2-chip ${presets.lowKcal ? 'is-on' : ''}`} onClick={() => togglePreset('lowKcal')}>
+      <button type="button" className={`rsm2-chip ${presets.lowKcal ? 'is-on' : ''}`} onClick={() => { togglePreset('lowKcal'); markGuideAction(); }}>
         <span className="rsm2-chip__t">Мало калорий</span>
         <span className="rsm2-chip__d">≤ 400 ккал</span>
       </button>
-      <button type="button" className={`rsm2-chip ${presets.highProtein ? 'is-on' : ''}`} onClick={() => togglePreset('highProtein')}>
+      <button type="button" className={`rsm2-chip ${presets.highProtein ? 'is-on' : ''}`} onClick={() => { togglePreset('highProtein'); markGuideAction(); }}>
         <span className="rsm2-chip__t">Много белка</span>
         <span className="rsm2-chip__d">≥ 25 г</span>
       </button>
-      <button type="button" className={`rsm2-chip ${presets.lowFat ? 'is-on' : ''}`} onClick={() => togglePreset('lowFat')}>
+      <button type="button" className={`rsm2-chip ${presets.lowFat ? 'is-on' : ''}`} onClick={() => { togglePreset('lowFat'); markGuideAction(); }}>
         <span className="rsm2-chip__t">Мало жиров</span>
         <span className="rsm2-chip__d">≤ 10 г</span>
       </button>
@@ -148,11 +198,19 @@ export default function MenuRedesignView({
       openPreviewDishCard(dish, draft, menu?.menuCapturedAt);
       return;
     }
+    if (guideStep === 'dish') completeGuide();
     openDishCard(draft);
   };
 
   return (
-    <div className="rsm2-root">
+    <div className={`rsm2-root ${guideStep ? 'rsm2-root--guide-open' : ''}`}>
+      {guideStep && (
+        <div
+          className="rsm2-guide-scrim"
+          aria-hidden="true"
+          onClick={dismissGuide}
+        />
+      )}
       <div className="rsm2-hero">
         {/* Reporting a stale menu makes no sense inside the partner's own
             draft preview, so the trigger is omitted there rather than shown
@@ -253,56 +311,62 @@ export default function MenuRedesignView({
           {renderCatPills()}
         </div>
 
-        <div className="rsm2-chips">{renderChips()}</div>
+        <div className={`rsm2-filter-cluster ${guideStep === 'filters' ? 'is-guide-target' : ''}`}>
+          <div className="rsm2-chips">{renderChips()}</div>
 
-        {/* Grouped so the two disclosures always share a single row */}
-        <div className="rsm2-disclosures">
-          <button
-            type="button"
-            className={`rsm2-disclosure ${isAdvancedFiltersOpen ? 'is-on' : ''}`}
-            onClick={() => setIsAdvancedFiltersOpen((prev) => !prev)}
-          >
-            Свои КБЖУ<span className="rsm2-disclosure__caret">{isAdvancedFiltersOpen ? '▴' : '▾'}</span>
-          </button>
-          {/* Hidden entirely when the restaurant filled in no compositions —
-              there would be nothing to pick from. */}
-          {hasCompositions && (
+          {/* Keep the advanced controls in the same visual group as the quick filters. */}
+          <div className="rsm2-disclosures">
             <button
               type="button"
-              className={`rsm2-disclosure ${isIngredientFilterOpen || selectedIngredientCount ? 'is-on' : ''}`}
-              onClick={() => setIsIngredientFilterOpen((prev) => !prev)}
+              className={`rsm2-disclosure ${isAdvancedFiltersOpen ? 'is-on' : ''}`}
+              onClick={() => setIsAdvancedFiltersOpen((prev) => !prev)}
             >
-              Фильтр по ингредиентам
-              {selectedIngredientCount > 0 && (
-                <span className="rsm2-disclosure__badge">{selectedIngredientCount}</span>
-              )}
-              <span className="rsm2-disclosure__caret">{isIngredientFilterOpen ? '▴' : '▾'}</span>
+              Свои КБЖУ<span className="rsm2-disclosure__caret">{isAdvancedFiltersOpen ? '▴' : '▾'}</span>
             </button>
+            {/* Hidden entirely when the restaurant filled in no compositions —
+                there would be nothing to pick from. */}
+            {hasCompositions && (
+              <button
+                type="button"
+                className={`rsm2-disclosure ${isIngredientFilterOpen || selectedIngredientCount ? 'is-on' : ''}`}
+                onClick={() => setIsIngredientFilterOpen((prev) => !prev)}
+              >
+                Фильтр по ингредиентам
+                {selectedIngredientCount > 0 && (
+                  <span className="rsm2-disclosure__badge">{selectedIngredientCount}</span>
+                )}
+                <span className="rsm2-disclosure__caret">{isIngredientFilterOpen ? '▴' : '▾'}</span>
+              </button>
+            )}
+          </div>
+
+          <div className={`rsm2-advanced ${isAdvancedFiltersOpen ? 'is-open' : ''}`}>
+            <div className="rsm2-advanced__panel">
+              <RangeField label="Калории" value={range.kcal} onChange={(edge, val) => updateRange('kcal', edge, val)} />
+              <RangeField label="Белки, г" value={range.protein} onChange={(edge, val) => updateRange('protein', edge, val)} />
+              <RangeField label="Жиры, г" value={range.fat} onChange={(edge, val) => updateRange('fat', edge, val)} />
+              <RangeField label="Углеводы, г" value={range.carbs} onChange={(edge, val) => updateRange('carbs', edge, val)} />
+              <button type="button" className="rsm2-advanced__reset" onClick={resetFilters}>
+                Сбросить всё
+              </button>
+            </div>
+          </div>
+
+          {hasCompositions && isIngredientFilterOpen && (
+            <div className="rsm2-advanced is-open">
+              <IngredientPanel
+                options={ingredientOptions}
+                filter={ingredientFilter}
+                onToggle={toggleIngredient}
+                onModeChange={setIngredientMode}
+                onClear={clearIngredients}
+              />
+            </div>
           )}
         </div>
 
-        <div className={`rsm2-advanced ${isAdvancedFiltersOpen ? 'is-open' : ''}`}>
-          <div className="rsm2-advanced__panel">
-            <RangeField label="Калории" value={range.kcal} onChange={(edge, val) => updateRange('kcal', edge, val)} />
-            <RangeField label="Белки, г" value={range.protein} onChange={(edge, val) => updateRange('protein', edge, val)} />
-            <RangeField label="Жиры, г" value={range.fat} onChange={(edge, val) => updateRange('fat', edge, val)} />
-            <RangeField label="Углеводы, г" value={range.carbs} onChange={(edge, val) => updateRange('carbs', edge, val)} />
-            <button type="button" className="rsm2-advanced__reset" onClick={resetFilters}>
-              Сбросить всё
-            </button>
-          </div>
-        </div>
-
-        {hasCompositions && isIngredientFilterOpen && (
-          <div className="rsm2-advanced is-open" style={{ order: 11 }}>
-            <IngredientPanel
-              options={ingredientOptions}
-              filter={ingredientFilter}
-              onToggle={toggleIngredient}
-              onModeChange={setIngredientMode}
-              onClear={clearIngredients}
-            />
-          </div>
+        {!loading && !error && guideStep === 'filters' && (
+          <MenuGuide step="filters" onDismiss={dismissGuide} />
         )}
       </div>
 
@@ -315,16 +379,27 @@ export default function MenuRedesignView({
 
       <div className="rsm2-content">
         {loading && <p className="rsm2-loading">Загружаем меню…</p>}
-        {!!error && !loading && <p className="rsm2-loading">{error}</p>}
+        {!!error && !loading && (
+          error.kind === 'blocked' ? (
+            <div className="rsm2-status-block">
+              <LockIcon size={22} />
+              <p>{error.message}</p>
+              <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
+            </div>
+          ) : (
+            <p className="rsm2-loading">{error.message}</p>
+          )
+        )}
 
         {!loading && !error && (
           isFilteredResultsLocked ? (
             <div className="rsm2-filtered-access" role="status" aria-live="polite">
               <span className="rsm2-filtered-access__count">{formatPositionCount(filteredDishCount)}</span>
-              <h2 className="rsm2-filtered-access__title">Подходящие блюда найдены</h2>
-              <p className="rsm2-filtered-access__text">
-                Применённые фильтры показывают количество блюд. Оформите подписку, чтобы посмотреть их.
-              </p>
+              <h2 className="rsm2-filtered-access__title">
+                {filteredDishCount > 0
+                  ? 'Подходящие блюда найдены'
+                  : 'Подходящие блюда не найдены. Попробуйте изменить фильтры.'}
+              </h2>
               {filteredDishCount > 0 && (
                 <button type="button" className="rsm2-filtered-access__cta" onClick={onViewFilteredDishes}>
                   Посмотреть бесплатно
@@ -332,7 +407,9 @@ export default function MenuRedesignView({
               )}
             </div>
           ) : groupedDishes.length ? (
-            groupedDishes.map((section) => (
+            <>
+              {guideStep === 'dish' && <MenuGuide step="dish" onDismiss={dismissGuide} />}
+              {groupedDishes.map((section, sectionIndex) => (
               <div key={section.name}>
                 <div className="rsm2-section__head">
                   <h2 className="rsm2-section__title">{section.name}</h2>
@@ -340,7 +417,7 @@ export default function MenuRedesignView({
                   <div className="rsm2-section__rule" />
                 </div>
 
-                <div className="rsm2-grid rsm2-desktop-only">
+                <div className={`rsm2-grid rsm2-desktop-only ${guideStep === 'dish' && sectionIndex === 0 ? 'is-guide-target' : ''}`}>
                   {section.dishes.map((dish) => {
                     const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
                     return (
@@ -358,7 +435,7 @@ export default function MenuRedesignView({
                   })}
                 </div>
 
-                <div className="rsm2-grid rsm2-mobile-only">
+                <div className={`rsm2-grid rsm2-mobile-only ${guideStep === 'dish' && sectionIndex === 0 ? 'is-guide-target' : ''}`}>
                   {section.dishes.map((dish) => {
                     const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
                     return (
@@ -376,7 +453,8 @@ export default function MenuRedesignView({
                   })}
                 </div>
               </div>
-            ))
+              ))}
+            </>
           ) : (
             <div className="rsm2-empty">
               <p className="rsm2-empty__title">
@@ -400,6 +478,32 @@ export default function MenuRedesignView({
         />
       )}
     </div>
+  );
+}
+
+function MenuGuide({ step, onDismiss }) {
+  const isFiltersStep = step === 'filters';
+
+  return (
+    <aside className={`rsm2-guide rsm2-guide--${step}`} aria-label="Подсказка по меню" aria-live="polite">
+      <span className="rsm2-guide__mark" aria-hidden="true">✦</span>
+      <div className="rsm2-guide__copy">
+        <div className="rsm2-guide__meta">
+          Подсказка · {isFiltersStep ? '1 из 2' : '2 из 2'}
+        </div>
+        <h2 className="rsm2-guide__title">
+          {isFiltersStep ? 'Попробуй быстрые фильтры' : 'Теперь открой блюдо'}
+        </h2>
+        <p className="rsm2-guide__text">
+          {isFiltersStep
+            ? 'Настрой меню под себя одним нажатием.'
+            : 'В карточке увидишь состав, КБЖУ и сможешь сохранить то, что понравилось.'}
+        </p>
+      </div>
+      <button type="button" className="rsm2-guide__dismiss" onClick={onDismiss}>
+        Не сейчас
+      </button>
+    </aside>
   );
 }
 

@@ -4,7 +4,7 @@ import { computeMacroGeometry, formatNumeric, formatPortionLabel, formatPriceRub
 import { useAuth } from '@/store/auth';
 import { useSubscriptionStore } from '@/store/subscription';
 import { useFavoritesStore } from '@/store/favorites';
-import { useDiaryStore } from '@/store/diary';
+import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal';
 import { analytics } from '@/services/analytics';
 import MacroRing from './MacroRing';
 import { HeartIcon, DiaryIcon, LockIcon } from './icons';
@@ -40,8 +40,6 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
     isFavorite: state.isFavorite(Number(selectedDish.id)),
     toggle: state.toggle,
   }));
-  const addDiaryEntry = useDiaryStore((s) => s.addEntry);
-
   const favorited = isFavorite;
   const hasDishAccess = hasActiveSub || isFreeAccess;
   const photoUrl = selectedDish.photoUrl || selectedDish.photo_url || null;
@@ -70,34 +68,10 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
     await toggle(accessToken, Number(selectedDish.id), restaurantSlug);
   };
 
-  const handleDiaryAdd = async (e: React.MouseEvent) => {
+  const handleDiaryAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (readOnly) return;
-    if (!accessToken) {
-      navigate('/login', { state: { from: location.pathname + location.search } });
-      return;
-    }
-    if (!hasDishAccess) {
-      navigate('/account/subscription', { state: { from: location.pathname + location.search } });
-      return;
-    }
-    const safeNum = (val: any) => {
-      const n = Number(val);
-      return Number.isFinite(n) ? n : 0;
-    };
-    const dishId = Number(selectedDish.id);
-    await addDiaryEntry(accessToken, {
-      date: new Date().toISOString().split('T')[0],
-      dish_id: Number.isFinite(dishId) ? dishId : undefined,
-      restaurant_slug: restaurantSlug,
-      restaurant_name: restaurantName || undefined,
-      name: selectedDish.name || dish.name || 'Блюдо',
-      calories: safeNum(selectedDish.kcal),
-      protein: safeNum(selectedDish.protein),
-      fat: safeNum(selectedDish.fat),
-      carbs: safeNum(selectedDish.carbs),
-      weight: safeNum(selectedDish.weight) || undefined,
-    });
+    openAnyEatLaunchModal();
   };
 
   const handleOpen = (e: React.MouseEvent) => {

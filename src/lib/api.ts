@@ -1,5 +1,5 @@
 // src/lib/api.ts
-import { PD_API_BASE, PUBLIC_API_BASE } from "@/config/api";
+import { IS_PREVIEW, PD_API_BASE, PUBLIC_API_BASE } from "@/config/api";
 import { markOnboardingCompletedForToken } from "@/lib/onboarding";
 import { requestTurnstileToken } from "@/lib/turnstile";
 import { setToken } from "@/store/auth";
@@ -204,6 +204,18 @@ export const isUnauthorizedError = (error: unknown): error is ApiError => {
   return error instanceof ApiError && error.status === 401;
 };
 
+function notifyPreviewAuthRequired(token?: string) {
+  if (!IS_PREVIEW || !token || typeof window === "undefined") return;
+
+  try {
+    if (window.localStorage.getItem("rs_preview_persona")) {
+      window.dispatchEvent(new CustomEvent("rs:preview-auth-required"));
+    }
+  } catch {
+    // Ignore storage or event errors in restricted browser contexts.
+  }
+}
+
 export function apiPostAuth(path: string, body?: unknown, token?: string) {
   return fetch(`${PD_API_BASE}${path}`, {
     method: "POST",
@@ -258,6 +270,8 @@ export async function apiGet<T = unknown>(path: string, token?: string): Promise
     }
   }
 
+  if (res.status === 401) notifyPreviewAuthRequired(token);
+
   return handleResponse<T>(res);
 }
 
@@ -287,6 +301,8 @@ export async function apiPost<T = unknown>(path: string, body?: unknown, token?:
     }
   }
 
+  if (res.status === 401) notifyPreviewAuthRequired(token);
+
   return handleResponse<T>(res);
 }
 
@@ -299,6 +315,8 @@ export async function apiDelete<T = unknown>(path: string, token?: string): Prom
       res = await doFetch(path, { method: "DELETE" }, newToken); // ретрай 1 раз
     }
   }
+
+  if (res.status === 401) notifyPreviewAuthRequired(token);
 
   return handleResponse<T>(res);
 }

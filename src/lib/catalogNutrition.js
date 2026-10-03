@@ -43,8 +43,8 @@ export function getCatalogNutritionStatsForCriteria(restaurant, criteria = {}) {
   const entries = getNutritionCriteriaEntries(criteria)
 
   if (!entries.length) return { total, matching: total, hasData: dishes.length > 0 || total > 0 }
-  const backendMatching = Number(restaurant?.matchingDishesCount)
-  if (!dishes.length && Number.isFinite(backendMatching)) {
+  const backendMatching = Number(restaurant?.matchingDishesCount ?? restaurant?.matching_dishes_count)
+  if (Number.isFinite(backendMatching)) {
     return { total, matching: backendMatching, hasData: true }
   }
   if (!dishes.length) return { total, matching: null, hasData: false }
@@ -61,6 +61,8 @@ export function matchesCatalogNutritionCriteria(restaurant, criteria = {}) {
   if (!entries.length) return true
 
   const dishes = getCatalogNutritionDishes(restaurant)
+  const backendMatching = Number(restaurant?.matchingDishesCount ?? restaurant?.matching_dishes_count)
+  if (Number.isFinite(backendMatching)) return backendMatching > 0
   if (!dishes.length) return true
   return dishes.some((dish) => matchesNutritionDish(dish, entries))
 }

@@ -44,6 +44,7 @@ jobs:
           VITE_RESTAURANT_API_BASE: ${{ env.STAGING_PUBLIC_API_UPSTREAM }}
           VITE_DEPLOY_ENV: preview
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SITEMAP_API_URL: ${{ env.STAGING_PUBLIC_API_UPSTREAM }}
           SITEMAP_FETCH_TIMEOUT_MS: '45000'
           SITEMAP_STRICT_API_FETCH: 'true'
@@ -70,11 +71,27 @@ jobs:
           PREVIEW_BRANCH: ${{ steps.branch.outputs.name }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          DEPLOY_OUTPUT=$(npx wrangler@4 pages deploy dist \
-            --project-name restaurantsecret-web \
-            --branch "$PREVIEW_BRANCH" \
-            --commit-hash "$COMMIT_SHA")
-          echo "$DEPLOY_OUTPUT"
+          DEPLOY_OUTPUT=""
+          DEPLOY_STATUS=1
+          for ATTEMPT in 1 2 3; do
+            echo "Cloudflare Pages deploy attempt $ATTEMPT/3"
+            if DEPLOY_OUTPUT=$(npx --yes wrangler@4 pages deploy dist \
+              --project-name restaurantsecret-web \
+              --branch "$PREVIEW_BRANCH" \
+              --commit-hash "$COMMIT_SHA" 2>&1); then
+              DEPLOY_STATUS=0
+            else
+              DEPLOY_STATUS=$?
+            fi
+            echo "$DEPLOY_OUTPUT"
+            if [ "$DEPLOY_STATUS" -eq 0 ]; then
+              break
+            fi
+            if [ "$ATTEMPT" -lt 3 ]; then
+              sleep $((ATTEMPT * 10))
+            fi
+          done
+          test "$DEPLOY_STATUS" -eq 0
           DEPLOYMENT_URL=$(echo "$DEPLOY_OUTPUT" | sed -n 's/.*Take a peek over at \(https:\/\/[^[:space:]]*\.pages\.dev\).*/\1/p' | tail -1)
           test -n "$DEPLOYMENT_URL"
           echo "url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"

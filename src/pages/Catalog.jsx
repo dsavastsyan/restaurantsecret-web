@@ -1533,7 +1533,7 @@ export default function Catalog() {
             const googleRating = getRestaurantGoogleRating(r)
             const googlePlaceId = getGooglePlaceId(r)
             return (
-              <li key={`${r.slug || r.name}-${i}`} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
+              <li key={r.slug || r.id || r.name} className="catalog-card" role="group" aria-label={r?.name ?? 'Ресторан'}>
                 <div className="catalog-card__layout">
                   <GooglePlaceMedia key={googlePlaceId || r.slug || r.name} placeId={googlePlaceId} restaurantName={r.name} />
                   <div className="catalog-card__content">

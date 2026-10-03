@@ -89,6 +89,31 @@ test('matches multiple quick and custom nutrition criteria against one dish', ()
   assert.equal(matchesCatalogNutritionCriteria({ dishes: [{ kcal: 500, protein: 10 }] }, criteria), false)
 })
 
+test('uses the backend matching dish count when menu details are not embedded', () => {
+  const criteria = { calories: { min: '', max: 400 } }
+
+  assert.equal(
+    matchesCatalogNutritionCriteria({ dishesCount: 83, matchingDishesCount: 2 }, criteria),
+    true,
+  )
+  assert.equal(
+    matchesCatalogNutritionCriteria({ dishesCount: 41, matchingDishesCount: 0 }, criteria),
+    false,
+  )
+  assert.equal(
+    getCatalogNutritionStatsForCriteria({ dishesCount: 41, matchingDishesCount: 0 }, criteria).matching,
+    0,
+  )
+  assert.equal(
+    getCatalogNutritionStatsForCriteria({
+      dishesCount: 83,
+      matchingDishesCount: 2,
+      dishes: [{ kcal: 220 }, { kcal: 480 }, { kcal: 720 }],
+    }, criteria).matching,
+    2,
+  )
+})
+
 test('round-trips catalog filters through the menu navigation URL', () => {
   const params = new URLSearchParams('view=list')
   serializeCatalogFilterState(params, {
