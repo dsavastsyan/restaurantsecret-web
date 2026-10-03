@@ -304,60 +304,62 @@ export default function MenuRedesignView({
           {renderCatPills()}
         </div>
 
-        <div className={`rsm2-chips ${guideStep === 'filters' ? 'is-guide-target' : ''}`}>{renderChips()}</div>
+        <div className={`rsm2-filter-cluster ${guideStep === 'filters' ? 'is-guide-target' : ''}`}>
+          <div className="rsm2-chips">{renderChips()}</div>
 
-        {!loading && !error && guideStep === 'filters' && (
-          <MenuGuide step="filters" onDismiss={dismissGuide} />
-        )}
-
-        {/* Grouped so the two disclosures always share a single row */}
-        <div className="rsm2-disclosures">
-          <button
-            type="button"
-            className={`rsm2-disclosure ${isAdvancedFiltersOpen ? 'is-on' : ''}`}
-            onClick={() => setIsAdvancedFiltersOpen((prev) => !prev)}
-          >
-            Свои КБЖУ<span className="rsm2-disclosure__caret">{isAdvancedFiltersOpen ? '▴' : '▾'}</span>
-          </button>
-          {/* Hidden entirely when the restaurant filled in no compositions —
-              there would be nothing to pick from. */}
-          {hasCompositions && (
+          {/* Keep the advanced controls in the same visual group as the quick filters. */}
+          <div className="rsm2-disclosures">
             <button
               type="button"
-              className={`rsm2-disclosure ${isIngredientFilterOpen || selectedIngredientCount ? 'is-on' : ''}`}
-              onClick={() => setIsIngredientFilterOpen((prev) => !prev)}
+              className={`rsm2-disclosure ${isAdvancedFiltersOpen ? 'is-on' : ''}`}
+              onClick={() => setIsAdvancedFiltersOpen((prev) => !prev)}
             >
-              Фильтр по ингредиентам
-              {selectedIngredientCount > 0 && (
-                <span className="rsm2-disclosure__badge">{selectedIngredientCount}</span>
-              )}
-              <span className="rsm2-disclosure__caret">{isIngredientFilterOpen ? '▴' : '▾'}</span>
+              Свои КБЖУ<span className="rsm2-disclosure__caret">{isAdvancedFiltersOpen ? '▴' : '▾'}</span>
             </button>
+            {/* Hidden entirely when the restaurant filled in no compositions —
+                there would be nothing to pick from. */}
+            {hasCompositions && (
+              <button
+                type="button"
+                className={`rsm2-disclosure ${isIngredientFilterOpen || selectedIngredientCount ? 'is-on' : ''}`}
+                onClick={() => setIsIngredientFilterOpen((prev) => !prev)}
+              >
+                Фильтр по ингредиентам
+                {selectedIngredientCount > 0 && (
+                  <span className="rsm2-disclosure__badge">{selectedIngredientCount}</span>
+                )}
+                <span className="rsm2-disclosure__caret">{isIngredientFilterOpen ? '▴' : '▾'}</span>
+              </button>
+            )}
+          </div>
+
+          <div className={`rsm2-advanced ${isAdvancedFiltersOpen ? 'is-open' : ''}`}>
+            <div className="rsm2-advanced__panel">
+              <RangeField label="Калории" value={range.kcal} onChange={(edge, val) => updateRange('kcal', edge, val)} />
+              <RangeField label="Белки, г" value={range.protein} onChange={(edge, val) => updateRange('protein', edge, val)} />
+              <RangeField label="Жиры, г" value={range.fat} onChange={(edge, val) => updateRange('fat', edge, val)} />
+              <RangeField label="Углеводы, г" value={range.carbs} onChange={(edge, val) => updateRange('carbs', edge, val)} />
+              <button type="button" className="rsm2-advanced__reset" onClick={resetFilters}>
+                Сбросить всё
+              </button>
+            </div>
+          </div>
+
+          {hasCompositions && isIngredientFilterOpen && (
+            <div className="rsm2-advanced is-open">
+              <IngredientPanel
+                options={ingredientOptions}
+                filter={ingredientFilter}
+                onToggle={toggleIngredient}
+                onModeChange={setIngredientMode}
+                onClear={clearIngredients}
+              />
+            </div>
           )}
         </div>
 
-        <div className={`rsm2-advanced ${isAdvancedFiltersOpen ? 'is-open' : ''}`}>
-          <div className="rsm2-advanced__panel">
-            <RangeField label="Калории" value={range.kcal} onChange={(edge, val) => updateRange('kcal', edge, val)} />
-            <RangeField label="Белки, г" value={range.protein} onChange={(edge, val) => updateRange('protein', edge, val)} />
-            <RangeField label="Жиры, г" value={range.fat} onChange={(edge, val) => updateRange('fat', edge, val)} />
-            <RangeField label="Углеводы, г" value={range.carbs} onChange={(edge, val) => updateRange('carbs', edge, val)} />
-            <button type="button" className="rsm2-advanced__reset" onClick={resetFilters}>
-              Сбросить всё
-            </button>
-          </div>
-        </div>
-
-        {hasCompositions && isIngredientFilterOpen && (
-          <div className="rsm2-advanced is-open" style={{ order: 11 }}>
-            <IngredientPanel
-              options={ingredientOptions}
-              filter={ingredientFilter}
-              onToggle={toggleIngredient}
-              onModeChange={setIngredientMode}
-              onClear={clearIngredients}
-            />
-          </div>
+        {!loading && !error && guideStep === 'filters' && (
+          <MenuGuide step="filters" onDismiss={dismissGuide} />
         )}
       </div>
 
@@ -469,11 +471,11 @@ function MenuGuide({ step, onDismiss }) {
           Подсказка · {isFiltersStep ? '1 из 2' : '2 из 2'}
         </div>
         <h2 className="rsm2-guide__title">
-          {isFiltersStep ? 'Попробуй фильтр' : 'Теперь открой блюдо'}
+          {isFiltersStep ? 'Попробуй быстрые фильтры' : 'Теперь открой блюдо'}
         </h2>
         <p className="rsm2-guide__text">
           {isFiltersStep
-            ? 'Сузь меню под себя одним нажатием — например, выбери блюда с большим количеством белка.'
+            ? 'Настрой меню под себя одним нажатием.'
             : 'В карточке увидишь состав, КБЖУ и сможешь сохранить то, что понравилось.'}
         </p>
       </div>
