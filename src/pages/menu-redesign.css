@@ -258,6 +258,15 @@ body[data-rs-menu-v2] main {
   box-shadow: 0 6px 16px -10px rgba(119, 98, 61, 0.4);
 }
 
+.rsm2-category-bar {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.rsm2-category-bar .rsm2-cats {
+  align-items: center;
+}
+
 .rsm2-filter-toolbar {
   display: flex;
   align-items: center;

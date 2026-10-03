@@ -434,11 +434,15 @@ export default function MenuRedesignView({
               </div>
             )}
 
-            <div className="rsm2-cats rsm2-desktop-only" style={{ display: 'flex' }}>
-              {renderCatPills()}
-            </div>
           </div>
         )}
+
+        {/* Categories stay visible while the optional filter panel is closed. */}
+        <div className="rsm2-category-bar rsm2-desktop-only">
+          <div className="rsm2-cats">
+            {renderCatPills()}
+          </div>
+        </div>
 
         {isFilterPanelOpen && !loading && !error && guideStep === 'filters' && (
           <MenuGuide step="filters" onDismiss={dismissGuide} />
