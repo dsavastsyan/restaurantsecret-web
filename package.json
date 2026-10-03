@@ -9,7 +9,7 @@
   "packageManager": "npm@10.9.2",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/generate-spa-entrypoints.js && node scripts/generate-sitemap.js",
+    "build": "vite build && node scripts/generate-spa-entrypoints.js && node scripts/generate-sitemap.js && node scripts/prepare-service-worker.js",
     "build:preview": "npm run build && node scripts/prepare-preview-service-worker.js",
     "preview": "vite preview --port 5173",
     "test": "npm run test:unit",

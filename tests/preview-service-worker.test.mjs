@@ -71,8 +71,12 @@ test('preview runtime does not register the retirement worker without an existin
 test('production runtime still registers its service worker after load', async () => {
   let loadListener
   let registeredPath
+  let registeredOptions
   const serviceWorker = {
-    register: async (path) => { registeredPath = path },
+    register: async (path, options) => {
+      registeredPath = path
+      registeredOptions = options
+    },
   }
 
   configureServiceWorker({
@@ -85,6 +89,7 @@ test('production runtime still registers its service worker after load', async (
   assert.equal(typeof loadListener, 'function')
   await loadListener()
   assert.equal(registeredPath, '/service-worker.js')
+  assert.deepEqual(registeredOptions, { updateViaCache: 'none' })
 })
 
 test('preview worker retires legacy caches and reloads controlled tabs', async () => {
