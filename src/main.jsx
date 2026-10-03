@@ -13,12 +13,8 @@ import { getAuthState } from './store/auth'
 import PreviewPersonaPanel from './components/PreviewPersonaPanel.jsx'
 import { IS_PREVIEW } from './config/api'
 import { configureServiceWorker } from './lib/serviceWorker'
-import { initSentry, Sentry } from './lib/sentry'
-import CrashFallback from './components/CrashFallback.jsx'
 import './styles.css'
 import './account-mobile-profile.css'
-
-initSentry()
 
 const SPLASH_MAX_WAIT_MS = 5000
 const SPLASH_IDLE_MS = 350
@@ -347,10 +343,5 @@ function Root() {
   )
 }
 
-// Mount the root component. The boundary only catches render crashes anywhere
-// below it — it can't do anything about Root itself failing to mount.
-createRoot(document.getElementById('root')).render(
-  <Sentry.ErrorBoundary fallback={<CrashFallback />}>
-    <Root />
-  </Sentry.ErrorBoundary>
-)
+// Mount the root component.
+createRoot(document.getElementById('root')).render(<Root />)
