@@ -1078,6 +1078,11 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   text-overflow: ellipsis;
 }
 
+.rsm2-sort-control__direction-label {
+  color: var(--rsm2-muted);
+  font-size: 11px;
+}
+
 .rsm2-sort-control__caret {
   color: var(--rsm2-muted);
   font-size: 10px;
@@ -1088,8 +1093,8 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
-  width: 260px;
-  padding: 10px;
+  width: 282px;
+  padding: 12px;
   border: 1px solid var(--rsm2-border);
   border-radius: 14px;
   background: var(--rsm2-card);
@@ -1101,13 +1106,14 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   grid-template-columns: 1fr 1fr;
   gap: 4px;
   padding: 3px;
-  margin-bottom: 8px;
+  margin-top: 12px;
   border-radius: 10px;
   background: var(--rsm2-cream-alt);
 }
 
 .rsm2-sort-control__scope button,
 .rsm2-sort-control__option button,
+.rsm2-sort-control__directions button,
 .rsm2-sort-control__reset {
   border: 0;
   background: transparent;
@@ -1134,6 +1140,17 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   gap: 2px;
 }
 
+.rsm2-sort-control__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px 8px;
+  border-bottom: 1px solid var(--rsm2-hairline);
+  color: var(--rsm2-ink);
+  font: 700 13px/1.2 Inter, sans-serif;
+}
+
 .rsm2-sort-control__option {
   display: flex;
   align-items: center;
@@ -1151,20 +1168,38 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   text-align: left;
 }
 
-.rsm2-sort-control__direction {
-  min-width: 38px;
-  padding: 9px 8px;
-  color: var(--rsm2-ink) !important;
-  font-size: 15px !important;
+.rsm2-sort-control__directions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rsm2-hairline);
+}
+
+.rsm2-sort-control__directions button {
+  min-height: 34px;
+  padding: 7px 6px;
+  border-radius: 8px;
+  color: var(--rsm2-text-2);
+}
+
+.rsm2-sort-control__directions button.is-on {
+  background: var(--rsm2-cream-alt);
+  color: var(--rsm2-ink);
+  box-shadow: 0 1px 3px rgba(119, 98, 61, 0.12);
+}
+
+.rsm2-sort-control__directions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .rsm2-sort-control__reset {
-  width: 100%;
-  margin-top: 8px;
-  padding: 9px 8px 3px;
-  border-top: 1px solid var(--rsm2-hairline);
+  padding: 0;
   color: var(--rsm2-text-3);
-  text-align: left;
+  text-align: right;
+  font-size: 11px;
 }
 
 .rsm2-sort-control__reset:hover {
