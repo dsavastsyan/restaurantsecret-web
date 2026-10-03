@@ -20,8 +20,6 @@
   },
   "dependencies": {
     "@maplibre/maplibre-gl-leaflet": "^0.1.4",
-    "@sentry/react": "^11.2.0",
-    "@sentry/vite-plugin": "^5.4.0",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^1.27.0",
