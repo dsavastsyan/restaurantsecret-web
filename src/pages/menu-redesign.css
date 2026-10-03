@@ -1243,6 +1243,46 @@ body[data-rs-menu-v2] main {
   color: var(--rsm2-muted-3);
 }
 
+/* Anti-bot gate (rate-limited / temporarily blocked / unsolved captcha) —
+   a distinct status card so it reads as "the site is protecting itself",
+   not as a broken page (see incident 2026-09-29). */
+.rsm2-status-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+  margin: 24px auto;
+  padding: 28px 24px;
+  text-align: center;
+  background: var(--rsm2-card);
+  border: 1px solid var(--rsm2-border);
+  border-radius: 16px;
+  box-shadow: var(--rsm2-elev-1);
+  color: var(--rsm2-muted);
+}
+
+.rsm2-status-block svg {
+  color: var(--rsm2-accent);
+}
+
+.rsm2-status-block p {
+  margin: 0;
+  font: 600 13px/1.5 Inter, sans-serif;
+  color: var(--rsm2-text-3);
+}
+
+.rsm2-status-block button {
+  margin-top: 4px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 999px;
+  background: var(--rsm2-accent);
+  color: var(--rsm2-on-ink);
+  font: 700 12.5px/1 Inter, sans-serif;
+  cursor: pointer;
+}
+
 /* ---------- Responsive: switch to the mobile feed ---------- */
 
 /* Only ever *hide* an element here — never redeclare display:block/flex/grid
