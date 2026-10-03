@@ -648,6 +648,27 @@ function generateStaticRoutes(restaurants, menuBySlug) {
       }),
     )
     generatedCount += 1
+
+    // # The chain's bare `/menu/` URL ("/restaurants/syrovarnya/menu/") is where
+    // # the brand-level search demand landed back when one row owned that slug
+    // # (syrovarnya/menu/: 1.5k impressions / 94 clicks in 90 days). Once the
+    // # hub took over the bare slug, no restaurant page exists there any more
+    // # and a static host answers 404 — a hard 404 for the best-performing
+    // # URL of the chain. A static redirect to the hub keeps that signal and
+    // # works for every chain, current and future, without a hand-kept map.
+    // # Only emitted for a resolvable hub, i.e. when no restaurant owns the
+    // # bare slug (otherwise `/menu` is that restaurant's real page).
+    if (resolvableChainSlugs.has(chainSlug)) {
+      writeRouteHtml(
+        `/restaurants/${chainSlug}/menu`,
+        createRedirectHtml({
+          from: `/restaurants/${chainSlug}/menu`,
+          to: `/restaurants/${chainSlug}/`,
+          title: `${chainName} — адреса и меню сети с КБЖУ`,
+        }),
+      )
+      generatedCount += 1
+    }
   }
 
   for (const restaurant of restaurants.filter((r) => r.slug)) {
@@ -737,6 +758,9 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   const restaurantSlugSet = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
   for (const [oldSlug, newSlug] of Object.entries(RETIRED_RESTAURANT_SLUGS)) {
     if (restaurantSlugSet.has(oldSlug) || !restaurantSlugSet.has(newSlug)) continue
+    // # Already redirected straight to the hub above (one hop instead of
+    // # old URL -> branch page -> hub canonical).
+    if (resolvableChainSlugs.has(oldSlug)) continue
     const target = restaurants.find((r) => r.slug === newSlug)
     const name = getRestaurantName(target)
     writeRouteHtml(
