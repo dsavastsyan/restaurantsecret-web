@@ -359,18 +359,6 @@ export default function MenuRedesignView({
             )}
           </div>
           <div className="rsm2-hero__actions">
-            {/* Reporting a stale menu makes no sense inside the partner's own
-                draft preview, so the trigger is omitted there rather than shown
-                as a dead button. */}
-            {!readOnly && (
-              <button
-                type="button"
-                className="rsm2-hero__report"
-                onClick={() => setIsOutdatedOpen(true)}
-              >
-                Меню устарело?
-              </button>
-            )}
             {!readOnly && (
               <button
                 type="button"
@@ -391,6 +379,18 @@ export default function MenuRedesignView({
             <button type="button" className="rsm2-icon-btn" onClick={handleShare} aria-label="Поделиться">
               <ShareIcon size={17} />
             </button>
+            {/* Reporting a stale menu makes no sense inside the partner's own
+                draft preview, so the trigger is omitted there rather than shown
+                as a dead button. */}
+            {!readOnly && (
+              <button
+                type="button"
+                className="rsm2-hero__report"
+                onClick={() => setIsOutdatedOpen(true)}
+              >
+                Меню устарело?
+              </button>
+            )}
           </div>
         </div>
       </div>
