@@ -578,7 +578,10 @@ body[data-rs-menu-v2] main {
 .rsm2-guide--dish {
   align-self: flex-start;
   width: min(560px, 100%);
-  margin: -24px 0 -18px;
+  /* Float the second hint up over the filter surface so the first dish row
+     remains visible below it. The guide has a higher z-index than the sticky
+     filter bar, so this intentionally allows a small overlap. */
+  margin: -220px 0 -18px;
 }
 
 .rsm2-guide--dish::before {
@@ -1804,7 +1807,7 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   }
 
   .rsm2-guide--dish {
-    margin: -8px 0 -6px;
+    margin: -190px 0 -6px;
   }
 
   .rsm2-guide--restaurants {
