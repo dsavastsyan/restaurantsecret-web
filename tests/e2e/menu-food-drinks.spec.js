@@ -92,6 +92,7 @@ test('first onboarding hint collapses filters without applying one and shows the
   await expect(filterToggle).toHaveAttribute('aria-expanded', 'true')
   const lowKcal = page.locator('.rsm2-filter-cluster .rsm2-chip').first()
   await expect(lowKcal).toBeVisible()
+  await expect(page.locator('.rsm2-filter-panel .rsm2-guide--filters')).toBeVisible()
 
   await lowKcal.click()
   await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')

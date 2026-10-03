@@ -472,6 +472,10 @@ export default function MenuRedesignView({
               )}
             </div>
 
+            {guideStep === 'filters' && !loading && !error && (
+              <MenuGuide step="filters" onDismiss={dismissGuide} />
+            )}
+
             {sectionOptions.length > 1 && (
               <div className="rsm2-section-switch" role="tablist" aria-label="Раздел меню">
                 <button
@@ -504,10 +508,6 @@ export default function MenuRedesignView({
             {renderCatPills()}
           </div>
         </div>
-
-        {isFilterPanelOpen && !loading && !error && guideStep === 'filters' && (
-          <MenuGuide step="filters" onDismiss={dismissGuide} />
-        )}
       </div>
 
       {/* Mobile-only category rail, kept in sync with the desktop pills above */}
