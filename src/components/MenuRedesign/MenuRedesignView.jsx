@@ -268,18 +268,6 @@ export default function MenuRedesignView({
       )}
       {guideStep === 'restaurants' && <MenuGuide step="restaurants" onDismiss={dismissGuide} />}
       <div className="rsm2-hero">
-        {/* Reporting a stale menu makes no sense inside the partner's own
-            draft preview, so the trigger is omitted there rather than shown
-            as a dead button. */}
-        {!readOnly && (
-          <button
-            type="button"
-            className="rsm2-hero__report"
-            onClick={() => setIsOutdatedOpen(true)}
-          >
-            Меню устарело?
-          </button>
-        )}
         <div className="rsm2-hero__grid">
           <div className="rsm2-hero__lead">
             <h1 className="rsm2-hero__title" aria-label={`Меню ${seoRestaurantName} с КБЖУ`}>
@@ -308,6 +296,18 @@ export default function MenuRedesignView({
             )}
           </div>
           <div className="rsm2-hero__actions">
+            {/* Reporting a stale menu makes no sense inside the partner's own
+                draft preview, so the trigger is omitted there rather than shown
+                as a dead button. */}
+            {!readOnly && (
+              <button
+                type="button"
+                className="rsm2-hero__report"
+                onClick={() => setIsOutdatedOpen(true)}
+              >
+                Меню устарело?
+              </button>
+            )}
             {!readOnly && (
               <button
                 type="button"
