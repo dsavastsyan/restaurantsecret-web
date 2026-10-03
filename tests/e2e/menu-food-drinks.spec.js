@@ -137,6 +137,46 @@ test('favorites guide bridges the restaurant and first dish hearts on desktop an
   }
 })
 
+test('favorite targets advance the tour without changing favorites', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  const favoriteRequests = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.includes('/api/favorites')) favoriteRequests.push(request)
+  })
+
+  await page.goto('/restaurants/test-menu/menu')
+  await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+  await page.locator('.rsm2-category-bar .rsm2-cat').first().click()
+  await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+
+  await page.locator('.rsm2-icon-btn.is-guide-target').click()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+  expect(favoriteRequests).toHaveLength(0)
+
+  await page.reload()
+  await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+  await page.locator('.rsm2-category-bar .rsm2-cat').first().click()
+  await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+
+  await page.locator('.rsm2-grid.rsm2-desktop-only .rsm2-fav.is-guide-target').click()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+  expect(favoriteRequests).toHaveLength(0)
+})
+
+test('third hint closes and consumes any click', async ({ page }) => {
+  await mockMenu(page, mixedMenu)
+  await page.goto('/restaurants/test-menu/menu')
+  await expect(page.locator('.rsm2-guide--filters')).toBeVisible()
+  await page.locator('.rsm2-category-bar .rsm2-cat').first().click()
+  await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
+  await page.locator('.rsm2-icon-btn.is-guide-target').click()
+  await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Рестораны' }).click()
+  await expect(page.locator('.rsm2-guide')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/restaurants\/test-menu\/menu/)
+})
+
 test('section switch stays hidden when the menu has only food', async ({ page }) => {
   await mockMenu(page, { ...mixedMenu, categories: mixedMenu.categories.filter((category) => category.menuSection === 'food') })
   await page.goto('/restaurants/test-menu/menu')

@@ -195,12 +195,32 @@ export default function MenuRedesignView({
   }, [guideStep]);
 
   useEffect(() => {
-    if (guideStep !== 'restaurants' || typeof document === 'undefined') return undefined;
-    const handleNavigationClick = (event) => {
-      if (event.target.closest('[data-rs-menu-nav="restaurants"]')) completeGuide();
+    if (guideStep !== 'dish' && guideStep !== 'restaurants') return undefined;
+
+    const handleGuideClick = (event) => {
+      if (guideStep === 'dish') {
+        const target = event.target instanceof Element
+          ? event.target.closest('.rsm2-icon-btn.is-guide-target, .rsm2-fav.is-guide-target')
+          : null;
+        if (!target) return;
+
+        // The second hint is a tour step, not a real favorite action. Stop the
+        // click before it reaches either favorite button and show step three.
+        event.preventDefault();
+        event.stopPropagation();
+        setGuideStep('restaurants');
+        return;
+      }
+
+      // Step three is dismissed by any click, including the highlighted
+      // Restaurants link. The click belongs to the tour, not the page below.
+      event.preventDefault();
+      event.stopPropagation();
+      completeGuide();
     };
-    document.addEventListener('click', handleNavigationClick);
-    return () => document.removeEventListener('click', handleNavigationClick);
+
+    document.addEventListener('click', handleGuideClick, true);
+    return () => document.removeEventListener('click', handleGuideClick, true);
   }, [guideStep]);
 
   const markGuideAction = advanceGuide;
