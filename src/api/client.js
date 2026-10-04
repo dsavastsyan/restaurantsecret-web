@@ -1,6 +1,7 @@
 // Tiny wrapper around fetch. Handles query parameters, JSON parsing errors,
 // and provides typed errors for UI handling.
 import { API_BASE, IS_PREVIEW } from '@/config/api';
+import { solveCaptcha } from '@/lib/captchaChallenge';
 
 const BASE = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
 const URL_BASE = new URL(BASE, globalThis.location?.origin ?? 'http://localhost');
@@ -32,7 +33,14 @@ const parseJsonResponse = async (res) => {
   }
 };
 
-const request = async (path, { method = 'GET', params = {}, body, headers = {}, timeout = DEFAULT_TIMEOUT_MS } = {}) => {
+const request = async (path, {
+  method = 'GET',
+  params = {},
+  body,
+  headers = {},
+  timeout = DEFAULT_TIMEOUT_MS,
+  captchaRetried = false,
+} = {}) => {
   const url = new URL(path, URL_BASE);
   Object.entries(params).forEach(([k, v]) => {
     if (v == null) return;
@@ -46,6 +54,7 @@ const request = async (path, { method = 'GET', params = {}, body, headers = {}, 
   try {
     const res = await fetch(url, {
       method,
+      credentials: 'same-origin',
       headers: {
         'Accept': 'application/json',
         ...(body ? { 'Content-Type': 'application/json' } : {}),
@@ -58,7 +67,34 @@ const request = async (path, { method = 'GET', params = {}, body, headers = {}, 
     clearTimeout(timeoutId);
 
     const data = await parseJsonResponse(res);
-    if (!res.ok) throw createApiError(res.status, data?.message ?? res.statusText);
+    if (!res.ok) {
+      const captchaRequired = res.status === 403
+        && data?.error === 'captcha_required'
+        && typeof data?.sitekey === 'string'
+        && data.sitekey;
+
+      if (captchaRequired && !captchaRetried) {
+        const token = await solveCaptcha(data.sitekey);
+        return request(path, {
+          method,
+          params,
+          body,
+          headers: { ...headers, 'X-Captcha-Token': token },
+          timeout,
+          captchaRetried: true,
+        });
+      }
+
+      const message = typeof data?.message === 'string'
+        ? data.message
+        : typeof data?.error === 'string'
+          ? data.error
+          : res.statusText;
+      const error = createApiError(res.status, message);
+      error.code = typeof data?.error === 'string' ? data.error : undefined;
+      error.details = data;
+      throw error;
+    }
     return data;
   } catch (err) {
     clearTimeout(timeoutId);
@@ -67,7 +103,7 @@ const request = async (path, { method = 'GET', params = {}, body, headers = {}, 
       throw createApiError(null, 'Request timed out', 'timeout');
     }
 
-    if (err?.status || err?.kind) throw err;
+    if (err?.status || err?.kind || err?.code) throw err;
     throw createApiError(null, err?.message ?? 'Network error', 'network');
   }
 };

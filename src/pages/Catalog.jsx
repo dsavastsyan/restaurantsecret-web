@@ -63,6 +63,7 @@ const CatalogMap = lazy(() => import('../components/CatalogMap.jsx'))
 const FETCH_LIMIT = 48;
 const CLIENT_LOCATION_FETCH_LIMIT = 2000;
 const PAGE_SIZE = 8;
+const MIN_SEARCH_QUERY_LENGTH = 2;
 const EMPTY_METRO_DATA = { lines: [], stations: [] };
 const NUTRITION_PRESETS = [
   { key: 'calories', label: 'До 400 ккал', field: 'max', value: 400 },
@@ -71,6 +72,11 @@ const NUTRITION_PRESETS = [
 ]
 
 const getNutritionMenuKey = (city, slug) => `${city}:${slug}`
+
+const normalizeCatalogSearchQuery = (value) => {
+  const normalized = String(value || '').trim()
+  return normalized.length >= MIN_SEARCH_QUERY_LENGTH ? normalized : ''
+}
 
 const getNutritionMenuDishes = (payload) => {
   if (Array.isArray(payload?.items)) return payload.items
@@ -150,7 +156,7 @@ export default function Catalog() {
   const [nutritionMenuData, setNutritionMenuData] = useState({})
   const [isNutritionCustomOpen, setIsNutritionCustomOpen] = useState(false)
   const [query, setQuery] = useState(searchParams.get('q') || '')
-  const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '')
+  const [debouncedQuery, setDebouncedQuery] = useState(() => normalizeCatalogSearchQuery(searchParams.get('q')))
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [activeSearchSuggestionIndex, setActiveSearchSuggestionIndex] = useState(-1)
   const [currentPage, setCurrentPage] = useState(1)
@@ -324,7 +330,7 @@ export default function Catalog() {
 
   useEffect(() => {
     const handle = setTimeout(() => {
-      setDebouncedQuery(query.trim())
+      setDebouncedQuery(normalizeCatalogSearchQuery(query))
     }, 280)
 
     return () => clearTimeout(handle)
@@ -859,7 +865,7 @@ export default function Catalog() {
   const applySearchQuery = useCallback((value) => {
     const trimmedQuery = String(value || '').trim()
     setQuery(trimmedQuery)
-    setDebouncedQuery(trimmedQuery)
+    setDebouncedQuery(normalizeCatalogSearchQuery(trimmedQuery))
     setCurrentPage(1)
     const next = new URLSearchParams(window.location.search)
     if (trimmedQuery) next.set('q', trimmedQuery); else next.delete('q')
