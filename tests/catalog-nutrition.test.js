@@ -90,6 +90,23 @@ test('matches multiple quick and custom nutrition criteria against one dish', ()
   assert.equal(matchesCatalogNutritionCriteria({ dishes: [{ kcal: 500, protein: 10 }] }, criteria), false)
 })
 
+test('does not count a dish with missing nutrition as matching a filter', () => {
+  const criteria = {
+    calories: { min: '', max: 400 },
+    protein: { min: 25, max: '' },
+  }
+  const restaurant = {
+    dishesCount: 2,
+    dishes: [
+      { kcal: 220, protein: 30 },
+      { kcal: null, protein: 40 },
+    ],
+  }
+
+  assert.equal(getCatalogNutritionStatsForCriteria(restaurant, criteria).matching, 1)
+  assert.equal(matchesCatalogNutritionCriteria(restaurant, criteria), true)
+})
+
 test('uses the backend matching dish count when menu details are not embedded', () => {
   const criteria = { calories: { min: '', max: 400 } }
 

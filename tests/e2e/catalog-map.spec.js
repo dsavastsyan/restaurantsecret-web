@@ -392,6 +392,39 @@ test('filters restaurants by dish calories and shows only the matching dish coun
   await expect(page.locator('.catalog-card__dish')).toHaveCount(0)
 })
 
+test('does not fetch a full menu when the catalog API already returns the matching count', async ({ page }) => {
+  let menuRequests = 0
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/restaurants')
+  ), (route) => {
+    const { dishes, ...restaurantWithoutDishes } = restaurant
+    return route.fulfill({
+      json: {
+        items: [{
+          ...restaurantWithoutDishes,
+          matchingDishesCount: 1,
+          chainSlug: null,
+          chainName: null,
+        }],
+        total: 1,
+      },
+    })
+  })
+  await page.route((url) => (
+    isCatalogApi(url) && new URL(url).pathname.endsWith('/coffee-test/menu')
+  ), (route) => {
+    menuRequests += 1
+    return route.fulfill({ json: { items: restaurant.dishes } })
+  })
+  await page.goto('/catalog/moskva/?view=list')
+
+  await page.getByRole('button', { name: /КБЖУ блюд/ }).click()
+  await page.getByRole('button', { name: /До 400 ккал/ }).click()
+
+  await expect(page.locator('.catalog-card__label')).toHaveText('1 подходящее блюдо')
+  expect(menuRequests).toBe(0)
+})
+
 test('nutrition presets, custom values and reset stay functional', async ({ page }) => {
   await page.goto('/catalog/moskva/?view=list')
 

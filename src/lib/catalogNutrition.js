@@ -49,9 +49,8 @@ export function hasCatalogNutritionCriteria(criteria = {}) {
 function matchesNutritionDish(dish, entries) {
   return entries.every(({ field, min, max }) => {
     const value = Number(dish?.[field])
-    // Keep restaurants visible when the API has not embedded that macro yet;
-    // the server/card can still provide the nutrition information later.
-    if (!Number.isFinite(value)) return true
+    // A dish without the requested nutrition value cannot be confirmed as a match.
+    if (!Number.isFinite(value)) return false
     if (min !== null && value < min) return false
     if (max !== null && value > max) return false
     return true
