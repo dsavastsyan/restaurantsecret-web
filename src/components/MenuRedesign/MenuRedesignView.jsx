@@ -1013,11 +1013,13 @@ function MenuGuide({ step, onDismiss, restaurantCount, cityCount }) {
 
   const guideRestaurantCount = Number(restaurantCount);
   const guideCityCount = Number(cityCount);
+  const approximateRestaurantCount = Math.floor(guideRestaurantCount / 100) * 100;
   const restaurantsGuideText = Number.isFinite(guideRestaurantCount)
     && guideRestaurantCount > 0
+    && approximateRestaurantCount > 0
     && Number.isFinite(guideCityCount)
     && guideCityCount > 0
-    ? `Более ${guideRestaurantCount.toLocaleString('ru-RU')} ресторанов в ${guideCityCount.toLocaleString('ru-RU')} городах`
+    ? `Более ${approximateRestaurantCount.toLocaleString('ru-RU')} ресторанов в ${guideCityCount.toLocaleString('ru-RU')} городах`
     : 'Рестораны с полным КБЖУ блюд и быстрыми фильтрами';
 
   return (
