@@ -7,6 +7,8 @@ import {
   manifestPathForPullRequest,
   resolveReleasePullRequest,
   validateManifest,
+  verifyBackendRelease,
+  waitForBackendRelease,
 } from '../scripts/verify-backend-release.mjs'
 
 const manifestDirectory = new URL('../release/backend-dependencies/', import.meta.url)
@@ -29,10 +31,15 @@ const validManifest = {
   },
 }
 
-test('each web PR manifest pins both backend services and environments', async () => {
+test('each web PR manifest declares a valid dependency mode', async () => {
   assert.ok(manifestFiles.length > 0)
   for (const filename of manifestFiles) {
     const manifest = JSON.parse(await readFile(new URL(filename, manifestDirectory), 'utf8'))
+    if (manifest.backend_dependencies === false) {
+      assert.deepEqual(manifest, { version: 1, backend_dependencies: false }, filename)
+      assert.doesNotThrow(() => validateManifest(manifest), filename)
+      continue
+    }
     assert.deepEqual(Object.keys(manifest.services).sort(), ['cloudflare', 'pd_api'])
     assert.equal(manifest.services.cloudflare.repository, SERVICE_CONFIG.cloudflare.repository)
     assert.equal(manifest.services.pd_api.repository, SERVICE_CONFIG.pd_api.repository)
@@ -70,6 +77,27 @@ test('backend dependency manifest requires a pin for both environments', () => {
   const invalid = structuredClone(validManifest)
   delete invalid.services.cloudflare.production_pull_request
   assert.throws(() => validateManifest(invalid), /production_pull_request or pull_request is required/)
+})
+
+test('backend dependency manifest can explicitly declare no backend dependencies', () => {
+  assert.doesNotThrow(() => validateManifest({ version: 1, backend_dependencies: false }))
+  assert.throws(
+    () => validateManifest({ version: 1, backend_dependencies: false, services: {} }),
+    /services must be omitted/,
+  )
+})
+
+test('backend release gate skips backend API checks when no dependencies are declared', async () => {
+  const manifest = { version: 1, backend_dependencies: false }
+  const api = { get: async () => assert.fail('backend API must not be called') }
+  const logs = []
+
+  assert.deepEqual(await verifyBackendRelease({ api, manifest, environment: 'staging' }), [])
+  assert.deepEqual(
+    await waitForBackendRelease({ api, manifest, environment: 'staging', log: (message) => logs.push(message) }),
+    [],
+  )
+  assert.deepEqual(logs, ['[backend-release] no backend dependencies declared; skipping staging release gate'])
 })
 
 test('production gate requires the migration and backfill jobs before Worker deploy', () => {
