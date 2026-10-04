@@ -33,6 +33,7 @@ import {
   normalizeCatalogCuisine,
 } from '@/lib/catalogFilters'
 import {
+  getCatalogNutritionQueryParams,
   getCatalogNutritionStatsForCriteria,
   hasCatalogNutritionCriteria,
   getRestaurantGoogleRating,
@@ -70,6 +71,7 @@ const NUTRITION_PRESETS = [
   { key: 'protein', label: 'Белка от 25 г', field: 'min', value: 25 },
   { key: 'fat', label: 'Жиров до 10 г', field: 'max', value: 10 },
 ]
+const SEARCH_RESTAURANT_BATCH_SIZE = 45
 
 const getNutritionMenuKey = (city, slug) => `${city}:${slug}`
 
@@ -405,6 +407,36 @@ export default function Catalog() {
     () => api.search(debouncedQuery, { city: selectedCity.id }),
     { enabled: Boolean(debouncedQuery) },
   )
+  const searchRestaurantSlugs = useMemo(() => (
+    Array.from(new Set(
+      (crossCityResults?.restaurants || [])
+        .map((restaurant) => String(restaurant?.slug || '').trim())
+        .filter(Boolean),
+    ))
+  ), [crossCityResults?.restaurants])
+  const { data: hydratedSearchRestaurants } = useSWRLite(
+    searchRestaurantSlugs.length
+      ? `search-restaurants:${selectedCity.id}:${searchRestaurantSlugs.join(',')}:${JSON.stringify(nutritionCriteria)}`
+      : null,
+    async () => {
+      const batches = []
+      for (let index = 0; index < searchRestaurantSlugs.length; index += SEARCH_RESTAURANT_BATCH_SIZE) {
+        batches.push(searchRestaurantSlugs.slice(index, index + SEARCH_RESTAURANT_BATCH_SIZE))
+      }
+      const responses = await Promise.all(batches.map((slugs) => api.restaurants({
+        city: selectedCity.id,
+        limit: slugs.length,
+        slugs,
+        ...getCatalogNutritionQueryParams(nutritionCriteria),
+      })))
+      return responses.flatMap((response) => response?.items || [])
+    },
+    { enabled: searchRestaurantSlugs.length > 0 },
+  )
+  const hydratedSearchRestaurantsBySlug = useMemo(
+    () => new Map((hydratedSearchRestaurants || []).map((restaurant) => [restaurant.slug, restaurant])),
+    [hydratedSearchRestaurants],
+  )
   const usesClientMetroFilter = locationMode === 'metro' && selectedMetro.length > 0
   // With a radius, station coordinates are the source of truth. Requiring a
   // matching API metro label first would hide restaurants that are physically
@@ -440,14 +472,7 @@ export default function Catalog() {
       near_lon: isRadiusFilterActive && !usesClientMetroFilter ? locationAnchorPoints.map((point) => point.lon) : undefined,
       radius_m: isRadiusFilterActive && !usesClientMetroFilter ? radiusKm * 1000 : undefined,
       sort,
-      nutrition_calories_min: nutritionCriteria.calories?.min || undefined,
-      nutrition_calories_max: nutritionCriteria.calories?.max || undefined,
-      nutrition_protein_min: nutritionCriteria.protein?.min || undefined,
-      nutrition_protein_max: nutritionCriteria.protein?.max || undefined,
-      nutrition_fat_min: nutritionCriteria.fat?.min || undefined,
-      nutrition_fat_max: nutritionCriteria.fat?.max || undefined,
-      nutrition_carbs_min: nutritionCriteria.carbs?.min || undefined,
-      nutrition_carbs_max: nutritionCriteria.carbs?.max || undefined,
+      ...getCatalogNutritionQueryParams(nutritionCriteria),
     }),
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
@@ -492,13 +517,15 @@ export default function Catalog() {
     const restaurants = Array.isArray(crossCityResults?.restaurants) ? crossCityResults.restaurants : []
     return restaurants.map((result) => {
       const catalogItem = allItemsWithNutrition.find((item) => item.slug === result.slug)
+      const hydratedItem = hydratedSearchRestaurantsBySlug.get(result.slug)
       return {
         ...catalogItem,
         ...result,
-        cuisine: normalizeCatalogCuisine(result.cuisine || catalogItem?.cuisine),
+        ...hydratedItem,
+        cuisine: normalizeCatalogCuisine(result.cuisine || hydratedItem?.cuisine || catalogItem?.cuisine),
       }
     })
-  }, [allItemsWithNutrition, crossCityResults?.restaurants])
+  }, [allItemsWithNutrition, crossCityResults?.restaurants, hydratedSearchRestaurantsBySlug])
 
   const mapSourceItems = useMemo(
     () => Array.isArray(rawMapData?.items) ? rawMapData.items : [],
