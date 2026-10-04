@@ -106,6 +106,15 @@ export function validateManifest(document) {
     throw new Error('backend dependency manifest must be an object')
   }
   if (document.version !== 1) throw new Error('backend dependency manifest version must be 1')
+  if (document.backend_dependencies !== undefined && typeof document.backend_dependencies !== 'boolean') {
+    throw new Error('backend_dependencies must be boolean')
+  }
+  if (document.backend_dependencies === false) {
+    if (document.services !== undefined) {
+      throw new Error('services must be omitted when backend_dependencies is false')
+    }
+    return document
+  }
   if (!document.services || typeof document.services !== 'object' || Array.isArray(document.services)) {
     throw new Error('backend dependency manifest must contain services')
   }
@@ -244,6 +253,7 @@ export async function verifyBackendRelease({ api, manifest, environment }) {
   if (!['staging', 'production'].includes(environment)) {
     throw new Error(`environment must be staging or production, got ${environment}`)
   }
+  if (manifest.backend_dependencies === false) return []
   const entries = await Promise.all(
     Object.entries(SERVICE_CONFIG).map(([service]) =>
       inspectService(api, service, manifest.services[service], environment),
@@ -264,6 +274,10 @@ export async function waitForBackendRelease({
   sleepImpl = sleep,
   log = console.log,
 }) {
+  if (manifest.backend_dependencies === false) {
+    log(`[backend-release] no backend dependencies declared; skipping ${environment} release gate`)
+    return []
+  }
   const deadline = now() + timeoutSeconds * 1000
   while (true) {
     const results = await verifyBackendRelease({ api, manifest, environment })
