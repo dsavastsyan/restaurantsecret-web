@@ -179,6 +179,7 @@ export default function Menu({
 
   const [menu, setMenu] = useState(() => previewMode ? normalizeMenu(previewMenu) : null)
   const [seoHint] = useState(() => (previewMode ? null : readSeoHint()))
+  const [guideCatalogStats, setGuideCatalogStats] = useState(null)
   const [loading, setLoading] = useState(!previewMode)
   const [error, setError] = useState(null)
   const [isOutdatedOpen, setIsOutdatedOpen] = useState(false)
@@ -195,6 +196,38 @@ export default function Menu({
   const [ingredientFilter, setIngredientFilter] = useState(createDefaultIngredientFilter)
   const [menuSort, setMenuSort] = useState(createDefaultMenuSort)
   const [categorySorts, setCategorySorts] = useState({})
+
+  // The menu guide's final step uses the same public city list as the catalog.
+  // That endpoint already excludes hidden/inactive cities, so summing its
+  // per-city restaurant counts keeps the copy aligned with what visitors can
+  // actually browse.
+  useEffect(() => {
+    if (previewMode) return undefined
+
+    let aborted = false
+    apiGet('/cities')
+      .then((payload) => {
+        const cities = Array.isArray(payload?.items)
+          ? payload.items.filter((cityItem) => (
+            cityItem?.hidden !== true
+            && cityItem?.isHidden !== true
+            && cityItem?.is_hidden !== 1
+          ))
+          : []
+        const restaurantCount = cities.reduce((total, cityItem) => {
+          const count = Number(cityItem?.restaurantCount ?? cityItem?.restaurant_count)
+          return total + (Number.isFinite(count) && count > 0 ? count : 0)
+        }, 0)
+        if (!aborted) setGuideCatalogStats({ restaurantCount, cityCount: cities.length })
+      })
+      .catch((statsError) => {
+        if (!aborted) console.warn('Failed to load menu guide catalog stats', statsError)
+      })
+
+    return () => {
+      aborted = true
+    }
+  }, [previewMode])
 
   // Reset menu-local filters when the restaurant or incoming catalog filters change.
   useEffect(() => {
@@ -594,6 +627,8 @@ export default function Menu({
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
       heroDishCount={seoDishCount}
+      guideRestaurantCount={guideCatalogStats?.restaurantCount}
+      guideCityCount={guideCatalogStats?.cityCount}
       dishes={dishes}
       filtered={filtered}
       groupedDishes={groupedDishesSorted}

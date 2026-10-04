@@ -48,6 +48,8 @@ function getInitialGuideStep(readOnly) {
 export default function MenuRedesignView({
   seoRestaurantName,
   heroDishCount,
+  guideRestaurantCount,
+  guideCityCount,
   dishes,
   filtered,
   groupedDishes,
@@ -328,7 +330,14 @@ export default function MenuRedesignView({
           onClick={dismissGuide}
         />
       )}
-      {guideStep === 'restaurants' && <MenuGuide step="restaurants" onDismiss={dismissGuide} />}
+      {guideStep === 'restaurants' && (
+        <MenuGuide
+          step="restaurants"
+          onDismiss={dismissGuide}
+          restaurantCount={guideRestaurantCount}
+          cityCount={guideCityCount}
+        />
+      )}
       {guideStep === 'dish' && <MenuGuide step="dish" onDismiss={dismissGuide} />}
       <div className="rsm2-hero">
         <div className="rsm2-hero__grid">
@@ -809,12 +818,14 @@ function getRectEdgePoint(rect, target) {
   };
 }
 
-function MenuGuide({ step, onDismiss }) {
+function MenuGuide({ step, onDismiss, restaurantCount, cityCount }) {
   const isFiltersStep = step === 'filters';
   const isDishStep = step === 'dish';
+  const isRestaurantsStep = step === 'restaurants';
   const stepNumber = isFiltersStep ? '1' : isDishStep ? '2' : '3';
   const guideRef = useRef(null);
   const [dishGuideGeometry, setDishGuideGeometry] = useState(null);
+  const [restaurantsGuideGeometry, setRestaurantsGuideGeometry] = useState(null);
 
   useLayoutEffect(() => {
     if (!isDishStep || typeof window === 'undefined' || typeof document === 'undefined') {
@@ -919,13 +930,95 @@ function MenuGuide({ step, onDismiss }) {
     };
   }, [isDishStep]);
 
+  useLayoutEffect(() => {
+    if (!isRestaurantsStep || typeof window === 'undefined' || typeof document === 'undefined') {
+      setRestaurantsGuideGeometry(null);
+      return undefined;
+    }
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const findVisibleTarget = (selector) => Array.from(document.querySelectorAll(selector)).find((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+
+    let frameId = 0;
+    const updateGeometry = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        if (window.innerWidth <= 760) {
+          setRestaurantsGuideGeometry(null);
+          return;
+        }
+
+        const guide = guideRef.current;
+        const root = guide?.closest('.rsm2-root');
+        const restaurantsLink = findVisibleTarget('.navbar__center a[data-rs-menu-nav="restaurants"]');
+        if (!guide || !root || !restaurantsLink) return;
+
+        const rootRect = root.getBoundingClientRect();
+        const guideRect = guide.getBoundingClientRect();
+        const linkRect = restaurantsLink.getBoundingClientRect();
+        const guideWidth = guideRect.width;
+        const horizontalMargin = 36;
+        const preferredLeft = linkRect.left - rootRect.left;
+        const left = clamp(
+          preferredLeft,
+          horizontalMargin,
+          Math.max(horizontalMargin, rootRect.width - guideWidth - horizontalMargin),
+        );
+        const targetCenter = linkRect.left + linkRect.width / 2 - rootRect.left;
+        const top = linkRect.bottom + 22 - rootRect.top;
+
+        setRestaurantsGuideGeometry({
+          top,
+          left,
+          tailX: clamp(targetCenter - left, 12, guideWidth - 12),
+        });
+      });
+    };
+
+    updateGeometry();
+    const root = guideRef.current?.closest('.rsm2-root');
+    const observer = typeof ResizeObserver === 'undefined' || !root
+      ? null
+      : new ResizeObserver(updateGeometry);
+    if (observer) {
+      observer.observe(root);
+      observer.observe(guideRef.current);
+    }
+    window.addEventListener('resize', updateGeometry);
+    window.addEventListener('load', updateGeometry);
+    return () => {
+      cancelAnimationFrame(frameId);
+      observer?.disconnect();
+      window.removeEventListener('resize', updateGeometry);
+      window.removeEventListener('load', updateGeometry);
+    };
+  }, [isRestaurantsStep]);
+
   const guideStyle = isDishStep && dishGuideGeometry
     ? {
       top: `${dishGuideGeometry.top}px`,
       '--rsm2-guide-top-tail-x': `${dishGuideGeometry.restaurantTailX}px`,
       '--rsm2-guide-bottom-tail-x': `${dishGuideGeometry.dishTailX}px`,
     }
+    : isRestaurantsStep && restaurantsGuideGeometry
+      ? {
+        top: `${restaurantsGuideGeometry.top}px`,
+        left: `${restaurantsGuideGeometry.left}px`,
+        '--rsm2-guide-tail-x': `${restaurantsGuideGeometry.tailX}px`,
+      }
     : undefined;
+
+  const guideRestaurantCount = Number(restaurantCount);
+  const guideCityCount = Number(cityCount);
+  const restaurantsGuideText = Number.isFinite(guideRestaurantCount)
+    && guideRestaurantCount > 0
+    && Number.isFinite(guideCityCount)
+    && guideCityCount > 0
+    ? `Более ${guideRestaurantCount.toLocaleString('ru-RU')} ресторанов в ${guideCityCount.toLocaleString('ru-RU')} городах`
+    : 'Рестораны с полным КБЖУ блюд и быстрыми фильтрами';
 
   return (
     <>
@@ -967,7 +1060,7 @@ function MenuGuide({ step, onDismiss }) {
             {isFiltersStep
               ? 'Попробуй быстрые фильтры'
               : isDishStep
-                ? 'Добавляйте любимые меню и рестораны в избранное'
+                ? 'Добавляйте любимые блюда и рестораны в избранное'
                 : 'Выбирайте заранее без стресса'}
           </h2>
           <p className="rsm2-guide__text">
@@ -975,7 +1068,7 @@ function MenuGuide({ step, onDismiss }) {
               ? 'Настрой меню под себя одним нажатием'
               : isDishStep
                 ? 'Сравнивайте позиции и быстро возвращайтесь к любимым местам и блюдам'
-                : 'Более 600 ресторанов с полным КБЖУ блюд и быстрыми фильтрами'}
+                : restaurantsGuideText}
           </p>
         </div>
         <button type="button" className="rsm2-guide__dismiss" onClick={onDismiss}>

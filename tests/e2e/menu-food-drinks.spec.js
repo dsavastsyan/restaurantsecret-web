@@ -42,6 +42,14 @@ const mixedMenu = {
   ],
 }
 
+const catalogCities = {
+  items: [
+    { id: 'Москва', name: 'Москва', restaurantCount: 601 },
+    { id: 'Казань', name: 'Казань', restaurantCount: 89 },
+    { id: 'Минск', name: 'Минск', restaurantCount: 12 },
+  ],
+}
+
 const isApiRequest = (url, suffix) => (
   url.hostname === 'restaurantsecret-api-staging.dsavastyan.workers.dev'
     || /^\/api(?:\/catalog)?\//.test(url.pathname)
@@ -50,6 +58,7 @@ const isApiRequest = (url, suffix) => (
 async function mockMenu(page, payload) {
   await page.route((url) => isApiRequest(url, '/restaurants/test-menu/menu'), (route) => route.fulfill({ json: payload }))
   await page.route((url) => isApiRequest(url, '/restaurants/map'), (route) => route.fulfill({ json: { items: [] } }))
+  await page.route((url) => isApiRequest(url, '/cities'), (route) => route.fulfill({ json: catalogCities }))
 }
 
 async function dismissMenuGuide(page) {
@@ -112,7 +121,7 @@ test('first onboarding hint collapses filters without applying one and shows the
   await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
   await expect(page.locator('.rsm2-filter-cluster')).toHaveCount(0)
   await expect(page.locator('.rsm2-filter-toggle__count')).toHaveCount(0)
-  await expect(page.locator('.rsm2-guide--dish')).toContainText('Добавляйте любимые меню и рестораны в избранное')
+  await expect(page.locator('.rsm2-guide--dish')).toContainText('Добавляйте любимые блюда и рестораны в избранное')
 
   await filterToggle.click()
   await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
@@ -222,8 +231,25 @@ test('third hint closes and consumes any click', async ({ page }) => {
   await expect(page.locator('.rsm2-guide--dish')).toBeVisible()
   await page.locator('.rsm2-icon-btn.is-guide-target').click()
   await expect(page.locator('.rsm2-guide--restaurants')).toBeVisible()
-  await expect(page.locator('.rsm2-guide--restaurants')).toContainText('Более 600 ресторанов')
+  await expect(page.locator('.rsm2-guide--restaurants')).toContainText('Более 702 ресторанов в 3 городах')
   await expect(page.locator('.rsm2-guide--restaurants')).toHaveCSS('position', 'absolute')
+
+  const guideAndTarget = await page.evaluate(() => {
+    const guide = document.querySelector('.rsm2-guide--restaurants')?.getBoundingClientRect()
+    const target = document.querySelector('.navbar__center a[data-rs-menu-nav="restaurants"]')?.getBoundingClientRect()
+    if (!guide || !target) return null
+    return {
+      guideTop: guide.top,
+      guideLeft: guide.left,
+      guideRight: guide.right,
+      targetBottom: target.bottom,
+      targetCenter: target.left + target.width / 2,
+    }
+  })
+  expect(guideAndTarget).not.toBeNull()
+  expect(guideAndTarget.guideTop).toBeGreaterThan(guideAndTarget.targetBottom)
+  expect(guideAndTarget.targetCenter).toBeGreaterThanOrEqual(guideAndTarget.guideLeft)
+  expect(guideAndTarget.targetCenter).toBeLessThanOrEqual(guideAndTarget.guideRight)
 
   await page.getByRole('link', { name: 'Рестораны' }).click()
   await expect(page.locator('.rsm2-guide')).toHaveCount(0)
