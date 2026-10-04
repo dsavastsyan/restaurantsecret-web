@@ -8,6 +8,27 @@ export const DEFAULT_CALORIE_RANGES = [
 
 const NUTRITION_FIELDS = ['calories', 'protein', 'fat', 'carbs']
 
+const NUTRITION_QUERY_FIELDS = [
+  ['calories', 'nutrition_calories_min', 'nutrition_calories_max'],
+  ['protein', 'nutrition_protein_min', 'nutrition_protein_max'],
+  ['fat', 'nutrition_fat_min', 'nutrition_fat_max'],
+  ['carbs', 'nutrition_carbs_min', 'nutrition_carbs_max'],
+]
+
+const hasNutritionValue = (value) => value !== '' && value != null
+
+export function getCatalogNutritionQueryParams(criteria = {}) {
+  return Object.fromEntries(
+    NUTRITION_QUERY_FIELDS.flatMap(([field, minKey, maxKey]) => {
+      const value = criteria[field] || {}
+      const entries = []
+      if (hasNutritionValue(value.min)) entries.push([minKey, value.min])
+      if (hasNutritionValue(value.max)) entries.push([maxKey, value.max])
+      return entries
+    }),
+  )
+}
+
 function getNutritionCriteriaEntries(criteria = {}) {
   return NUTRITION_FIELDS.map((field) => {
     const value = criteria[field] || {}
@@ -39,7 +60,8 @@ function matchesNutritionDish(dish, entries) {
 
 export function getCatalogNutritionStatsForCriteria(restaurant, criteria = {}) {
   const dishes = getCatalogNutritionDishes(restaurant)
-  const total = Number.isFinite(Number(restaurant?.dishesCount)) ? Number(restaurant.dishesCount) : dishes.length
+  const rawTotal = restaurant?.dishesCount ?? restaurant?.dishes_count
+  const total = Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : dishes.length
   const entries = getNutritionCriteriaEntries(criteria)
 
   if (!entries.length) return { total, matching: total, hasData: dishes.length > 0 || total > 0 }
@@ -97,7 +119,8 @@ function getNutritionSummary(restaurant, rangeKey) {
 
 export function getCatalogNutritionStats(restaurant, range) {
   const dishes = getCatalogNutritionDishes(restaurant)
-  const total = Number.isFinite(Number(restaurant?.dishesCount)) ? Number(restaurant.dishesCount) : dishes.length
+  const rawTotal = restaurant?.dishesCount ?? restaurant?.dishes_count
+  const total = Number.isFinite(Number(rawTotal)) ? Number(rawTotal) : dishes.length
 
   if (!range) return { total, matching: total, hasData: dishes.length > 0 || total > 0 }
 
