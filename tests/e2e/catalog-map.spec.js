@@ -637,6 +637,57 @@ test('suggests a matching chain and leaves only nearby metro markers after selec
   await expect(page.locator('.catalog-map-panel .rs-metro-marker')).toHaveCount(2)
 })
 
+test('retries catalog search after a captcha challenge', async ({ page }) => {
+  let searchRequests = 0
+
+  await page.addInitScript(() => {
+    window.turnstile = {
+      render(_container, options) {
+        options.callback('test-captcha-token')
+        return 'test-widget'
+      },
+      remove() {},
+    }
+  })
+  await page.route((url) => {
+    const path = new URL(url).pathname
+    return isCatalogApi(url) && path.endsWith('/search')
+  }, (route) => {
+    searchRequests += 1
+    if (searchRequests === 1) {
+      return route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'captcha_required', sitekey: 'test-sitekey' }),
+      })
+    }
+    return route.fulfill({ json: { restaurants: [], dishes: [], otherCities: [] } })
+  })
+
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('combobox', { name: 'Поиск по ресторанам' }).fill('sur')
+
+  await expect.poll(() => searchRequests).toBe(2)
+  await expect(page.locator('.err')).toHaveCount(0)
+})
+
+test('does not send catalog search for a one-character query', async ({ page }) => {
+  let searchRequests = 0
+  await page.route((url) => {
+    const path = new URL(url).pathname
+    return isCatalogApi(url) && path.endsWith('/search')
+  }, (route) => {
+    searchRequests += 1
+    return route.fulfill({ json: { restaurants: [], dishes: [], otherCities: [] } })
+  })
+
+  await page.goto('/catalog/moskva/?view=list')
+  await page.getByRole('combobox', { name: 'Поиск по ресторанам' }).fill('s')
+  await page.waitForTimeout(500)
+
+  expect(searchRequests).toBe(0)
+})
+
 test('finds the She chain by the Cyrillic query ши', async ({ page }) => {
   await page.route((url) => {
     const path = new URL(url).pathname
