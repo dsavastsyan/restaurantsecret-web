@@ -414,7 +414,11 @@ export default function Catalog() {
         .filter(Boolean),
     ))
   ), [crossCityResults?.restaurants])
-  const { data: hydratedSearchRestaurants } = useSWRLite(
+  const {
+    data: hydratedSearchRestaurants,
+    error: hydratedSearchError,
+    loading: hydratedSearchLoading,
+  } = useSWRLite(
     searchRestaurantSlugs.length
       ? `search-restaurants:${selectedCity.id}:${searchRestaurantSlugs.join(',')}:${JSON.stringify(nutritionCriteria)}`
       : null,
@@ -633,11 +637,16 @@ export default function Catalog() {
 
   useEffect(() => {
     if (!hasNutritionFilter) return
+    // Search results arrive before their nutrition-aware catalog hydration.
+    // Wait for that single batched request instead of starting one full-menu
+    // request per card and then replacing the result a moment later.
+    if (debouncedQuery && (hydratedSearchLoading || (!hydratedSearchRestaurants && !hydratedSearchError))) return
 
     const candidates = visibleItems.filter((restaurant) => (
       !restaurant.isChainCard
       && restaurant.slug
       && nutritionMenuData[getNutritionMenuKey(selectedCity.id, restaurant.slug)] == null
+      && !Number.isFinite(Number(restaurant.matchingDishesCount ?? restaurant.matching_dishes_count))
       && !nutritionMenuRequestsRef.current.has(getNutritionMenuKey(selectedCity.id, restaurant.slug))
     ))
     if (!candidates.length) return
@@ -664,7 +673,7 @@ export default function Catalog() {
         return next
       })
     })
-  }, [hasNutritionFilter, nutritionMenuData, selectedCity.id, visibleItems])
+  }, [debouncedQuery, hasNutritionFilter, hydratedSearchError, hydratedSearchLoading, hydratedSearchRestaurants, nutritionMenuData, selectedCity.id, visibleItems])
 
   const catalogLoading = debouncedQuery ? searchLoading : loading
   const catalogError = debouncedQuery ? searchError : error

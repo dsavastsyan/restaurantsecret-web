@@ -21,6 +21,7 @@ jobs:
           BACKEND_RELEASE_TOKEN: ${{ secrets.BACKEND_RELEASE_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           BACKEND_RELEASE_ENV: staging
+          BACKEND_RELEASE_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: node scripts/verify-backend-release.mjs
 
   smoke:

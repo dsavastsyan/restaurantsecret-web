@@ -85,18 +85,23 @@ The application includes a built-in maintenance mode that can be toggled without
 
 ## Backend release gate
 
-Web releases are pinned to the linked Cloudflare Worker and `pd-api` pull
-requests in `release/backend-dependencies.json`. The manifest can use separate
-`staging_pull_request` and `production_pull_request` values when the backend
-reaches the two environments through different promotion PRs. Each referenced
-PR must be merged, its merge commit must be present in the target backend
-branch, and the matching staging or production deploy jobs must be green before
-the web workflow continues.
+Each web release PR has its own backend dependency manifest at
+`release/backend-dependencies/<web-pr-number>.json`. The manifest can use
+separate `staging_pull_request` and `production_pull_request` values when the
+backend reaches the two environments through different promotion PRs. Each
+referenced PR must be merged, its merge commit must be present in the target
+backend branch, and the matching staging or production deploy jobs must be
+green before the web workflow continues.
 
-For a web PR that depends on a new backend change, update both the web manifest
-and the backend PR. The PR checks wait for the backend PRs and their staging
-deployments. After merge, the Pages workflow repeats the same check against
-the backend production branches before building or deploying the site.
+After opening a web PR, add or update the manifest named for that PR number.
+The PR checks read that exact file and wait for the backend staging deployments.
+When the web PR is later merged into `main`, the Pages workflow resolves the
+merge commit back to that exact web PR and reads its manifest before checking
+the backend production deployments. This prevents a shared “current” manifest
+from allowing a release with a different backend dependency set.
+
+Scheduled sitemap rebuilds do not represent a new web release and therefore do
+not run the backend release gate.
 
 The workflows require a repository secret named `BACKEND_RELEASE_TOKEN`. It
 should have read-only access to pull requests, actions, and contents in both
