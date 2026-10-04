@@ -217,7 +217,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
       <section className="rs-anyeat__panel" role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : 'true'} aria-labelledby="rs-anyeat-title">
         {!embedded && <button className="rs-anyeat__close" type="button" onClick={() => closeModal('button')} aria-label="Закрыть">×</button>}
         {success ? (
-          <div className="rs-anyeat__success" role="status"><span>✓</span><h2>Успешно отправлено</h2><p>Обещаем писать только по важным поводам ♡</p></div>
+          <div className="rs-anyeat__success" role="status"><span>✓</span><h2>Сообщим вам о выпуске приложения первым</h2><p>Обещаем писать только по важным поводам ♡</p></div>
         ) : <>
           <div className="rs-anyeat__content">
             <span className="rs-anyeat__badge"><Rocket size={17} />Скоро в приложении</span>
