@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiGet } from '@/lib/requests'
-import { flattenMenuDishes } from '@/lib/nutrition'
+import { flattenMenuDishes, flattenMenuGroups } from '@/lib/nutrition'
 import { formatDescription, matchesSearchQuery } from '@/lib/text'
 import {
   buildIngredientOptions,
@@ -14,6 +14,7 @@ import {
 import { formatMenuCapturedAt } from '@/lib/dates'
 import { parseCatalogNutritionCriteria } from '@/lib/catalogFilterParams'
 import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
+import { createDefaultMenuSort, sortMenuDishes } from '@/lib/menuSorting'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { useDishCardStore } from '@/store/dishCard'
@@ -178,6 +179,7 @@ export default function Menu({
 
   const [menu, setMenu] = useState(() => previewMode ? normalizeMenu(previewMenu) : null)
   const [seoHint] = useState(() => (previewMode ? null : readSeoHint()))
+  const [guideCatalogStats, setGuideCatalogStats] = useState(null)
   const [loading, setLoading] = useState(!previewMode)
   const [error, setError] = useState(null)
   const [isOutdatedOpen, setIsOutdatedOpen] = useState(false)
@@ -192,6 +194,40 @@ export default function Menu({
   const [allCategoriesExpanded, setAllCategoriesExpanded] = useState(false)
   const [isIngredientFilterOpen, setIsIngredientFilterOpen] = useState(false)
   const [ingredientFilter, setIngredientFilter] = useState(createDefaultIngredientFilter)
+  const [menuSort, setMenuSort] = useState(createDefaultMenuSort)
+  const [categorySorts, setCategorySorts] = useState({})
+
+  // The menu guide's final step uses the same public city list as the catalog.
+  // That endpoint already excludes hidden/inactive cities, so summing its
+  // per-city restaurant counts keeps the copy aligned with what visitors can
+  // actually browse.
+  useEffect(() => {
+    if (previewMode) return undefined
+
+    let aborted = false
+    apiGet('/cities')
+      .then((payload) => {
+        const cities = Array.isArray(payload?.items)
+          ? payload.items.filter((cityItem) => (
+            cityItem?.hidden !== true
+            && cityItem?.isHidden !== true
+            && cityItem?.is_hidden !== 1
+          ))
+          : []
+        const restaurantCount = cities.reduce((total, cityItem) => {
+          const count = Number(cityItem?.restaurantCount ?? cityItem?.restaurant_count)
+          return total + (Number.isFinite(count) && count > 0 ? count : 0)
+        }, 0)
+        if (!aborted) setGuideCatalogStats({ restaurantCount, cityCount: cities.length })
+      })
+      .catch((statsError) => {
+        if (!aborted) console.warn('Failed to load menu guide catalog stats', statsError)
+      })
+
+    return () => {
+      aborted = true
+    }
+  }, [previewMode])
 
   // Reset menu-local filters when the restaurant or incoming catalog filters change.
   useEffect(() => {
@@ -202,6 +238,8 @@ export default function Menu({
     setAllCategoriesExpanded(false)
     setIsIngredientFilterOpen(false)
     setIngredientFilter(createDefaultIngredientFilter())
+    setMenuSort(createDefaultMenuSort())
+    setCategorySorts({})
     const nextMenuFilters = createMenuFiltersFromCatalog(routeSearchParams)
     setPresets(nextMenuFilters.presets)
     setRange(nextMenuFilters.range)
@@ -289,6 +327,7 @@ export default function Menu({
   }, [city, slug])
 
   const dishes = useMemo(() => flattenMenuDishes(menu), [menu])
+  const menuGroups = useMemo(() => flattenMenuGroups(menu), [menu])
   const sectionOptions = useMemo(() => {
     const categories = Array.isArray(menu?.categories) ? menu.categories : []
     if (!categories.length || categories.some((category) => !['food', 'drinks'].includes(category?.menuSection))) {
@@ -311,31 +350,39 @@ export default function Menu({
   }
   const freeDishKeys = useMemo(() => {
     const isQrAccess = !previewMode && hasQrMenuAccess(slug)
-    const visibleDishes = (previewMode || isQrAccess) ? dishes : dishes.slice(0, 3)
-    return new Set(visibleDishes.map((dish) => buildDishAccessKey(dish)))
-  }, [dishes, previewMode, slug])
+    const visibleGroups = (previewMode || isQrAccess) ? menuGroups : menuGroups.slice(0, 3)
+    return new Set(visibleGroups.map((group) => buildDishAccessKey(group)))
+  }, [menuGroups, previewMode, slug])
   const capturedAt = useMemo(() => formatMenuCapturedAt(menu?.menuCapturedAt), [menu?.menuCapturedAt])
 
-  // Apply search and macro filters locally to keep the UI responsive.
+  // Apply search and macro filters to atomic variants, then keep only the
+  // matching variants inside each visible base item. This prevents a filtered
+  // result from re-opening all hidden milk/size combinations.
   const filtered = useMemo(() => {
     const q = query.trim()
-    return dishes.filter((dish) => {
-      if (selectedSection !== 'all' && dish.menuSection !== selectedSection) return false
-      const categoryName = formatDescription(dish.category, '') || 'Без категории'
-      if (selectedCategory !== 'all' && categoryName !== selectedCategory) return false
-      const searchableComposition = formatDescription(dish.ingredients ?? dish.description, '')
-      if (q && !matchesSearchQuery(dish.name, q) && !matchesSearchQuery(searchableComposition, q)) return false
-      if (presets.highProtein && !(dish.protein >= 25)) return false
-      if (presets.lowFat && !(dish.fat <= 10)) return false
-      if (presets.lowKcal && !(dish.kcal <= 400)) return false
-      if (!inRange(dish.kcal, range.kcal.min, range.kcal.max)) return false
-      if (!inRange(dish.protein, range.protein.min, range.protein.max)) return false
-      if (!inRange(dish.fat, range.fat.min, range.fat.max)) return false
-      if (!inRange(dish.carbs, range.carbs.min, range.carbs.max)) return false
-      if (!dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)) return false
-      return true
+    return menuGroups.flatMap((group) => {
+      if (selectedSection !== 'all' && group.menuSection !== selectedSection) return []
+      const categoryName = formatDescription(group.category, '') || 'Без категории'
+      if (selectedCategory !== 'all' && categoryName !== selectedCategory) return []
+      const variants = Array.isArray(group.variants) && group.variants.length ? group.variants : [group]
+      const groupNameMatches = q && matchesSearchQuery(group.name, q)
+      const matchingVariants = variants.filter((dish) => {
+        const searchableComposition = formatDescription(dish.ingredients ?? dish.description, '')
+        if (q && !groupNameMatches && !matchesSearchQuery(dish.name, q) && !matchesSearchQuery(searchableComposition, q)) return false
+        if (presets.highProtein && !(dish.protein >= 25)) return false
+        if (presets.lowFat && !(dish.fat <= 10)) return false
+        if (presets.lowKcal && !(dish.kcal <= 400)) return false
+        if (!inRange(dish.kcal, range.kcal.min, range.kcal.max)) return false
+        if (!inRange(dish.protein, range.protein.min, range.protein.max)) return false
+        if (!inRange(dish.fat, range.fat.min, range.fat.max)) return false
+        if (!inRange(dish.carbs, range.carbs.min, range.carbs.max)) return false
+        if (!dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)) return false
+        return true
+      })
+      if (!matchingVariants.length) return []
+      return [{ ...group, variants: matchingVariants, variantCount: matchingVariants.length, ...matchingVariants[0], name: group.name }]
     })
-  }, [dishes, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
+  }, [menuGroups, query, selectedSection, selectedCategory, presets, range, ingredientFilter])
 
   const hasRestrictedMenuFilters = useMemo(() => {
     const hasCustomRange = Object.values(range).some((bounds) => bounds.min !== '' || bounds.max !== '')
@@ -412,19 +459,41 @@ export default function Menu({
 
     return ordered.filter((section) => section.dishes.length)
   }, [filtered, menu?.categories])
-  // Within each category, dishes with a photo come first (stable sort), so the
-  // grid never mixes photo and photo-less cards into a ragged rhythm. Only the
-  // partner draft preview supplies photos today; the public menu API does not.
+  const handleSortChange = (scope, categoryName, nextSort) => {
+    if (scope === 'menu') {
+      setMenuSort(nextSort)
+      setCategorySorts({})
+      return
+    }
+    setCategorySorts((previous) => ({ ...previous, [categoryName]: nextSort }))
+  }
+
+  const handleSortReset = (scope, categoryName) => {
+    if (scope === 'menu') {
+      setMenuSort(createDefaultMenuSort())
+      setCategorySorts({})
+      return
+    }
+    setCategorySorts((previous) => {
+      const next = { ...previous }
+      delete next[categoryName]
+      return next
+    })
+  }
+
+  const resetSorting = () => {
+    setMenuSort(createDefaultMenuSort())
+    setCategorySorts({})
+  }
+
+  // Sort within each category so the curated category order remains intact.
+  // A category-level choice overrides the global sort only for that category.
   const groupedDishesSorted = useMemo(
     () => groupedDishes.map((section) => ({
       ...section,
-      dishes: [...section.dishes].sort((a, b) => {
-        const aHasPhoto = a.photoUrl || a.photo_url ? 1 : 0
-        const bHasPhoto = b.photoUrl || b.photo_url ? 1 : 0
-        return bHasPhoto - aHasPhoto
-      }),
+      dishes: sortMenuDishes(section.dishes, categorySorts[section.name] || menuSort),
     })),
-    [groupedDishes]
+    [categorySorts, groupedDishes, menuSort]
   )
   const restaurantLinkUrl = useMemo(() => normalizeRestaurantLinkUrl(menu?.instagramUrl), [menu?.instagramUrl])
   // A slug ("horoshaya-devochka-nan") must never stand in for a real name —
@@ -438,8 +507,8 @@ export default function Menu({
     rawSeoName && !isSlugLike(rawSeoName)
       ? rawSeoName.charAt(0).toUpperCase() + rawSeoName.slice(1)
       : 'ресторана'
-  const seoDishCount = menu ? dishes.length : (seoHint?.dishCount ?? dishes.length)
-  const seoDishWord = pluralizeRu(seoDishCount, ['блюдо', 'блюда', 'блюд'])
+  const seoDishCount = menu ? menuGroups.length : (seoHint?.dishCount ?? menuGroups.length)
+  const seoDishWord = pluralizeRu(seoDishCount, ['позиция', 'позиции', 'позиций'])
   const seoDescription = useMemo(
     () => `${seoDishCount} ${seoDishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${seoRestaurantName} перед посещением ресторана.`,
     [seoDishCount, seoDishWord, seoRestaurantName]
@@ -492,6 +561,7 @@ export default function Menu({
     setPresets(createDefaultPresets())
     setRange(createDefaultRange())
     setIngredientFilter(createDefaultIngredientFilter())
+    resetSorting()
   }
 
   const openMapInBrowser = () => {
@@ -549,10 +619,16 @@ export default function Menu({
     navigate(checkoutLink.to, { state: checkoutLink.state })
   }
 
+  const handleSortAttempt = () => {
+    handleViewFilteredDishes()
+  }
+
   return (
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
       heroDishCount={seoDishCount}
+      guideRestaurantCount={guideCatalogStats?.restaurantCount}
+      guideCityCount={guideCatalogStats?.cityCount}
       dishes={dishes}
       filtered={filtered}
       groupedDishes={groupedDishesSorted}
@@ -582,6 +658,12 @@ export default function Menu({
       range={range}
       updateRange={updateRange}
       resetFilters={resetFilters}
+      menuSort={menuSort}
+      categorySorts={categorySorts}
+      onSortChange={handleSortChange}
+      onSortReset={handleSortReset}
+      onSortAttempt={handleSortAttempt}
+      canSort={hasFullDishAccess}
       isIngredientFilterOpen={isIngredientFilterOpen}
       setIsIngredientFilterOpen={setIsIngredientFilterOpen}
       hasCompositions={hasCompositions}

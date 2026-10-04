@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ApiError, apiGet, apiPost, quotePromo, redeemPromo, isUnauthorizedError, PromoQuote, attachPaymentMethod, syncTrialPayment } from "@/lib/api";
 import { useAuth } from "@/store/auth";
 import {
@@ -10,6 +10,12 @@ import {
 } from "@/store/subscription";
 import SubscriptionPlans from "@/components/subscription/SubscriptionPlans";
 import { analytics } from "@/services/analytics";
+import { showSubscriptionError, showSubscriptionPending, showSubscriptionSuccess } from "@/lib/subscriptionFeedback";
+import {
+  forgetSubscriptionReturnTo,
+  readSubscriptionReturnTo,
+  rememberSubscriptionReturnTo,
+} from "@/lib/subscriptionCta";
 
 import subscriptionExpiredPng from "@/assets/subscription/subscription-expired.png";
 
@@ -208,6 +214,7 @@ function SubscriptionSkeleton() {
 
 export default function AccountSubscription() {
   const location = useLocation() as { state: SubscriptionLocationState };
+  const navigate = useNavigate();
   const { accessToken, logout } = useAuth((state) => ({
     accessToken: state.accessToken || undefined,
     logout: state.logout,
@@ -234,6 +241,8 @@ export default function AccountSubscription() {
   const [cancelReason, setCancelReason] = useState<CancellationReason | null>(null);
   const [cancelReasonDetails, setCancelReasonDetails] = useState("");
   const resumingRef = useRef(false);
+  const pollTrialActivationRef = useRef<((options?: { maxAttempts?: number; showPending?: boolean }) => Promise<boolean>) | null>(null);
+  const pendingPollStartedRef = useRef<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     if (!accessToken) {
@@ -243,7 +252,7 @@ export default function AccountSubscription() {
         setHasActiveSub(false);
       }
       setHasSubscriptionHistory(false);
-      return;
+      return false;
     }
     setLoading(true);
     setError(null);
@@ -260,7 +269,7 @@ export default function AccountSubscription() {
             ? response.error
             : "Не удалось загрузить статус подписки. Попробуйте позже.",
         );
-        return;
+        return false;
       }
 
       const normalizeStatus = (value?: string | null, expiresAt?: string | null) => {
@@ -295,6 +304,7 @@ export default function AccountSubscription() {
       setStatusData(normalized);
       setHasActiveSub(normalized.status === "active");
       setHasSubscriptionHistory(Boolean(normalized.status && normalized.status !== "none"));
+      return normalized.status === "active";
     } catch (err) {
       if (isUnauthorizedError(err)) {
         logout();
@@ -302,27 +312,94 @@ export default function AccountSubscription() {
         setError(null);
         setHasActiveSub(false);
         setHasSubscriptionHistory(false);
-        return;
+        return false;
       }
       if (err instanceof ApiError && err.status === 404) {
         setStatusData({ status: "none", status_label: null, expires_at: null });
         setError(null);
         setHasActiveSub(false);
         setHasSubscriptionHistory(false);
-        return;
+        return false;
       }
       console.error("Failed to load subscription status", err);
       setError("Не удалось загрузить статус подписки. Попробуйте позже.");
       setHasActiveSub(false);
       setHasSubscriptionHistory(false);
+      return false;
     } finally {
       setLoading(false);
     }
   }, [accessToken, hasActiveSub, logout, setHasActiveSub, setHasSubscriptionHistory]);
 
+  const showSuccessAndReturn = useCallback(() => {
+    const returnTo = readSubscriptionReturnTo();
+    if (returnTo) forgetSubscriptionReturnTo();
+
+    showSubscriptionSuccess({
+      onContinue: () => {
+        if (returnTo) navigate(returnTo, { replace: true });
+      },
+    });
+
+    if (returnTo) navigate(returnTo, { replace: true });
+  }, [navigate]);
+
+  const pollTrialActivation = useCallback(
+    async ({ maxAttempts = 12, showPending = false }: { maxAttempts?: number; showPending?: boolean } = {}) => {
+      if (!accessToken || typeof window === "undefined") return false;
+
+      const pendingPaymentId = window.sessionStorage.getItem(PENDING_TRIAL_PAYMENT_KEY) || "";
+      if (!pendingPaymentId) return false;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        try {
+          const syncRes = await syncTrialPayment(accessToken, {
+            payment_id: pendingPaymentId,
+          });
+          const isActive = await fetchStatus();
+
+          if (syncRes?.active || isActive) {
+            forgetPendingTrialPayment();
+            showSuccessAndReturn();
+            return true;
+          }
+
+          if (showPending && attempt === 0) {
+            showSubscriptionPending(() => {
+              void pollTrialActivationRef.current?.({ maxAttempts: 1 });
+            });
+          }
+        } catch (err) {
+          if (isUnauthorizedError(err)) {
+            logout();
+            return false;
+          }
+          console.error("Failed to sync trial payment", err);
+        }
+
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1500));
+        }
+      }
+
+      showSubscriptionError(
+        () => {
+          void pollTrialActivationRef.current?.({ maxAttempts: 1 });
+        },
+        () => {
+          void pollTrialActivationRef.current?.({ maxAttempts: 12, showPending: true });
+        },
+      );
+      return false;
+    },
+    [accessToken, fetchStatus, logout, showSuccessAndReturn],
+  );
+  pollTrialActivationRef.current = pollTrialActivation;
+
   useEffect(() => {
     fetchStatus();
     const stateFrom = location.state && typeof location.state.from === "string" ? location.state.from : null;
+    if (stateFrom) rememberSubscriptionReturnTo(stateFrom);
     const prevPath = typeof window !== "undefined" ? window.sessionStorage.getItem("rs_prev_path") : null;
     const sourcePage = stateFrom || prevPath || document.referrer || "direct";
     analytics.track("subscription_page_view", {
@@ -335,40 +412,13 @@ export default function AccountSubscription() {
   useEffect(() => {
     if (!accessToken || typeof window === "undefined") return;
 
-    let canceled = false;
     const pendingPaymentId = window.sessionStorage.getItem(PENDING_TRIAL_PAYMENT_KEY) || "";
     if (!pendingPaymentId) return;
+    if (pendingPollStartedRef.current === pendingPaymentId) return;
+    pendingPollStartedRef.current = pendingPaymentId;
 
-    const pollTrialActivation = async () => {
-      for (let attempt = 0; attempt < 12 && !canceled; attempt += 1) {
-        try {
-          const syncRes = await syncTrialPayment(accessToken, {
-            payment_id: pendingPaymentId || undefined,
-          });
-          await fetchStatus();
-
-          if (syncRes?.active) {
-            forgetPendingTrialPayment();
-            return;
-          }
-        } catch (err) {
-          if (isUnauthorizedError(err)) {
-            logout();
-            return;
-          }
-          console.error("Failed to sync trial payment", err);
-        }
-
-        await new Promise((resolve) => window.setTimeout(resolve, 1500));
-      }
-    };
-
-    pollTrialActivation();
-
-    return () => {
-      canceled = true;
-    };
-  }, [accessToken, fetchStatus, logout]);
+    void pollTrialActivation({ maxAttempts: 12, showPending: true });
+  }, [accessToken, pollTrialActivation]);
 
   const formatDate = useCallback((value?: string | null) => {
     if (!value) return null;
@@ -456,7 +506,11 @@ export default function AccountSubscription() {
       setPaymentPlan(plan);
       const apiPlan = mapUiPlanToApi(plan);
 
-      analytics.track("checkout_started", { plan, source_page: "subscription_management" });
+      analytics.track("checkout_started", {
+        plan,
+        payment_flow: "initial",
+        source_page: "subscription_management",
+      });
       // Force Metrika to load now (it's normally lazy) so the goal is sent
       // before we redirect away from this page.
       analytics.reachGoal('checkout_started');
@@ -466,7 +520,7 @@ export default function AccountSubscription() {
         if (code) body.promo_code = code;
         if (deferUntilPeriodEnd) body.defer_until_period_end = true;
 
-        const res = await apiPost<{ confirmation_url?: string; error?: string }>(
+        const res = await apiPost<{ confirmation_url?: string; payment_id?: string; error?: string }>(
           "/api/payments/create",
           body,
           accessToken,
@@ -479,7 +533,16 @@ export default function AccountSubscription() {
 
         if (confirmationUrl) {
           // Persist plan so PaySuccess / PaymentResult can read it after redirect.
-          try { sessionStorage.setItem("rs_checkout_plan", plan); } catch { /* ignore */ }
+          try {
+            sessionStorage.setItem("rs_checkout_plan", plan);
+            if (res.payment_id) sessionStorage.setItem("rs_checkout_payment_id", res.payment_id);
+          } catch { /* ignore */ }
+          analytics.track("payment_redirect_opened", {
+            payment_id: res.payment_id || null,
+            plan,
+            payment_flow: "initial",
+            source_page: "subscription_management",
+          });
           // Wait 400ms so Metrika has time to send the checkout_started beacon
           // before the browser navigates away to YooKassa.
           await new Promise((r) => setTimeout(r, 400));
@@ -491,6 +554,12 @@ export default function AccountSubscription() {
           typeof res?.error === "string" && res.error.trim()
             ? res.error.trim()
             : "Не удалось создать платёж. Попробуйте позже.";
+        analytics.track("payment_creation_failed", {
+          plan,
+          payment_flow: "initial",
+          source_page: "subscription_management",
+          reason: "missing_confirmation_url",
+        });
         setPaymentError(message);
       } catch (err) {
         if (isUnauthorizedError(err)) {
@@ -500,6 +569,12 @@ export default function AccountSubscription() {
           return;
         }
         console.error("Failed to create payment", err);
+        analytics.track("payment_creation_failed", {
+          plan,
+          payment_flow: "initial",
+          source_page: "subscription_management",
+          reason: "request_error",
+        });
         setPaymentError("Не удалось создать платёж. Попробуйте позже.");
       } finally {
         setPaymentPlan(null);
@@ -516,12 +591,12 @@ export default function AccountSubscription() {
       setPaymentPlan(plan);
       const apiPlan = mapUiPlanToApi(plan);
 
-      analytics.track("checkout_started", {
+      analytics.track("payment_method_attach_started", {
         plan,
         source_page: "subscription_management",
         method: "intro_trial_attach",
       });
-      analytics.reachGoal('checkout_started');
+      analytics.reachGoal('payment_method_attach_started');
 
       try {
         const attachRes = await attachPaymentMethod(accessToken, {
@@ -536,13 +611,28 @@ export default function AccountSubscription() {
             : null;
 
         if (confirmationUrl) {
-          try { sessionStorage.setItem("rs_checkout_plan", plan); } catch { /* ignore */ }
+          try {
+            sessionStorage.setItem("rs_checkout_plan", plan);
+            if (attachRes.payment_id) sessionStorage.setItem("rs_checkout_payment_id", attachRes.payment_id);
+          } catch { /* ignore */ }
           rememberPendingTrialPayment(attachRes.payment_id);
+          analytics.track("payment_method_attach_redirect_opened", {
+            payment_id: attachRes.payment_id || null,
+            plan,
+            payment_flow: "intro_trial",
+            source_page: "subscription_management",
+          });
           await new Promise((r) => setTimeout(r, 400));
           window.location.href = confirmationUrl;
           return;
         }
 
+        analytics.track("payment_method_attach_failed", {
+          plan,
+          payment_flow: "intro_trial",
+          source_page: "subscription_management",
+          reason: "missing_confirmation_url",
+        });
         setPaymentError("Не удалось начать пробный период. Попробуйте позже.");
       } catch (err) {
         if (isUnauthorizedError(err)) {
@@ -558,6 +648,12 @@ export default function AccountSubscription() {
           setPaymentError(code ? ERROR_LABELS[code] ?? code : "Не удалось начать пробный период. Попробуйте позже.");
         } else {
           console.error("Failed to attach payment method for trial", err);
+          analytics.track("payment_method_attach_failed", {
+            plan,
+            payment_flow: "intro_trial",
+            source_page: "subscription_management",
+            reason: "request_error",
+          });
           setPaymentError("Не удалось начать пробный период. Попробуйте позже.");
         }
       } finally {
@@ -618,19 +714,38 @@ export default function AccountSubscription() {
           if (promoQuote?.plan === 'monthly') planToUse = 'month';
           if (!planToUse) planToUse = 'month';
 
+          analytics.track("payment_method_attach_started", {
+            plan: planToUse,
+            source_page: "subscription_management",
+            method: "promo_attach",
+          });
           const attachRes = await attachPaymentMethod(accessToken, {
             promo_code: trimmedCode,
             plan: mapUiPlanToApi(planToUse),
             return_url: window.location.origin + '/account/subscription'
           });
 
-          analytics.track("checkout_started", { plan: planToUse, source_page: "subscription_management", method: "promo_attach" });
-
           if (attachRes?.confirmation_url) {
+            try {
+              sessionStorage.setItem("rs_checkout_plan", planToUse);
+              if (attachRes.payment_id) sessionStorage.setItem("rs_checkout_payment_id", attachRes.payment_id);
+            } catch { /* ignore */ }
             rememberPendingTrialPayment(attachRes.payment_id);
+            analytics.track("payment_method_attach_redirect_opened", {
+              payment_id: attachRes.payment_id || null,
+              plan: planToUse,
+              payment_flow: "promo_attach",
+              source_page: "subscription_management",
+            });
             window.location.href = attachRes.confirmation_url;
             return;
           }
+          analytics.track("payment_method_attach_failed", {
+            plan: planToUse,
+            payment_flow: "promo_attach",
+            source_page: "subscription_management",
+            reason: "missing_confirmation_url",
+          });
         } else if (res.next_step === 'payment') {
           // Use selected plan or default
           let planToUse: UiPlan | null = selectedPlan;

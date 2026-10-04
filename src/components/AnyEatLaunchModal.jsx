@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { apiGet, apiPost } from '@/lib/api'
 import { useAuth, selectSetToken } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
+import { analytics } from '@/services/analytics'
 import preview from '@/assets/anyeat-phone-left.png'
 import { Apple, BookText, Mail, Rocket, Utensils } from 'lucide-react'
 import './AnyEatLaunchModal.css'
@@ -10,10 +11,20 @@ import './AnyEatLaunchModal.css'
 const CONSENT_VERSION = 'restaurantsecret-communications-2026-09-16'
 const YANDEX_METRIKA_COUNTER_ID = 108992733
 const RESEND_COOLDOWN = 60
+const MODAL_ID = 'anyeat_launch'
 let launchModalRequested = false
 
 function trackGoal(name) {
   try { window.ym?.(YANDEX_METRIKA_COUNTER_ID, 'reachGoal', name) } catch { /* ym not loaded */ }
+}
+
+function trackModalEvent(eventName, props = {}) {
+  analytics.track(eventName, { modal: MODAL_ID, ...props })
+}
+
+export function trackAnyEatStoreClick(store) {
+  if (!store) return
+  trackModalEvent('anyeat_modal_store_clicked', { store })
 }
 
 export function openAnyEatLaunchModal() {
@@ -47,6 +58,11 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   const [resendTimer, setResendTimer] = useState(0)
 
   const segment = token && hasActiveSub ? 'active' : 'default'
+  const closeModal = (reason) => {
+    if (!open || embedded) return
+    trackModalEvent('anyeat_modal_closed', { segment, reason })
+    setOpen(false)
+  }
 
   useEffect(() => {
     if (embedded) return
@@ -88,22 +104,25 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   }, [open, token])
 
   useEffect(() => {
+    if (!open || embedded) return
+    trackModalEvent('anyeat_modal_viewed', { segment })
+    trackGoal(`anyeat_modal_open_${segment}`)
+  }, [embedded, open, segment])
+
+  useEffect(() => {
     if (resendTimer <= 0) return
     const id = setInterval(() => setResendTimer((value) => value - 1), 1000)
     return () => clearInterval(id)
   }, [resendTimer])
 
   useEffect(() => {
-    if (!open) return
-    trackGoal(`anyeat_modal_open_${segment}`)
-  }, [open, segment])
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event) => { if (event.key === 'Escape') setOpen(false) }
+    if (!open || embedded) return
+    const onKey = (event) => {
+      if (event.key === 'Escape') closeModal('escape')
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [open, segment, embedded])
 
   if (!open) return null
 
@@ -116,6 +135,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
       if (!res?.ok) throw new Error('request_otp_failed')
       setOtpStep('code')
       setResendTimer(RESEND_COOLDOWN)
+      trackModalEvent('anyeat_modal_otp_requested', { segment })
       trackGoal(`anyeat_modal_otp_requested_${segment}`)
     } catch {
       setError('Не удалось отправить код. Попробуйте ещё раз.')
@@ -174,6 +194,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
         consent_version: CONSENT_VERSION,
       }, token)
       setSuccess(true)
+      trackModalEvent('anyeat_modal_submitted', { segment })
       trackGoal(`anyeat_modal_submit_${segment}`)
       window.dispatchEvent(new CustomEvent('rs:anyeat-launch-submitted'))
     } catch {
@@ -192,9 +213,9 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     : null
 
   const content = (
-    <div className={`rs-anyeat${embedded ? ' rs-anyeat--embedded' : ''}`} onMouseDown={(event) => { if (!embedded && event.target === event.currentTarget) setOpen(false) }}>
+    <div className={`rs-anyeat${embedded ? ' rs-anyeat--embedded' : ''}`} onMouseDown={(event) => { if (!embedded && event.target === event.currentTarget) closeModal('backdrop') }}>
       <section className="rs-anyeat__panel" role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : 'true'} aria-labelledby="rs-anyeat-title">
-        {!embedded && <button className="rs-anyeat__close" type="button" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>}
+        {!embedded && <button className="rs-anyeat__close" type="button" onClick={() => closeModal('button')} aria-label="Закрыть">×</button>}
         {success ? (
           <div className="rs-anyeat__success" role="status"><span>✓</span><h2>Успешно отправлено</h2><p>Обещаем писать только по важным поводам ♡</p></div>
         ) : <>
@@ -219,7 +240,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             <form className="rs-anyeat__form" onSubmit={requestOtp}>
               <div className="rs-anyeat__formrow">
                 <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-                <button className="rs-anyeat__submit" type="submit" disabled={submitting || !/^\S+@\S+\.\S+$/.test(email.trim())}>{submitting ? 'Отправляем…' : 'Получить код →'}</button>
+                <button className="rs-anyeat__submit" type="submit" onClick={() => trackModalEvent('anyeat_modal_cta_clicked', { segment, cta: 'request_otp' })} disabled={submitting || !/^\S+@\S+\.\S+$/.test(email.trim())}>{submitting ? 'Отправляем…' : 'Получить код →'}</button>
               </div>
               {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
               <small className="rs-anyeat__fine">Пришлём код на почту, как при входе в аккаунт <span aria-hidden="true">♡</span></small>
@@ -247,7 +268,7 @@ export default function AnyEatLaunchModal({ embedded = false }) {
             <form className="rs-anyeat__form" onSubmit={submit}>
               <div className="rs-anyeat__formrow">
                 <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="off" placeholder="Ваша почта" value={email} readOnly aria-readonly="true" required /></label>
-                <button className="rs-anyeat__submit" type="submit" disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
+                <button className="rs-anyeat__submit" type="submit" onClick={() => trackModalEvent('anyeat_modal_cta_clicked', { segment, cta: 'submit_waitlist' })} disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
               </div>
               {(!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
                 {!knownConsents.personal_data_advertising && <label><input type="checkbox" checked={consents.personal_data_advertising} onChange={(event) => setConsents({ ...consents, personal_data_advertising: event.target.checked })} /><span>Даю согласие на <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> в целях отправки рекламных сообщений.</span></label>}

@@ -1,10 +1,12 @@
 // Confirmation page displayed after a payment is completed. Allows users to
 // re-validate access from the API.
-import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { PD_API_BASE } from '@/config/api'
 import { useAuth } from '@/store/auth'
 import { analytics } from '@/services/analytics'
+import { showSubscriptionError, showSubscriptionPending, showSubscriptionSuccess } from '@/lib/subscriptionFeedback'
+import { forgetSubscriptionReturnTo, readSubscriptionReturnTo } from '@/lib/subscriptionCta'
 
 const queryErrors = {
   no_id: 'Платёж не найден. Попробуйте оформить подписку ещё раз.',
@@ -30,18 +32,25 @@ export default function PaySuccess() {
   const access = outlet.access ?? {}
   const onAccessUpdate = outlet.handleAccessUpdate
   const accessToken = useAuth((state) => state.accessToken)
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [expiresAt, setExpiresAt] = useState(access?.expiresAt ?? null)
+  const refreshAccessRef = useRef(null)
 
-  // Fire payment_success Metrika goal immediately on page load.
-  // We fire it here (not inside refreshAccess) because:
-  // 1. The user definitely completed payment to land on this page.
-  // 2. refreshAccess is manual and isActive may be false due to webhook delay.
+  // Landing here proves that the provider redirected the browser back, but it
+  // does not prove that YooKassa's webhook has activated the subscription.
   useEffect(() => {
-    analytics.reachGoal('payment_success');
+    const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
+    const paymentId = searchParams.get("payment_id") || sessionStorage.getItem("rs_checkout_payment_id") || null;
+    analytics.track("payment_returned", {
+      payment_id: paymentId,
+      plan,
+      return_status: searchParams.get("status") || "not_provided",
+      return_path: window.location.pathname,
+    });
   }, []);
 
   // Keep the local expiration date in sync with context updates.
@@ -58,7 +67,7 @@ export default function PaySuccess() {
 
   // Manual re-check against the backend. This duplicates the logic used in
   // AppShell but keeps the flow explicit on this screen.
-  const refreshAccess = async () => {
+  const refreshAccess = useCallback(async () => {
     setLoading(true)
     setStatus('loading')
     setMessage('')
@@ -99,25 +108,51 @@ export default function PaySuccess() {
         setExpiresAt(detail.expiresAt)
         setMessage('Доступ подтверждён.')
 
+        const returnTo = readSubscriptionReturnTo()
+        if (returnTo) forgetSubscriptionReturnTo()
+        showSubscriptionSuccess({
+          onContinue: () => {
+            if (returnTo) navigate(returnTo, { replace: true })
+          },
+        })
+        if (returnTo) navigate(returnTo, { replace: true })
+
         // Analytics — read plan stored before payment redirect
         const plan = sessionStorage.getItem("rs_checkout_plan") || "unknown";
+        const paymentId = sessionStorage.getItem("rs_checkout_payment_id") || null;
         sessionStorage.removeItem("rs_checkout_plan");
+        sessionStorage.removeItem("rs_checkout_payment_id");
         analytics.track("subscription_activated", { plan });
-        analytics.track("payment_success", { plan });
-        analytics.reachGoal('payment_success');
+        analytics.track("payment_access_confirmed", { payment_id: paymentId, plan });
       } else {
         setStatus('inactive')
         setExpiresAt(detail.expiresAt)
         setMessage('Подписка пока не активна. Попробуйте повторить проверку позже.')
+        showSubscriptionPending(() => {
+          void refreshAccessRef.current?.()
+        })
       }
     } catch (err) {
       console.error('Failed to refresh access', err)
       setStatus('error')
       setMessage(err?.message ?? 'Не удалось проверить доступ. Попробуйте позже.')
+      showSubscriptionError(
+        () => {
+          void refreshAccessRef.current?.()
+        },
+        () => {
+          void refreshAccessRef.current?.()
+        },
+      )
     } finally {
       setLoading(false)
     }
-  }
+  }, [accessToken, navigate, onAccessUpdate])
+  refreshAccessRef.current = refreshAccess;
+
+  useEffect(() => {
+    void refreshAccess()
+  }, [refreshAccess])
 
   return (
     <div className="page">

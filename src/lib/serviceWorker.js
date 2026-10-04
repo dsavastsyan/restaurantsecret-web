@@ -17,11 +17,24 @@ export function configureServiceWorker({
   if (!serviceWorker) return
 
   if (isPreview) {
-    retirePreviewServiceWorker(serviceWorker, cacheStorage).catch(() => { })
+    // A previously installed production worker can serve a cached app shell
+    // whose hashed chunks were removed by the latest preview deploy. Register
+    // the preview retirement worker first so the browser updates the worker
+    // itself (service-worker script updates bypass the active worker), clears
+    // its caches, and reloads the tab from the current deployment.
+    Promise.resolve(serviceWorker.getRegistrations())
+      .then((registrations) => {
+        if (registrations.length === 0) {
+          return retirePreviewServiceWorker(serviceWorker, cacheStorage)
+        }
+
+        return serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
+      })
+      .catch(() => retirePreviewServiceWorker(serviceWorker, cacheStorage).catch(() => { }))
     return
   }
 
   windowObject.addEventListener('load', () => {
-    serviceWorker.register('/service-worker.js').catch(() => { })
+    serviceWorker.register('/service-worker.js', { updateViaCache: 'none' }).catch(() => { })
   }, { once: true })
 }

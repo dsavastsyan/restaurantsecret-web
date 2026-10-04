@@ -1,4 +1,5 @@
-const STATIC_CACHE = 'static-v4';
+const BUILD_ID = '__SERVICE_WORKER_BUILD_ID__';
+const STATIC_CACHE = `static-v4-${BUILD_ID}`;
 const API_CACHE = 'api-v3';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest'];
 const IS_LOCAL_DEVELOPMENT = ['localhost', '127.0.0.1'].includes(self.location.hostname);
@@ -82,7 +83,9 @@ self.addEventListener('fetch', (event) => {
       const cached = await cache.match(event.request);
       if (cached) return cached;
       const networkResponse = await fetch(event.request);
-      cache.put(event.request, networkResponse.clone());
+      if (networkResponse.ok) {
+        await cache.put(event.request, networkResponse.clone());
+      }
       return networkResponse;
     })());
     return;

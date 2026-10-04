@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, apiPost } from "@/lib/api";
 import { resetImmersiveViewport, useImmersiveViewport } from "@/hooks/useImmersiveViewport";
-import { SUBSCRIPTION_CHECKOUT_PATH } from "@/lib/subscriptionCta";
+import { rememberSubscriptionReturnTo, SUBSCRIPTION_CHECKOUT_PATH } from "@/lib/subscriptionCta";
 import { useAuth, selectSetToken } from "@/store/auth"; // <— меняем импорт
 import { useSubscriptionStore, selectFetchStatus } from "@/store/subscription";
 import { analytics } from "@/services/analytics";
@@ -13,6 +13,13 @@ import desktopDayBackground from "@/assets/login/Login bachround desctop day.png
 const COMMUNICATION_CONSENT_VERSION = "restaurantsecret-communications-2026-09-16";
 const OTP_RATE_LIMIT_SECONDS = 10 * 60;
 const OTP_RATE_LIMIT_ERROR = "otp_rate_limit";
+
+const trackOtpFailure = (eventName: string, reason: string, error?: any) => {
+  analytics.track(eventName, {
+    reason,
+    error_status: error?.status || error?.response?.status || undefined,
+  });
+};
 
 type PendingLogin = {
   token: string;
@@ -86,6 +93,7 @@ export default function LoginPage() {
   const resolvePostLoginRedirect = async (token: string) => {
     if (redirectTo !== SUBSCRIPTION_CHECKOUT_PATH || !returnTo) return redirectTo;
 
+    rememberSubscriptionReturnTo(returnTo);
     const hasActiveSubscription = await fetchSubscriptionStatus(token);
     return hasActiveSubscription ? returnTo : redirectTo;
   };
@@ -123,6 +131,7 @@ export default function LoginPage() {
     setErr(null);
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       setErr("Укажите корректный e-mail");
+      trackOtpFailure("otp_request_failed", "invalid_email");
       return;
     }
     setLoading(true);
@@ -136,11 +145,17 @@ export default function LoginPage() {
         analytics.track("otp_request");
       } else {
         setErr(res?.message || "Не удалось отправить код");
+        trackOtpFailure("otp_request_failed", "api_rejected", res);
       }
     } catch (error) {
       setErr(error instanceof ApiError && error.status === 429
         ? "Слишком много запросов. Попробуйте снова через 10 минут."
         : "Не удалось отправить код");
+      trackOtpFailure(
+        "otp_request_failed",
+        error instanceof ApiError && error.status === 429 ? "rate_limited" : "request_failed",
+        error,
+      );
     } finally {
       setLoading(false);
     }
@@ -150,6 +165,7 @@ export default function LoginPage() {
     setErr(null);
     if (!code || code.length < 4) {
       setErr("Введите код из письма");
+      trackOtpFailure("otp_verify_failed", "invalid_code_format");
       return;
     }
     setLoading(true);
@@ -173,13 +189,16 @@ export default function LoginPage() {
         }
       } else {
         setErr(res?.message || "Неверный код");
+        trackOtpFailure("otp_verify_failed", "invalid_code", res);
       }
     } catch (error) {
       if (error instanceof ApiError && error.status === 429) {
         setOtpRateLimitSeconds(OTP_RATE_LIMIT_SECONDS);
         setErr(OTP_RATE_LIMIT_ERROR);
+        trackOtpFailure("otp_verify_failed", "rate_limited", error);
       } else {
         setErr("Не удалось подтвердить код");
+        trackOtpFailure("otp_verify_failed", "request_failed", error);
       }
     } finally {
       setLoading(false);
