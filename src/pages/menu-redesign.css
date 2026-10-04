@@ -647,6 +647,10 @@ html[data-rs-menu-guide-lock] body {
   margin: 0;
 }
 
+.rsm2-guide--restaurants::before {
+  left: calc(var(--rsm2-guide-tail-x, 30px) - 6px);
+}
+
 body[data-rs-menu-guide-step="restaurants"] .navbar.navbar--guest {
   z-index: 1002;
 }
