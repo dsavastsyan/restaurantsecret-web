@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
-const DEFAULT_MANIFEST = 'release/backend-dependencies.json'
+const WEB_REPOSITORY = 'dsavastsyan/restaurantsecret-web'
+const MANIFEST_DIRECTORY = 'release/backend-dependencies'
 const DEFAULT_POLL_SECONDS = 15
 const DEFAULT_TIMEOUT_SECONDS = 60 * 60
 
@@ -116,9 +117,42 @@ export function validateManifest(document) {
   return document
 }
 
-export async function loadManifest(manifestPath = DEFAULT_MANIFEST) {
+export async function loadManifest(manifestPath) {
+  if (!manifestPath) throw new Error('backend dependency manifest path is required')
   const document = JSON.parse(await readFile(manifestPath, 'utf8'))
   return validateManifest(document)
+}
+
+export function manifestPathForPullRequest(pullRequestNumber) {
+  if (!Number.isInteger(pullRequestNumber) || pullRequestNumber < 1) {
+    throw new Error(`web pull request number must be a positive integer, got ${pullRequestNumber}`)
+  }
+  return path.join(MANIFEST_DIRECTORY, `${pullRequestNumber}.json`)
+}
+
+export async function resolveReleasePullRequest({ api, pullRequestNumber, commitSha }) {
+  if (pullRequestNumber !== undefined && pullRequestNumber !== '') {
+    const parsed = Number(pullRequestNumber)
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(`web pull request number must be a positive integer, got ${pullRequestNumber}`)
+    }
+    return parsed
+  }
+
+  if (!commitSha) throw new Error('BACKEND_RELEASE_PR_NUMBER or BACKEND_RELEASE_COMMIT_SHA is required')
+  const pullRequests = await api.get(
+    `/repos/${repositoryPath(WEB_REPOSITORY)}/commits/${encode(commitSha)}/pulls`,
+  )
+  const matches = pullRequests.filter((pullRequest) =>
+    pullRequest.base?.ref === 'main' &&
+    pullRequest.merged_at &&
+    pullRequest.merge_commit_sha === commitSha,
+  )
+  if (matches.length !== 1) {
+    const numbers = matches.map((pullRequest) => `#${pullRequest.number}`).join(', ') || 'none'
+    throw new Error(`cannot resolve exactly one merged web PR for ${commitSha}; matches: ${numbers}`)
+  }
+  return matches[0].number
 }
 
 async function compareContains(api, baseSha, headSha) {
@@ -251,13 +285,20 @@ async function main() {
     if (value === '--environment' || value === '--manifest') args.set(value, process.argv[++index])
   }
   const environment = args.get('--environment') || process.env.BACKEND_RELEASE_ENV || 'production'
-  const manifestPath = args.get('--manifest') || DEFAULT_MANIFEST
+  const manifestPath = args.get('--manifest') || process.env.BACKEND_RELEASE_MANIFEST || ''
   const timeoutSeconds = Number(process.env.BACKEND_RELEASE_TIMEOUT_SECONDS || DEFAULT_TIMEOUT_SECONDS)
   const pollSeconds = Number(process.env.BACKEND_RELEASE_POLL_SECONDS || DEFAULT_POLL_SECONDS)
   const token = process.env.BACKEND_RELEASE_TOKEN || process.env.GITHUB_TOKEN
   if (!token) throw new Error('BACKEND_RELEASE_TOKEN or GITHUB_TOKEN is required for cross-repository checks')
-  const manifest = await loadManifest(manifestPath)
   const api = new GitHubApi({ token })
+  const releasePullRequest = await resolveReleasePullRequest({
+    api,
+    pullRequestNumber: process.env.BACKEND_RELEASE_PR_NUMBER,
+    commitSha: process.env.BACKEND_RELEASE_COMMIT_SHA || process.env.GITHUB_SHA,
+  })
+  const resolvedManifestPath = manifestPath || manifestPathForPullRequest(releasePullRequest)
+  console.log(`[backend-release] using web PR #${releasePullRequest} manifest ${resolvedManifestPath}`)
+  const manifest = await loadManifest(resolvedManifestPath)
   await waitForBackendRelease({ api, manifest, environment, timeoutSeconds, pollSeconds })
 }
 
