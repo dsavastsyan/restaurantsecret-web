@@ -21,6 +21,7 @@ concurrency:
 jobs:
   backend-release-gate:
     name: backend-release-gate
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,10 +37,12 @@ jobs:
           BACKEND_RELEASE_TOKEN: ${{ secrets.BACKEND_RELEASE_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           BACKEND_RELEASE_ENV: production
+          BACKEND_RELEASE_COMMIT_SHA: ${{ github.sha }}
         run: node scripts/verify-backend-release.mjs
 
   build:
     needs: backend-release-gate
+    if: always() && (github.event_name == 'schedule' || needs.backend-release-gate.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -3,8 +3,8 @@
   "services": {
     "cloudflare": {
       "repository": "dsavastsyan/RestaurantSecret",
-      "staging_pull_request": 502,
-      "production_pull_request": 502
+      "staging_pull_request": 508,
+      "production_pull_request": 508
     },
     "pd_api": {
       "repository": "dsavastsyan/RestaurantSecret-pd-api",
