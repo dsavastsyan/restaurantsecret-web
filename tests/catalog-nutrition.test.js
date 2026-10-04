@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   DEFAULT_CALORIE_RANGES,
   formatRestaurantPriceRange,
+  getCatalogNutritionQueryParams,
   getCatalogNutritionStats,
   getCatalogNutritionStatsForCriteria,
   getRestaurantGoogleRating,
@@ -111,6 +112,27 @@ test('uses the backend matching dish count when menu details are not embedded', 
       dishes: [{ kcal: 220 }, { kcal: 480 }, { kcal: 720 }],
     }, criteria).matching,
     2,
+  )
+})
+
+test('normalizes legacy restaurant count fields and preserves zero-valued bounds', () => {
+  assert.equal(
+    getCatalogNutritionStatsForCriteria({ dishes_count: '644' }).total,
+    644,
+  )
+  assert.deepEqual(
+    getCatalogNutritionQueryParams({
+      calories: { min: 0, max: 400 },
+      protein: { min: '', max: 25 },
+      fat: { min: null, max: null },
+      carbs: { min: 0, max: '' },
+    }),
+    {
+      nutrition_calories_min: 0,
+      nutrition_calories_max: 400,
+      nutrition_protein_max: 25,
+      nutrition_carbs_min: 0,
+    },
   )
 })
 
