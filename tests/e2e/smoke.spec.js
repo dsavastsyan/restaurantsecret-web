@@ -148,7 +148,13 @@ test('@smoke subscribed user sees the full menu past the free preview', async ({
   const verifyPayload = await verifyRes.json()
   const accessToken = verifyPayload?.access_token
   expect(accessToken).toBeTruthy()
-  const authHeaders = { Authorization: `Bearer ${accessToken}` }
+  // Anonymous menu requests now require a Turnstile token (403 captcha_required),
+  // which a headless request can't solve. The Pages build uses the same escape
+  // hatch: the sitemap build key exempts the call from the scraper limits and
+  // captcha. It does NOT bypass the paywall — trimming depends on the Bearer
+  // token alone, so the anonymous/subscriber comparison below stays meaningful.
+  const buildKeyHeaders = process.env.SITEMAP_API_KEY ? { 'X-RS-Sitemap-Key': process.env.SITEMAP_API_KEY } : {}
+  const authHeaders = { Authorization: `Bearer ${accessToken}`, ...buildKeyHeaders }
 
   // Find a restaurant with more dishes than the free-preview count (3) —
   // otherwise there'd be no dish for an anonymous caller to have trimmed.
@@ -164,7 +170,7 @@ test('@smoke subscribed user sees the full menu past the free preview', async ({
   let targetSlug = null
   let anonDishes = null
   for (const candidate of candidates) {
-    const anonRes = await page.request.get(menuUrl(candidate.slug))
+    const anonRes = await page.request.get(menuUrl(candidate.slug), { headers: buildKeyHeaders })
     if (!anonRes.ok()) continue
     const dishes = flattenDishes(await anonRes.json())
     if (dishes.length > 3) {
