@@ -107,3 +107,59 @@ test('production gate requires the migration and backfill jobs before Worker dep
     'deploy-worker',
   ])
 })
+
+test('develop -> main promotions are recognised without a manifest of their own', async () => {
+  const { isPromotionMerge } = await import('../scripts/verify-backend-release.mjs')
+  assert.equal(isPromotionMerge({ subject: 'Merge pull request #576 from dsavastsyan/develop' }), true)
+  assert.equal(isPromotionMerge({ subject: 'Merge pull request #574 from dsavastsyan/codex/anyeat-success-copy' }), false)
+  assert.equal(isPromotionMerge({ headRef: 'develop', baseRef: 'main' }), true)
+  assert.equal(isPromotionMerge({ headRef: 'codex/x', baseRef: 'main' }), false)
+})
+
+test('a promotion inherits exactly the manifests it brings into main', async () => {
+  const { manifestsBroughtByMerge } = await import('../scripts/verify-backend-release.mjs')
+  const calls = []
+  const git = (args) => {
+    calls.push(args)
+    return 'release/backend-dependencies/574.json\nrelease/backend-dependencies/570.json\n\n'
+  }
+  assert.deepEqual(manifestsBroughtByMerge(git), [
+    'release/backend-dependencies/570.json',
+    'release/backend-dependencies/574.json',
+  ])
+  assert.deepEqual(calls[0].slice(0, 4), ['diff', '--name-only', '--diff-filter=AM', 'HEAD^1'])
+  assert.equal(manifestsBroughtByMerge(() => ''). length, 0)
+})
+
+test('the Backend line in a PR description declares its backend PRs', async () => {
+  const { parseBackendDeclaration } = await import('../scripts/verify-backend-release.mjs')
+  const body = 'Fixes things\n\nBackend: RestaurantSecret#511, dsavastsyan/RestaurantSecret-pd-api#221\n'
+  const manifests = parseBackendDeclaration(body)
+  assert.equal(manifests.length, 2)
+  for (const manifest of manifests) assert.doesNotThrow(() => validateManifest(manifest))
+  assert.deepEqual(manifests[0].services.cloudflare, { repository: SERVICE_CONFIG.cloudflare.repository, pull_request: 511 })
+  assert.deepEqual(manifests[1].services.pd_api, { repository: SERVICE_CONFIG.pd_api.repository, pull_request: 221 })
+})
+
+test('Backend: none and a missing line are different things', async () => {
+  const { parseBackendDeclaration } = await import('../scripts/verify-backend-release.mjs')
+  assert.deepEqual(parseBackendDeclaration('x\nBackend: none'), [])
+  assert.deepEqual(parseBackendDeclaration('backend: Нет'), [])
+  assert.equal(parseBackendDeclaration('no declaration here'), null)
+  assert.equal(parseBackendDeclaration(null), null)
+})
+
+test('a Backend line naming an unknown repository or no PR is rejected', async () => {
+  const { parseBackendDeclaration } = await import('../scripts/verify-backend-release.mjs')
+  assert.throws(() => parseBackendDeclaration('Backend: someone/else#5'), /unknown repository/)
+  assert.throws(() => parseBackendDeclaration('Backend: soon'), /Cannot read the Backend line/)
+})
+
+test('a promotion collects the PR numbers it brings into main, minus its own', async () => {
+  const { pullRequestsBroughtByMerge } = await import('../scripts/verify-backend-release.mjs')
+  const git = (args) => {
+    assert.deepEqual(args, ['log', '--format=%s', 'HEAD^1..HEAD^2'])
+    return 'Merge pull request #577 from a/b\nfix: something\nMerge pull request #580 from a/c\nMerge pull request #576 from a/develop\n'
+  }
+  assert.deepEqual(pullRequestsBroughtByMerge(git, 576), [577, 580])
+})

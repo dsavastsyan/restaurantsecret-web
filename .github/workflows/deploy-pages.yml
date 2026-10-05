@@ -21,7 +21,6 @@ concurrency:
 jobs:
   backend-release-gate:
     name: backend-release-gate
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,6 +28,8 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # promotion merges inherit the manifests they bring in (HEAD^1..HEAD)
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -42,7 +43,6 @@ jobs:
 
   build:
     needs: backend-release-gate
-    if: always() && (github.event_name == 'schedule' || needs.backend-release-gate.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

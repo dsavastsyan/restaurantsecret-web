@@ -18,31 +18,30 @@
 работает со staging API. Продвижение `develop` → `main` и production deploy — отдельное
 решение founder; агент самостоятельно их не выполняет.
 
-## Манифест backend-зависимостей для web PR
+## Зависимости web PR от backend (строка `Backend:` в описании PR)
 
-Каждый web PR обязан содержать файл
-`release/backend-dependencies/<номер-PR>.json`. Этот файл нужен CI, чтобы явно отличать
-web-изменения, которым нужен backend deploy, от изменений только в web-коде.
+Каждый web PR обязан в описании объявить, нужны ли ему backend-изменения. Строку нужно
+добавить сразу при `gh pr create` (шаблон `.github/pull_request_template.md` её уже
+содержит) — номер PR для этого знать не нужно, коммитить файлы не нужно, описание можно
+править после открытия PR.
 
-Если PR не меняет backend-контракт, backend API, Worker или данные, создать манифест
-ровно такого вида:
-
-```json
-{
-  "version": 1,
-  "backend_dependencies": false
-}
+```
+Backend: RestaurantSecret#511, RestaurantSecret-pd-api#221
+Backend: none
 ```
 
-Не добавлять в этот режим поле `services`. В таком случае `backend-release-gate` успешно
-завершается с отметкой `skipping ... release gate` и не ждёт backend staging deploy.
+`RestaurantSecret` — Worker (Cloudflare), `RestaurantSecret-pd-api` — pd-api. Указывать
+реальные backend PR, чьи merge-коммиты уже находятся в `develop` (staging) или `main`
+(production); `none` — если PR не меняет backend-контракт, API, Worker или данные.
+`backend-release-gate` ждёт, пока перечисленные backend PR задеплоены в нужное окружение,
+и падает с подсказкой, если строки нет. Деплой сайта (push в `main`, ручной запуск и ночная
+сборка по расписанию) проходит тот же гейт: без него сайт не публикуется, остаётся
+предыдущая версия.
 
-Если PR зависит от backend-изменений, использовать legacy-совместимый формат с обоими
-сервисами (`cloudflare` и `pd_api`) и отдельными `staging_pull_request` и
-`production_pull_request`. Указывать реальные backend PR, чьи merge-коммиты уже находятся
-в соответствующих ветках (`develop` для staging и `main` для production); не копировать
-старые номера из другого web PR без проверки.
+Промоушен `develop` → `main` собственной строки не требует: он наследует строки (и файлы
+`release/backend-dependencies/<номер>.json`) всех PR, которые приносит в `main`.
 
-Перед push проверить манифесты командой `node --test tests/backend-release-gate.test.mjs`.
-Отсутствующий манифест, неизвестный режим или смешение `backend_dependencies: false` с
-`services` должны считаться ошибкой PR и быть исправлены до review.
+Старый способ — файл `release/backend-dependencies/<номер-PR>.json` — продолжает работать
+и имеет приоритет над строкой. Формат: `{"version": 1, "backend_dependencies": false}` либо
+`services` с `cloudflare` и `pd_api` и их `staging_pull_request`/`production_pull_request`.
+Перед push проверять `node --test tests/backend-release-gate.test.mjs`.
