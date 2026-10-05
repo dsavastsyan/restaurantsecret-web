@@ -15,7 +15,11 @@ function createHarness({ now = 1000, storedTimestamp = null } = {}) {
       assert.equal(name, 'vite:preloadError')
       handler = listener
     },
-    location: { reload: () => reloads.push(true) },
+    location: {
+      href: 'https://example.test/restaurants/demo/menu/?city=Moscow',
+      replace: (url) => reloads.push(url),
+      reload: () => reloads.push(true),
+    },
   }
   const cacheStorage = {
     keys: async () => ['static-v4-old', 'api-v3', 'other-cache'],
@@ -31,7 +35,7 @@ function createHarness({ now = 1000, storedTimestamp = null } = {}) {
   return { handler, reloads, deletedCaches, storageValues }
 }
 
-test('preload errors clear static caches and reload once', async () => {
+test('preload errors clear static caches and navigate to a cache-busted URL', async () => {
   const harness = createHarness()
   let prevented = false
 
@@ -40,7 +44,9 @@ test('preload errors clear static caches and reload once', async () => {
 
   assert.equal(prevented, true)
   assert.deepEqual(harness.deletedCaches, ['static-v4-old'])
-  assert.deepEqual(harness.reloads, [true])
+  assert.deepEqual(harness.reloads, [
+    'https://example.test/restaurants/demo/menu/?city=Moscow&rs_asset_recovery=1000',
+  ])
   assert.equal(harness.storageValues.get('rs-asset-recovery-at'), '1000')
 })
 
@@ -54,7 +60,7 @@ test('preload errors do not create a reload loop during the cooldown', async () 
   assert.deepEqual(harness.reloads, [])
 })
 
-test('preload errors do not reload when recovery storage is unavailable', async () => {
+test('preload errors recover once when session storage is unavailable', async () => {
   const reloads = []
   const deletedCaches = []
   let handler
@@ -62,15 +68,42 @@ test('preload errors do not reload when recovery storage is unavailable', async 
   configureAssetRecovery({
     windowObject: {
       addEventListener: (_name, listener) => { handler = listener },
-      location: { reload: () => reloads.push(true) },
+      location: {
+        href: 'https://example.test/restaurants/demo/menu/',
+        replace: (url) => reloads.push(url),
+        reload: () => reloads.push(true),
+      },
     },
     cacheStorage: { keys: async () => ['static-v4-old'], delete: async (name) => deletedCaches.push(name) },
+    storage: null,
+    now: () => 1000,
+  })
+
+  handler({ preventDefault: () => {} })
+  await new Promise((resolve) => setImmediate(resolve))
+
+  assert.deepEqual(deletedCaches, ['static-v4-old'])
+  assert.deepEqual(reloads, ['https://example.test/restaurants/demo/menu/?rs_asset_recovery=1000'])
+})
+
+test('preload errors are not retried when the recovery URL is already present', async () => {
+  let handler
+  const reloads = []
+
+  configureAssetRecovery({
+    windowObject: {
+      addEventListener: (_name, listener) => { handler = listener },
+      location: {
+        href: 'https://example.test/menu/?rs_asset_recovery=1000',
+        replace: (url) => reloads.push(url),
+      },
+    },
+    cacheStorage: { keys: async () => [], delete: async () => {} },
     storage: null,
   })
 
   handler({ preventDefault: () => {} })
   await new Promise((resolve) => setImmediate(resolve))
 
-  assert.deepEqual(deletedCaches, [])
   assert.deepEqual(reloads, [])
 })
