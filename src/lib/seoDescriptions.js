@@ -21,8 +21,7 @@ export function restaurantSeoDescription(name, dishCount) {
 
 export function chainHubSeoDescription(chainName, branchCount, dishCount = 0) {
   const branchWord = pluralizeRu(branchCount, ['филиал', 'филиала', 'филиалов'])
-  const dishes = Number.isFinite(dishCount) && dishCount > 0
-    ? ` Более ${dishCount} ${pluralizeRu(dishCount, ['блюдо', 'блюда', 'блюд'])}.`
-    : ''
+  // "Более N" always takes the genitive plural ("более 233 блюд", not "блюда").
+  const dishes = Number.isFinite(dishCount) && dishCount > 0 ? ` Более ${dishCount} блюд.` : ''
   return `${branchCount} ${branchWord} с полным КБЖУ меню.${dishes} ${DESCRIPTION_TAIL} Сравнивайте блюда ${chainName} перед посещением ресторана.`
 }
