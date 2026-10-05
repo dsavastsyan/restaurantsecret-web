@@ -46,6 +46,9 @@ jobs:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SITEMAP_API_URL: ${{ env.STAGING_PUBLIC_API_UPSTREAM }}
+          # Same build key deploy-pages.yml uses: the staging Worker exempts it from the
+          # per-IP scraper limits (429 -> 403 ban) that the ~600-menu prerender trips.
+          SITEMAP_API_KEY: ${{ secrets.SITEMAP_API_KEY }}
           SITEMAP_FETCH_TIMEOUT_MS: '45000'
           SITEMAP_STRICT_API_FETCH: 'true'
           SITEMAP_MIN_RESTAURANTS: '1'
