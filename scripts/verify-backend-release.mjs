@@ -120,8 +120,14 @@ export function validateManifest(document) {
   if (!document.services || typeof document.services !== 'object' || Array.isArray(document.services)) {
     throw new Error('backend dependency manifest must contain services')
   }
-  for (const service of Object.keys(SERVICE_CONFIG)) {
-    assertManifestEntry(service, document.services[service])
+  const declared = Object.keys(document.services)
+  if (document.partial_services !== true) {
+    for (const service of Object.keys(SERVICE_CONFIG)) {
+      assertManifestEntry(service, document.services[service])
+    }
+  } else {
+    if (!declared.length) throw new Error('backend dependency manifest must contain services')
+    for (const service of declared) assertManifestEntry(service, document.services[service])
   }
   const unexpected = Object.keys(document.services).filter((service) => !SERVICE_CONFIG[service])
   if (unexpected.length) throw new Error(`Unexpected backend services: ${unexpected.join(', ')}`)
@@ -183,6 +189,45 @@ export function manifestsBroughtByMerge(git) {
     .map((line) => line.trim())
     .filter((line) => line.endsWith('.json'))
     .sort()
+}
+
+
+const BACKEND_REPOSITORIES = Object.fromEntries(
+  Object.entries(SERVICE_CONFIG).map(([service, config]) => [config.repository.split('/')[1].toLowerCase(), service]),
+)
+
+export const BACKEND_LINE_HELP =
+  'Add a line to the PR description, e.g. "Backend: RestaurantSecret#511, RestaurantSecret-pd-api#221" ' +
+  'or "Backend: none" when the web change does not depend on a backend change.'
+
+// "Backend: RestaurantSecret#511, dsavastsyan/RestaurantSecret-pd-api#221" or
+// "Backend: none". Returns null when the description has no Backend line,
+// otherwise a list of manifests (one per declared backend PR; [] for none).
+export function parseBackendDeclaration(body) {
+  const line = String(body || '').split(/\r?\n/).map((text) => /^\s*backend\s*:\s*(.+?)\s*$/i.exec(text)).find(Boolean)
+  if (!line) return null
+  const value = line[1]
+  if (/^(none|no|нет|-|—)\.?$/i.test(value)) return []
+  const manifests = []
+  const pattern = /(?:github\.com\/[\w.-]+\/|[\w.-]+\/)?([\w.-]+?)(?:#|\/pull\/)(\d+)/g
+  for (const [, repo, number] of value.matchAll(pattern)) {
+    const service = BACKEND_REPOSITORIES[repo.toLowerCase()]
+    if (!service) throw new Error(`Backend line names an unknown repository "${repo}"; expected one of ${Object.values(SERVICE_CONFIG).map((c) => c.repository.split('/')[1]).join(', ')}`)
+    manifests.push({
+      version: 1,
+      partial_services: true,
+      services: { [service]: { repository: SERVICE_CONFIG[service].repository, pull_request: Number(number) } },
+    })
+  }
+  if (!manifests.length) throw new Error(`Cannot read the Backend line "${value}". ${BACKEND_LINE_HELP}`)
+  return manifests
+}
+
+// Numbers of the PRs merged into develop that a develop -> main merge brings in.
+export function pullRequestsBroughtByMerge(git, ownNumber) {
+  return [...git(['log', '--format=%s', 'HEAD^1..HEAD^2']).matchAll(/^Merge pull request #(\d+) from /gm)]
+    .map((match) => Number(match[1]))
+    .filter((number) => number !== ownNumber)
 }
 
 const runGit = (args) => execFileSync('git', args, { encoding: 'utf8' })
@@ -278,9 +323,9 @@ export async function verifyBackendRelease({ api, manifest, environment }) {
   }
   if (manifest.backend_dependencies === false) return []
   const entries = await Promise.all(
-    Object.entries(SERVICE_CONFIG).map(([service]) =>
-      inspectService(api, service, manifest.services[service], environment),
-    ),
+    Object.keys(SERVICE_CONFIG)
+      .filter((service) => manifest.services[service])
+      .map((service) => inspectService(api, service, manifest.services[service], environment)),
   )
   return entries
 }
@@ -335,25 +380,44 @@ async function main() {
   })
   const resolvedManifestPath = manifestPath || manifestPathForPullRequest(releasePullRequest)
   const wait = (manifest) => waitForBackendRelease({ api, manifest, environment, timeoutSeconds, pollSeconds })
-  if (!manifestPath && !existsSync(resolvedManifestPath)) {
-    const promotion = isPromotionMerge({
-      subject: runGit(['log', '-1', '--format=%s', 'HEAD']).trim(),
-      headRef: process.env.GITHUB_HEAD_REF,
-      baseRef: process.env.GITHUB_BASE_REF,
-    })
-    if (!promotion) {
-      throw new Error(`${resolvedManifestPath} not found: add a backend dependency manifest for web PR #${releasePullRequest}`)
-    }
-    const inherited = manifestsBroughtByMerge(runGit)
-    console.log(`[backend-release] promotion PR #${releasePullRequest} has no own manifest; inherited: ${inherited.join(', ') || 'none'}`)
-    for (const inheritedPath of inherited) {
-      console.log(`[backend-release] checking ${inheritedPath}`)
-      await wait(await loadManifest(inheritedPath))
-    }
+  const waitAll = async (manifests) => {
+    for (const manifest of manifests) await wait(manifest)
+  }
+  if (manifestPath || existsSync(resolvedManifestPath)) {
+    console.log(`[backend-release] using web PR #${releasePullRequest} manifest ${resolvedManifestPath}`)
+    await wait(await loadManifest(resolvedManifestPath))
     return
   }
-  console.log(`[backend-release] using web PR #${releasePullRequest} manifest ${resolvedManifestPath}`)
-  await wait(await loadManifest(resolvedManifestPath))
+
+  const webPullRequest = (number) => api.get(`/repos/${repositoryPath(WEB_REPOSITORY)}/pulls/${number}`)
+  const declared = parseBackendDeclaration((await webPullRequest(releasePullRequest)).body)
+  if (declared) {
+    console.log(`[backend-release] web PR #${releasePullRequest} declares ${declared.length} backend PR(s) in its description`)
+    await waitAll(declared)
+    return
+  }
+
+  const promotion = isPromotionMerge({
+    subject: runGit(['log', '-1', '--format=%s', 'HEAD']).trim(),
+    headRef: process.env.GITHUB_HEAD_REF,
+    baseRef: process.env.GITHUB_BASE_REF,
+  })
+  if (!promotion) {
+    throw new Error(`web PR #${releasePullRequest} does not declare its backend dependencies. ${BACKEND_LINE_HELP}`)
+  }
+  // A develop -> main promotion has no declaration of its own: it inherits
+  // whatever the PRs it brings into main declared (description line or file).
+  const inherited = []
+  for (const file of manifestsBroughtByMerge(runGit)) inherited.push(await loadManifest(file))
+  const brought = pullRequestsBroughtByMerge(runGit, releasePullRequest)
+  for (const number of brought) {
+    const declaredByPr = parseBackendDeclaration((await webPullRequest(number)).body)
+    if (declaredByPr) inherited.push(...declaredByPr)
+  }
+  console.log(
+    `[backend-release] promotion PR #${releasePullRequest} inherits ${inherited.length} backend manifest(s) from ${brought.length} PR(s) and files`,
+  )
+  await waitAll(inherited)
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
