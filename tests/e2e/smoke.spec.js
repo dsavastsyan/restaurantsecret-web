@@ -128,3 +128,78 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
   // client-side flag can unlock data the API never sent. The flip side —
   // a real subscriber sees everything — is covered by the next test below.
 })
+
+test('@smoke subscribed user sees the full menu past the free preview', async ({ page }) => {
+  const email = process.env.E2E_TEST_EMAIL
+  const otp = process.env.E2E_TEST_OTP
+  test.skip(!email || !otp, 'E2E_TEST_EMAIL / E2E_TEST_OTP not configured — see pd-api routes/auth.js')
+
+  const pdApiBase = process.env.VITE_PD_API_BASE || 'https://pd.restaurantsecret.ru'
+  const publicApiBase = process.env.VITE_API_BASE_URL || `${pdApiBase}/cf`
+
+  // Log in as the dedicated e2e-test account directly against the API. This
+  // test is about the server-side paywall trimming, not the login UI — the
+  // UI's own OTP flow isn't exercised here, only pd-api's bypass code path.
+  const requestOtpRes = await page.request.post(`${pdApiBase}/auth/request-otp`, { data: { email } })
+  expect(requestOtpRes.ok()).toBeTruthy()
+
+  const verifyRes = await page.request.post(`${pdApiBase}/auth/verify-otp`, { data: { email, code: otp } })
+  expect(verifyRes.ok()).toBeTruthy()
+  const verifyPayload = await verifyRes.json()
+  const accessToken = verifyPayload?.access_token
+  expect(accessToken).toBeTruthy()
+  // Anonymous menu requests now require a Turnstile token (403 captcha_required),
+  // which a headless request can't solve. The Pages build uses the same escape
+  // hatch: the sitemap build key exempts the call from the scraper limits and
+  // captcha. It does NOT bypass the paywall — trimming depends on the Bearer
+  // token alone, so the anonymous/subscriber comparison below stays meaningful.
+  const buildKeyHeaders = process.env.SITEMAP_API_KEY ? { 'X-RS-Sitemap-Key': process.env.SITEMAP_API_KEY } : {}
+  const authHeaders = { Authorization: `Bearer ${accessToken}`, ...buildKeyHeaders }
+
+  // Find a restaurant with more dishes than the free-preview count (3) —
+  // otherwise there'd be no dish for an anonymous caller to have trimmed.
+  const catalogRes = await page.request.get(`${publicApiBase}/restaurants?limit=1000`)
+  expect(catalogRes.ok()).toBeTruthy()
+  const catalogPayload = await catalogRes.json()
+  const candidates = catalogPayload?.items || []
+  expect(candidates.length).toBeGreaterThan(0)
+
+  const menuUrl = (slug) => `${publicApiBase}/restaurants/${slug}/menu?city=${encodeURIComponent('Москва')}`
+  const flattenDishes = (menu) => (menu?.categories || []).flatMap((c) => c.dishes || [])
+
+  let targetSlug = null
+  let anonDishes = null
+  for (const candidate of candidates) {
+    const anonRes = await page.request.get(menuUrl(candidate.slug), { headers: buildKeyHeaders })
+    if (!anonRes.ok()) continue
+    const dishes = flattenDishes(await anonRes.json())
+    if (dishes.length > 3) {
+      targetSlug = candidate.slug
+      anonDishes = dishes
+      break
+    }
+  }
+  expect(targetSlug, 'expected at least one catalog restaurant with more than 3 dishes').toBeTruthy()
+
+  // Sanity-check the premise: an anonymous caller must NOT get the 4th
+  // dish's KBJU — otherwise this test would prove nothing either way.
+  expect(anonDishes[3].kcal).toBeNull()
+
+  // The whole point: this app UI hits this exact endpoint (src/pages/Menu.jsx)
+  // with the session token as an Authorization header — reproduce that call
+  // directly rather than through the rendered page, since what the page's
+  // own fetch resolves to (prod vs. the dev-mode staging default in
+  // src/config/api.js) is a frontend build concern unrelated to the
+  // server-side entitlement check this test cares about.
+  const authRes = await page.request.get(menuUrl(targetSlug), { headers: authHeaders })
+  expect(authRes.ok()).toBeTruthy()
+  const authDishes = flattenDishes(await authRes.json())
+  expect(authDishes.length).toBe(anonDishes.length)
+
+  // A real active subscription must unlock every dish, not just the free
+  // preview — this is exactly what a client-side flag could never prove
+  // after the 2026-09-12 server-side trimming fix.
+  for (const dish of authDishes) {
+    expect(dish.kcal).not.toBeNull()
+  }
+})

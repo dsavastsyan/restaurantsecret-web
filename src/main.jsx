@@ -12,11 +12,18 @@ import { hydrateCityPreference } from './lib/cityPreference'
 import { getAuthState } from './store/auth'
 import PreviewPersonaPanel from './components/PreviewPersonaPanel.jsx'
 import { IS_PREVIEW } from './config/api'
+import { configureAssetRecovery } from './lib/assetRecovery'
 import { configureServiceWorker } from './lib/serviceWorker'
 import { initSentry, Sentry } from './lib/sentry'
 import CrashFallback from './components/CrashFallback.jsx'
 import './styles.css'
 import './account-mobile-profile.css'
+
+configureAssetRecovery({
+  windowObject: window,
+  cacheStorage: 'caches' in window ? window.caches : null,
+  storage: 'sessionStorage' in window ? window.sessionStorage : null,
+})
 
 initSentry()
 
