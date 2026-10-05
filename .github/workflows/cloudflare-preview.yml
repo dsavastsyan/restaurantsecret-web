@@ -104,6 +104,10 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ steps.deploy.outputs.url }}
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_OTP: ${{ secrets.E2E_TEST_OTP }}
+          # The subscriber smoke test talks to staging pd-api directly (prod does not
+          # expose /cf publicly) and needs the build key to get past menu captcha.
+          VITE_PD_API_BASE: ${{ env.STAGING_PD_API }}
+          SITEMAP_API_KEY: ${{ secrets.SITEMAP_API_KEY }}
         run: |
           curl --fail --show-error --silent --retry 5 --retry-all-errors "$PLAYWRIGHT_BASE_URL/" > /dev/null
           curl --fail --show-error --silent --retry 5 --retry-all-errors \
