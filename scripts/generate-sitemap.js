@@ -4,6 +4,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
+import { chainHubSeoDescription, pluralizeRu, restaurantSeoDescription } from '../src/lib/seoDescriptions.js'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '../src/lib/cityCatalog.js'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
@@ -46,6 +47,10 @@ const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
 const STRICT_API_FETCH = process.env.SITEMAP_STRICT_API_FETCH === 'true'
 const API_KEY = process.env.SITEMAP_API_KEY || ''
+// Share of restaurants whose menu must load; below it the build fails instead of
+// publishing pages with empty dish counts (rate-limited/blocked menu API).
+const MIN_MENU_RATIO = Math.min(1, Math.max(0, Number(process.env.SITEMAP_MIN_MENU_RATIO || 0)))
+const MENU_RETRY_ATTEMPTS = Math.max(0, Number(process.env.SITEMAP_MENU_RETRIES || 3))
 const MIN_RESTAURANTS = Math.max(0, Number(process.env.SITEMAP_MIN_RESTAURANTS || 0))
 const cloudflarePagesBranch = process.env.CF_PAGES_BRANCH
 const isCloudflarePagesPreview = Boolean(
@@ -294,10 +299,7 @@ function getRestaurantName(restaurant) {
 }
 
 function getRestaurantDescription(restaurant, dishCount) {
-  const name = getRestaurantName(restaurant)
-  const n = Number.isFinite(dishCount) ? dishCount : 0
-  const dishWord = pluralizeRu(n, ['блюдо', 'блюда', 'блюд'])
-  return `${n} ${dishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${name} перед посещением ресторана.`
+  return restaurantSeoDescription(getRestaurantName(restaurant), dishCount)
 }
 
 // hasMenu carries dish names only (no NutritionInformation) — same
@@ -418,9 +420,7 @@ function groupChains(restaurants) {
 }
 
 function chainHubDescription(chainName, branches, dishCount = 0) {
-  const branchWord = pluralizeRu(branches.length, ['филиал', 'филиала', 'филиалов'])
-  const dishWord = pluralizeRu(dishCount, ['блюдо', 'блюда', 'блюд'])
-  return `${branches.length} ${branchWord} с полным КБЖУ меню. Более ${dishCount} ${dishWord}. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${chainName} перед посещением ресторана.`
+  return chainHubSeoDescription(chainName, branches.length, dishCount)
 }
 
 function chainHubSchema(chainSlug, chainName, branches) {
@@ -780,14 +780,6 @@ function generateStaticRoutes(restaurants, menuBySlug) {
 // Russian numeral agreement: 1 ресторан / 2-4 ресторана / 5+ ресторанов
 // (and the "teens" 11-14 always take the "many" form regardless of the last
 // digit — that's the % 100 check below).
-function pluralizeRu(n, [one, few, many]) {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return one
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
-  return many
-}
-
 // llmstxt.org convention: a plain-text/Markdown entrypoint AI systems read
 // directly instead of parsing the SPA shell. Numbers are computed from the
 // same API data as the sitemap, not hand-maintained, so this can't go stale
@@ -873,6 +865,18 @@ async function fetchRestaurantMenu(slug) {
   throw new Error(errors.join('; '))
 }
 
+async function fetchMenuWithRetry(slug) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fetchRestaurantMenu(slug)
+    } catch (error) {
+      const rateLimited = String(error?.message ?? '').includes('429')
+      if (!rateLimited || attempt >= MENU_RETRY_ATTEMPTS) throw error
+      await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** attempt))
+    }
+  }
+}
+
 async function fetchRestaurantMenus(restaurants) {
   const targets = restaurants.filter((restaurant) => restaurant.slug)
   const menuBySlug = new Map()
@@ -885,7 +889,7 @@ async function fetchRestaurantMenus(restaurants) {
       nextIndex += 1
 
       try {
-        const menu = await fetchRestaurantMenu(restaurant.slug)
+        const menu = await fetchMenuWithRetry(restaurant.slug)
         menuBySlug.set(restaurant.slug, menu)
       } catch (error) {
         failedCount += 1
@@ -1002,6 +1006,12 @@ async function main() {
 
   console.log('🔍 Fetching restaurant menus for prerender...')
   const menuBySlug = await fetchRestaurantMenus(sitemapRestaurants)
+  const menuTargets = sitemapRestaurants.filter((r) => r.slug).length
+  if (menuTargets && menuBySlug.size / menuTargets < MIN_MENU_RATIO) {
+    throw new Error(
+      `Only ${menuBySlug.size}/${menuTargets} menus loaded, below required ratio ${MIN_MENU_RATIO} (SITEMAP_MIN_MENU_RATIO)`,
+    )
+  }
 
   const today = new Date().toISOString().split('T')[0]
 
