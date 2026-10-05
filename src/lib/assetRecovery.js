@@ -1,5 +1,23 @@
 const RECOVERY_STORAGE_KEY = 'rs-asset-recovery-at'
 const RECOVERY_COOLDOWN_MS = 30_000
+const RECOVERY_QUERY_KEY = 'rs_asset_recovery'
+const ASSET_RECOVERY_ACTIVE_FLAG = '__RS_ASSET_RECOVERY_ACTIVE__'
+
+const ASSET_PRELOAD_ERROR_PATTERNS = [
+  'Unable to preload CSS for ',
+  'Failed to fetch dynamically imported module',
+  'is not a valid JavaScript MIME type',
+]
+
+export function isAssetPreloadErrorMessage(value) {
+  const message = String(value || '')
+  return ASSET_PRELOAD_ERROR_PATTERNS.some((pattern) => message.includes(pattern))
+}
+
+export function isAssetPreloadErrorEvent(event) {
+  if (isAssetPreloadErrorMessage(event?.message)) return true
+  return (event?.exception?.values || []).some((value) => isAssetPreloadErrorMessage(value?.value))
+}
 
 function readLastRecovery(storage) {
   if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') {
@@ -37,25 +55,94 @@ async function clearStaticCaches(cacheStorage) {
   )
 }
 
+async function unregisterServiceWorkers(serviceWorker) {
+  if (!serviceWorker?.getRegistrations) return
+
+  const registrations = await serviceWorker.getRegistrations()
+  await Promise.all(registrations.map((registration) => registration.unregister()))
+}
+
+function hasRecoveryQuery(windowObject) {
+  try {
+    const href = windowObject?.location?.href
+    return href ? new URL(href).searchParams.has(RECOVERY_QUERY_KEY) : false
+  } catch {
+    return false
+  }
+}
+
+function clearRecoveryQuery(windowObject) {
+  try {
+    const href = windowObject?.location?.href
+    if (!href || !windowObject?.history?.replaceState) return
+    const url = new URL(href)
+    if (!url.searchParams.has(RECOVERY_QUERY_KEY)) return
+    url.searchParams.delete(RECOVERY_QUERY_KEY)
+    windowObject.history.replaceState(windowObject.history.state, '', url.toString())
+  } catch {
+    // Keeping the marker is safer than risking another reload loop.
+  }
+}
+
+function buildRecoveryUrl(windowObject, timestamp) {
+  try {
+    const href = windowObject?.location?.href
+    if (!href) return null
+    const url = new URL(href)
+    url.searchParams.set(RECOVERY_QUERY_KEY, String(timestamp))
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+function navigateToFreshPage(windowObject, timestamp) {
+  const location = windowObject?.location
+  const recoveryUrl = buildRecoveryUrl(windowObject, timestamp)
+  if (recoveryUrl && typeof location?.replace === 'function') {
+    location.replace(recoveryUrl)
+    return
+  }
+  location?.reload?.()
+}
+
 export function configureAssetRecovery({
   windowObject,
   cacheStorage,
   storage,
+  serviceWorker,
   now = () => Date.now(),
 }) {
   if (!windowObject?.addEventListener) return
+
+  // A normal session has storage available, so the persisted cooldown is
+  // enough to guard the just-recovered page. Remove the marker from the
+  // address bar; privacy-restricted sessions keep it as their loop guard.
+  if (hasRecoveryQuery(windowObject) && readLastRecovery(storage).available) {
+    clearRecoveryQuery(windowObject)
+  }
 
   windowObject.addEventListener('vite:preloadError', (event) => {
     event?.preventDefault?.()
 
     const timestamp = now()
+    // A cache-busting URL is also the fallback loop guard when sessionStorage
+    // is disabled or unavailable (for example in a privacy-restricted tab).
+    if (hasRecoveryQuery(windowObject)) return
+
     const recovery = readLastRecovery(storage)
-    if (!recovery.available) return
     if (recovery.value !== null && timestamp - recovery.value < RECOVERY_COOLDOWN_MS) return
 
-    if (!writeLastRecovery(storage, timestamp)) return
-    Promise.resolve(clearStaticCaches(cacheStorage))
+    if (recovery.available && !writeLastRecovery(storage, timestamp)) return
+    windowObject[ASSET_RECOVERY_ACTIVE_FLAG] = true
+
+    Promise.all([
+      clearStaticCaches(cacheStorage),
+      unregisterServiceWorkers(serviceWorker),
+    ])
       .catch(() => {})
-      .finally(() => windowObject.location?.reload?.())
+      .finally(() => navigateToFreshPage(windowObject, timestamp))
   })
 }
+
+export { ASSET_RECOVERY_ACTIVE_FLAG }

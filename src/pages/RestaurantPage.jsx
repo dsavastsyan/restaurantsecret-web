@@ -11,6 +11,7 @@ import { MenuOutdatedModal } from '@/components/MenuOutdatedModal';
 import { analytics } from '@/services/analytics';
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants';
 import { useMeta } from '@/lib/useMeta';
+import { safeJsonStringify } from '@/lib/safeJson';
 
 // Assumption: subscription is active when you render this page
 // If you still keep useSubscription, you can gate this page by redirecting beforehand.
@@ -334,7 +335,7 @@ function RestaurantSchema({ menu, slug }) {
     <script
       id="restaurant-schema"
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonStringify(schema) }}
     />
   )
 }
