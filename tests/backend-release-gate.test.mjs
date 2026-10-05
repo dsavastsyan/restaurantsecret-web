@@ -107,3 +107,26 @@ test('production gate requires the migration and backfill jobs before Worker dep
     'deploy-worker',
   ])
 })
+
+test('develop -> main promotions are recognised without a manifest of their own', async () => {
+  const { isPromotionMerge } = await import('../scripts/verify-backend-release.mjs')
+  assert.equal(isPromotionMerge({ subject: 'Merge pull request #576 from dsavastsyan/develop' }), true)
+  assert.equal(isPromotionMerge({ subject: 'Merge pull request #574 from dsavastsyan/codex/anyeat-success-copy' }), false)
+  assert.equal(isPromotionMerge({ headRef: 'develop', baseRef: 'main' }), true)
+  assert.equal(isPromotionMerge({ headRef: 'codex/x', baseRef: 'main' }), false)
+})
+
+test('a promotion inherits exactly the manifests it brings into main', async () => {
+  const { manifestsBroughtByMerge } = await import('../scripts/verify-backend-release.mjs')
+  const calls = []
+  const git = (args) => {
+    calls.push(args)
+    return 'release/backend-dependencies/574.json\nrelease/backend-dependencies/570.json\n\n'
+  }
+  assert.deepEqual(manifestsBroughtByMerge(git), [
+    'release/backend-dependencies/570.json',
+    'release/backend-dependencies/574.json',
+  ])
+  assert.deepEqual(calls[0].slice(0, 4), ['diff', '--name-only', '--diff-filter=AM', 'HEAD^1'])
+  assert.equal(manifestsBroughtByMerge(() => ''). length, 0)
+})

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -164,6 +166,27 @@ export async function resolveReleasePullRequest({ api, pullRequestNumber, commit
   return matches[0].number
 }
 
+
+// A develop -> main promotion PR gets its number only after it is opened, so
+// nobody can commit "<its number>.json" in advance. Every PR merged into
+// develop already carries its own manifest (the staging gate requires it), so
+// the promotion simply inherits them: it must satisfy every manifest it
+// brings into main, and has no extra backend dependencies if it brings none.
+export function isPromotionMerge({ subject, headRef, baseRef }) {
+  if (headRef || baseRef) return headRef === 'develop' && baseRef === 'main'
+  return /^Merge pull request #\d+ from [^/\s]+\/develop$/.test(subject || '')
+}
+
+export function manifestsBroughtByMerge(git) {
+  return git(['diff', '--name-only', '--diff-filter=AM', 'HEAD^1', 'HEAD', '--', MANIFEST_DIRECTORY])
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.endsWith('.json'))
+    .sort()
+}
+
+const runGit = (args) => execFileSync('git', args, { encoding: 'utf8' })
+
 async function compareContains(api, baseSha, headSha) {
   const comparison = await api.get(`/repos/${repositoryPath(api.repository)}/compare/${encode(baseSha)}...${encode(headSha)}`)
   return comparison.status === 'ahead' || comparison.status === 'identical'
@@ -311,9 +334,26 @@ async function main() {
     commitSha: process.env.BACKEND_RELEASE_COMMIT_SHA || process.env.GITHUB_SHA,
   })
   const resolvedManifestPath = manifestPath || manifestPathForPullRequest(releasePullRequest)
+  const wait = (manifest) => waitForBackendRelease({ api, manifest, environment, timeoutSeconds, pollSeconds })
+  if (!manifestPath && !existsSync(resolvedManifestPath)) {
+    const promotion = isPromotionMerge({
+      subject: runGit(['log', '-1', '--format=%s', 'HEAD']).trim(),
+      headRef: process.env.GITHUB_HEAD_REF,
+      baseRef: process.env.GITHUB_BASE_REF,
+    })
+    if (!promotion) {
+      throw new Error(`${resolvedManifestPath} not found: add a backend dependency manifest for web PR #${releasePullRequest}`)
+    }
+    const inherited = manifestsBroughtByMerge(runGit)
+    console.log(`[backend-release] promotion PR #${releasePullRequest} has no own manifest; inherited: ${inherited.join(', ') || 'none'}`)
+    for (const inheritedPath of inherited) {
+      console.log(`[backend-release] checking ${inheritedPath}`)
+      await wait(await loadManifest(inheritedPath))
+    }
+    return
+  }
   console.log(`[backend-release] using web PR #${releasePullRequest} manifest ${resolvedManifestPath}`)
-  const manifest = await loadManifest(resolvedManifestPath)
-  await waitForBackendRelease({ api, manifest, environment, timeoutSeconds, pollSeconds })
+  await wait(await loadManifest(resolvedManifestPath))
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
