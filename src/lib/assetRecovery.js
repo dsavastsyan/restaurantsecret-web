@@ -122,8 +122,10 @@ export function configureAssetRecovery({
     clearRecoveryQuery(windowObject)
   }
 
-  windowObject.addEventListener('vite:preloadError', (event) => {
-    event?.preventDefault?.()
+  windowObject.addEventListener('vite:preloadError', () => {
+    // Let Vite reject the failed import. Cancelling this event makes its
+    // preload promise resolve to undefined, which crashes React.lazy while
+    // reading the module's default export.
 
     const timestamp = now()
     // A cache-busting URL is also the fallback loop guard when sessionStorage

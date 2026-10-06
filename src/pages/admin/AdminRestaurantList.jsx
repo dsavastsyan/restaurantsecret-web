@@ -231,7 +231,7 @@ function ParserDashboard() {
   const visible = useMemo(() => items.filter((parser) => {
     const parserStatus = parser.enabled ? (parser.run?.status || 'never') : 'disabled'
     if (status && parserStatus !== status) return false
-    return `${parser.restaurant_name} ${parser.parser_id} ${parser.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
+    return `${parser.restaurant_name} ${parser.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
   }), [items, query, status])
 
   if (loading) return <p className="admin-crm__loading">Загружаем статусы парсеров…</p>
@@ -239,7 +239,7 @@ function ParserDashboard() {
   return (
     <>
       <div className="admin-crm__filters">
-        <label className="admin-crm__search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ресторан или парсер" /></label>
+        <label className="admin-crm__search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ресторан или город" /></label>
         <select aria-label="Статус парсера" value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="">Все статусы</option>
           {Object.entries(PARSER_STATUS).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
@@ -252,7 +252,7 @@ function ParserDashboard() {
             const parserStatus = parser.enabled ? (parser.run?.status || 'never') : 'disabled'
             return (
               <tr key={parser.parser_id}>
-                <td><strong>{parser.restaurant_name}</strong><small>{parser.parser_id}{parser.cities.length ? ` · ${parser.cities.join(', ')}` : ''}</small></td>
+                <td><strong>{parser.restaurant_name}</strong>{parser.cities.length > 0 && <small>{parser.cities.join(', ')}</small>}</td>
                 <td>
                   <span className={`admin-parser__status admin-parser__status--${parserStatus}`}>{PARSER_STATUS[parserStatus]}</span>
                   {parserStatus === 'error' && (
