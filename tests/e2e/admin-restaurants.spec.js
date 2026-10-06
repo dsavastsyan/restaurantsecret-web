@@ -248,7 +248,7 @@ test('administrator sees parser status, source and error without leaving the res
     if (path === '/api/admin/parser-runs') return route.fulfill({ json: {
       ok: true,
       parsers: [{
-        parser_id: 'sage', enabled: true, restaurant_name: 'Sage', cities: ['Москва'],
+        parser_id: 'parser-internal-sage', enabled: true, restaurant_name: 'Sage', cities: ['Москва'],
         public_menu_url: '/restaurants/sage/menu',
         published_at: '2026-09-09T06:00:00Z',
         run: {
@@ -268,6 +268,8 @@ test('administrator sees parser status, source and error without leaving the res
   await expect(page.getByRole('link', { name: 'Задачи меню' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Ревью ресторанов' })).toBeVisible()
   const row = page.getByRole('row').filter({ hasText: 'Sage' })
+  await expect(row).not.toContainText('parser-internal-sage')
+  await expect(row).toContainText('Москва')
   await expect(row.getByText('Ошибка', { exact: true })).toBeVisible()
   await expect(row.getByRole('link', { name: 'Открыть' })).toHaveAttribute('href', 'https://sage.example/menu')
   await expect(row.getByRole('link', { name: /09\.09\.2026/ })).toHaveAttribute('href', '/restaurants/sage/menu')
