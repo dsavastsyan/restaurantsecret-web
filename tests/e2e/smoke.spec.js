@@ -138,11 +138,10 @@ test('@smoke subscribed user sees the full menu past the free preview', async ({
   const publicApiBase = process.env.VITE_API_BASE_URL || `${pdApiBase}/cf`
 
   // Log in as the dedicated e2e-test account directly against the API. This
-  // test is about the server-side paywall trimming, not the login UI — the
-  // UI's own OTP flow isn't exercised here, only pd-api's bypass code path.
-  const requestOtpRes = await page.request.post(`${pdApiBase}/auth/request-otp`, { data: { email } })
-  expect(requestOtpRes.ok()).toBeTruthy()
-
+  // test is about the server-side paywall trimming, not the login UI. The
+  // e2e account uses pd-api's fixed-code bypass, so requesting an OTP first
+  // has no effect on this login and only consumes the shared request-OTP
+  // rate-limit budget used by preview checks.
   const verifyRes = await page.request.post(`${pdApiBase}/auth/verify-otp`, { data: { email, code: otp } })
   expect(verifyRes.ok()).toBeTruthy()
   const verifyPayload = await verifyRes.json()
