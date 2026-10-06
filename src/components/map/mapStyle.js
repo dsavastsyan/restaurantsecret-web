@@ -1,3 +1,5 @@
+import { safeJsonStringify } from '../../lib/safeJson.js'
+
 // The restaurant map needs roads and place labels, but not pedestrian trails,
 // railway sleepers or minor/disputed boundaries competing with the markers.
 const DECORATIVE_LINE_LAYER_IDS = [
@@ -26,7 +28,7 @@ export function simplifyMapStyle(maplibreMap) {
 
   for (const layer of maplibreMap.getStyle().layers || []) {
     const textField = layer.layout?.['text-field']
-    const serializedTextField = JSON.stringify(textField) || ''
+    const serializedTextField = safeJsonStringify(textField) || ''
     if (layer.type === 'symbol' && serializedTextField.includes('name')) {
       maplibreMap.setLayoutProperty(layer.id, 'text-field', LOCAL_LABEL)
     }

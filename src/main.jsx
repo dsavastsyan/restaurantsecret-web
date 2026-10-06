@@ -23,6 +23,7 @@ configureAssetRecovery({
   windowObject: window,
   cacheStorage: 'caches' in window ? window.caches : null,
   storage: 'sessionStorage' in window ? window.sessionStorage : null,
+  serviceWorker: 'serviceWorker' in navigator ? navigator.serviceWorker : null,
 })
 
 initSentry()

@@ -53,6 +53,7 @@ import {
 } from '@/lib/catalogSort'
 import { getGooglePlaceId } from '@/lib/googlePlaces'
 import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
+import { safeJsonStringify } from '@/lib/safeJson'
 import { useSubscriptionStore } from '@/store/subscription'
 import { normalizeInstagramUrl } from '@/lib/instagram'
 import '../catalog-compact.css'
@@ -420,7 +421,7 @@ export default function Catalog() {
     loading: hydratedSearchLoading,
   } = useSWRLite(
     searchRestaurantSlugs.length
-      ? `search-restaurants:${selectedCity.id}:${searchRestaurantSlugs.join(',')}:${JSON.stringify(nutritionCriteria)}`
+      ? `search-restaurants:${selectedCity.id}:${searchRestaurantSlugs.join(',')}:${safeJsonStringify(nutritionCriteria)}`
       : null,
     async () => {
       const batches = []
@@ -463,7 +464,7 @@ export default function Catalog() {
   // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${sort}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${selectedMetro.join(',')}:${JSON.stringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${sort}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${safeJsonStringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
     () => api.restaurants({
       limit: catalogFetchLimit,
       offset: serverPage * catalogFetchLimit,

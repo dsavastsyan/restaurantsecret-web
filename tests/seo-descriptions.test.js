@@ -19,3 +19,9 @@ test('restaurant description never says "0 блюд"', () => {
   assert.doesNotMatch(restaurantSeoDescription('Кафе', 0), /\b0 блюд/)
   assert.match(restaurantSeoDescription('Кафе', 0), /^Меню с полным КБЖУ\./)
 })
+
+test('"Более N" takes the genitive plural for any count', () => {
+  for (const [count, tail] of [[1, 'Более 1 блюд.'], [2, 'Более 2 блюд.'], [233, 'Более 233 блюд.'], [21, 'Более 21 блюд.']]) {
+    assert.ok(chainHubSeoDescription('Сеть', 3, count).includes(tail), String(count))
+  }
+})
