@@ -35,14 +35,14 @@ function createHarness({ now = 1000, storedTimestamp = null } = {}) {
   return { handler, reloads, deletedCaches, storageValues }
 }
 
-test('preload errors clear static caches and navigate to a cache-busted URL', async () => {
+test('preload errors keep the Vite rejection and navigate to a cache-busted URL', async () => {
   const harness = createHarness()
   let prevented = false
 
   harness.handler({ preventDefault: () => { prevented = true } })
   await new Promise((resolve) => setImmediate(resolve))
 
-  assert.equal(prevented, true)
+  assert.equal(prevented, false)
   assert.deepEqual(harness.deletedCaches, ['static-v4-old'])
   assert.deepEqual(harness.reloads, [
     'https://example.test/restaurants/demo/menu/?city=Moscow&rs_asset_recovery=1000',
@@ -52,10 +52,12 @@ test('preload errors clear static caches and navigate to a cache-busted URL', as
 
 test('preload errors do not create a reload loop during the cooldown', async () => {
   const harness = createHarness({ storedTimestamp: 1000 })
+  let prevented = false
 
-  harness.handler({ preventDefault: () => {} })
+  harness.handler({ preventDefault: () => { prevented = true } })
   await new Promise((resolve) => setImmediate(resolve))
 
+  assert.equal(prevented, false)
   assert.deepEqual(harness.deletedCaches, [])
   assert.deepEqual(harness.reloads, [])
 })
