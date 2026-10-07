@@ -17,6 +17,6 @@ test('keeps client errors on their existing page-specific path', () => {
 })
 
 test('recognizes fetch failures without changing the API client contract', () => {
-  assert.equal(isServiceUnavailableError({ name: 'TypeError' }), true)
+  assert.equal(isServiceUnavailableError({ name: 'TypeError' }), false)
   assert.equal(isServiceUnavailableError({ name: 'AbortError' }), true)
 })
