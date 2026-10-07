@@ -15,6 +15,8 @@ import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx'
 import InstagramIcon from '@/components/InstagramIcon.jsx'
 import MetroStationsText from '@/components/MetroStationsText.jsx'
 import GooglePlaceMedia from '@/components/GooglePlaceMedia.jsx'
+import ServiceUnavailable from '@/components/ServiceUnavailable.jsx'
+import { isServiceUnavailableError } from '@/lib/serviceUnavailable.js'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { getMetroSelectionPoints } from '@/lib/metroSelection'
@@ -176,6 +178,7 @@ export default function Catalog() {
   const [geolocationError, setGeolocationError] = useState('')
   const [isPickingLocation, setIsPickingLocation] = useState(false)
   const [openFilter, setOpenFilter] = useState(null)
+  const [retryNonce, setRetryNonce] = useState(0)
   const compactFiltersRef = useRef(null)
   const nutritionMenuRequestsRef = useRef(new Set())
   const viewMode = searchParams.get('view') === 'list' ? 'list' : 'map'
@@ -404,7 +407,7 @@ export default function Catalog() {
   }, [debouncedQuery, selectedCity.id])
 
   const { data: crossCityResults, loading: searchLoading, error: searchError } = useSWRLite(
-    debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}` : null,
+    debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}:${retryNonce}` : null,
     () => api.search(debouncedQuery, { city: selectedCity.id }),
     { enabled: Boolean(debouncedQuery) },
   )
@@ -421,7 +424,7 @@ export default function Catalog() {
     loading: hydratedSearchLoading,
   } = useSWRLite(
     searchRestaurantSlugs.length
-      ? `search-restaurants:${selectedCity.id}:${searchRestaurantSlugs.join(',')}:${safeJsonStringify(nutritionCriteria)}`
+      ? `search-restaurants:${selectedCity.id}:${searchRestaurantSlugs.join(',')}:${safeJsonStringify(nutritionCriteria)}:${retryNonce}`
       : null,
     async () => {
       const batches = []
@@ -464,7 +467,7 @@ export default function Catalog() {
   // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${sort}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${safeJsonStringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}`,
+    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${sort}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${safeJsonStringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}:${retryNonce}`,
     () => api.restaurants({
       limit: catalogFetchLimit,
       offset: serverPage * catalogFetchLimit,
@@ -481,7 +484,7 @@ export default function Catalog() {
     }),
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
-    `restaurants-map:${selectedCity.id}`,
+    `restaurants-map:${selectedCity.id}:${retryNonce}`,
     () => api.restaurantMap({ city: selectedCity.id }),
   )
 
@@ -1473,11 +1476,13 @@ export default function Catalog() {
               zoom={selectedCity?.recommendedZoom}
               loading={mapLoading}
               error={mapError}
-              totalResults={resultCount}
+              suppressEmptyCount={isInitialLoading || Boolean(catalogError)}
+              totalResults={isInitialLoading || catalogError ? null : resultCount}
               isFavorite={isFavorite}
               onToggleFavorite={handleToggleFavorite}
               onOpenRestaurant={openCatalogDishResults}
               onShowList={() => changeViewMode('list')}
+              onRetry={() => setRetryNonce((value) => value + 1)}
             />
           </Suspense>
         </div>
@@ -1499,7 +1504,12 @@ export default function Catalog() {
             </label>
           </div>
         )}
-        {catalogError && <p className="err">Ошибка: {String(catalogError.message || catalogError)}</p>}
+        {catalogError && isServiceUnavailableError(catalogError) && (
+          <ServiceUnavailable onRetry={() => setRetryNonce((value) => value + 1)} />
+        )}
+        {catalogError && !isServiceUnavailableError(catalogError) && (
+          <p className="err">Ошибка: {String(catalogError.message || catalogError)}</p>
+        )}
         {!catalogLoading && !visibleItems.length && !catalogError && (
           crossCitySuggestions.length > 0 ? (
             <div className="catalog-empty" role="status">

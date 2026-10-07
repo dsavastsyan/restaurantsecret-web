@@ -11,6 +11,8 @@ import {
 import SubscriptionPlans from "@/components/subscription/SubscriptionPlans";
 import { analytics } from "@/services/analytics";
 import { showSubscriptionError, showSubscriptionPending, showSubscriptionSuccess } from "@/lib/subscriptionFeedback";
+import ServiceUnavailable from "@/components/ServiceUnavailable.jsx";
+import { isServiceUnavailableError } from "@/lib/serviceUnavailable.js";
 import {
   forgetSubscriptionReturnTo,
   readSubscriptionReturnTo,
@@ -225,6 +227,7 @@ export default function AccountSubscription() {
   const [statusData, setStatusData] = useState<SubscriptionStatusResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [serviceError, setServiceError] = useState<unknown>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentPlan, setPaymentPlan] = useState<UiPlan | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<UiPlan | null>('year');
@@ -256,6 +259,7 @@ export default function AccountSubscription() {
     }
     setLoading(true);
     setError(null);
+    setServiceError(null);
     try {
       const response = await apiGet<SubscriptionStatusResponse>(
         "/api/subscriptions/status",
@@ -322,6 +326,7 @@ export default function AccountSubscription() {
         return false;
       }
       console.error("Failed to load subscription status", err);
+      if (isServiceUnavailableError(err)) setServiceError(err);
       setError("Не удалось загрузить статус подписки. Попробуйте позже.");
       setHasActiveSub(false);
       setHasSubscriptionHistory(false);
@@ -1397,7 +1402,9 @@ export default function AccountSubscription() {
           </>
           )}
 
-          {error && (
+          {serviceError ? (
+            <ServiceUnavailable onRetry={fetchStatus} />
+          ) : error && (
             <div className="account-subscription-v2__error-box" role="alert">
               <p>{error}</p>
             </div>

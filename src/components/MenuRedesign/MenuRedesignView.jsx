@@ -8,6 +8,7 @@ import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx';
 import DishTileV2 from './DishTileV2';
 import DishRowV2 from './DishRowV2';
 import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon, LockIcon } from './icons';
+import ServiceUnavailable from '@/components/ServiceUnavailable.jsx';
 import {
   MENU_SORT_OPTIONS,
   getMenuSortOption,
@@ -61,6 +62,7 @@ export default function MenuRedesignView({
   slug,
   loading,
   error,
+  onRetry,
   menu,
 
   query,
@@ -531,7 +533,9 @@ export default function MenuRedesignView({
       <div className="rsm2-content">
         {loading && <p className="rsm2-loading">Загружаем меню…</p>}
         {!!error && !loading && (
-          error.kind === 'blocked' ? (
+          error.kind === 'service-unavailable' ? (
+            <ServiceUnavailable onRetry={onRetry} />
+          ) : error.kind === 'blocked' ? (
             <div className="rsm2-status-block">
               <LockIcon size={22} />
               <p>{error.message}</p>

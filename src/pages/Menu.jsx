@@ -24,6 +24,7 @@ import { toast } from '@/lib/toast'
 import { useMeta } from '@/lib/useMeta'
 import { hasQrMenuAccess } from '@/lib/qrMenuAccess'
 import MenuRedesignView from '@/components/MenuRedesign/MenuRedesignView'
+import { isServiceUnavailableError } from '@/lib/serviceUnavailable.js'
 
 const createDefaultPresets = () => ({ highProtein: false, lowFat: false, lowKcal: false })
 const createDefaultRange = () => ({
@@ -182,6 +183,7 @@ export default function Menu({
   const [guideCatalogStats, setGuideCatalogStats] = useState(null)
   const [loading, setLoading] = useState(!previewMode)
   const [error, setError] = useState(null)
+  const [retryNonce, setRetryNonce] = useState(0)
   const [isOutdatedOpen, setIsOutdatedOpen] = useState(false)
   const [restaurantPoint, setRestaurantPoint] = useState(null)
 
@@ -282,7 +284,9 @@ export default function Menu({
               return
             }
             console.error('Failed to load menu', err)
-            setError(buildMenuError(err))
+            setError(isServiceUnavailableError(err)
+              ? { kind: 'service-unavailable', cause: err }
+              : buildMenuError(err))
           }
         } finally {
           if (!aborted) setLoading(false)
@@ -292,7 +296,7 @@ export default function Menu({
     return () => {
       aborted = true
     }
-  }, [accessToken, city, fetchStatus, previewMenu, previewMode, slug])
+  }, [accessToken, city, fetchStatus, previewMenu, previewMode, retryNonce, slug])
 
   useEffect(() => {
     if (!previewMode && accessToken) {
@@ -640,6 +644,7 @@ export default function Menu({
       slug={slug}
       loading={loading}
       error={error}
+      onRetry={() => setRetryNonce((value) => value + 1)}
       menu={menu}
       query={query}
       setQuery={setQuery}
