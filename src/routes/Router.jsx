@@ -38,6 +38,7 @@ const AdminShell = lazy(() => import('../pages/admin/AdminShell.jsx'))
 const AdminLogin = lazy(() => import('../pages/admin/AdminLogin.jsx'))
 const AdminRestaurants = lazy(() => import('../pages/admin/AdminRestaurantList.jsx'))
 const AdminOutreach = lazy(() => import('../pages/admin/AdminOutreach.jsx'))
+const AdminKbjuLeads = lazy(() => import('../pages/admin/AdminKbjuLeads.jsx'))
 const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.jsx'))
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
 const AdminProductMatches = lazy(() => import('../pages/admin/ProductMatchReview.jsx'))
@@ -150,6 +151,7 @@ function AppRoutes({ onReady }) {
           <Route path="login" element={<AdminLogin />} />
           <Route path="restaurants" element={<AdminRestaurants />} />
           <Route path="outreach" element={<AdminOutreach />} />
+          <Route path="kbju-leads" element={<AdminKbjuLeads />} />
           {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions" element={<AdminMenuRevisions />} />}
           {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions/:revisionId" element={<AdminMenuRevisionDetail />} />}
           <Route path="product-matches" element={<AdminProductMatches />} />
