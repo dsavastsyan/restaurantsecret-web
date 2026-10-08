@@ -1486,7 +1486,7 @@ export default function Catalog() {
             />
           </Suspense>
         </div>
-        <section className="catalog-results">
+        <section className={`catalog-results${catalogError && isServiceUnavailableError(catalogError) ? ' catalog-results--service-unavailable' : ''}`}>
         {isInitialLoading && <div className="catalog-state">Загружаем рестораны…</div>}
         {!isInitialLoading && !catalogError && (
           <div className="catalog-results__summary" role="status" aria-live="polite">

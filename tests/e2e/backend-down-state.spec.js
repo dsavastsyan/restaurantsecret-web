@@ -58,6 +58,24 @@ test('@smoke shows a clear service state for a 503 and retries the request', asy
   await expect.poll(() => catalogRequests).toBeGreaterThan(1)
 })
 
+test('@smoke shows the service state on the mobile map and retries the request', async ({ page }) => {
+  let catalogRequests = 0
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.endsWith('/restaurants')) catalogRequests += 1
+  })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await setupCatalogApi(page, 503)
+
+  await page.goto('/catalog?city=Москва')
+
+  const serviceAlert = page.getByRole('alert')
+  await expect(serviceAlert).toContainText('Сервис временно недоступен')
+  await expect(serviceAlert.getByRole('button', { name: 'Обновить' })).toBeVisible()
+
+  await serviceAlert.getByRole('button', { name: 'Обновить' }).click()
+  await expect.poll(() => catalogRequests).toBeGreaterThan(1)
+})
+
 test('@smoke keeps the existing raw error path for a 404', async ({ page }) => {
   await setupCatalogApi(page, 404)
 
