@@ -73,6 +73,7 @@ export default function AdminShell() {
           <Link className={location.pathname.startsWith('/admin/kbju-flags') ? 'active' : ''} to="/admin/kbju-flags">Странные КБЖУ</Link>
           <Link className={location.pathname.startsWith('/admin/restaurant-reviews') ? 'active' : ''} to="/admin/restaurant-reviews">Ревью ресторанов</Link>
           <Link className={location.pathname.startsWith('/admin/google-place-reviews') ? 'active' : ''} to="/admin/google-place-reviews">Точки Google</Link>
+          <Link className={location.pathname.startsWith('/admin/google-costs') ? 'active' : ''} to="/admin/google-costs">Расходы Google</Link>
         </nav>
         <button type="button" onClick={logout}>Выйти</button>
       </header>
