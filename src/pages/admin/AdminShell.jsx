@@ -68,6 +68,7 @@ export default function AdminShell() {
         <nav className="admin-menu__nav" aria-label="Разделы администратора">
           <Link className={location.pathname.startsWith('/admin/restaurants') ? 'active' : ''} to="/admin/restaurants">Рестораны</Link>
           <Link className={location.pathname.startsWith('/admin/outreach') ? 'active' : ''} to="/admin/outreach">Аутрич</Link>
+          <Link className={location.pathname.startsWith('/admin/kbju-leads') ? 'active' : ''} to="/admin/kbju-leads">Сбор КБЖУ</Link>
           {PARTNER_ADMIN_ENABLED && <Link className={location.pathname.startsWith('/admin/menu-revisions') ? 'active' : ''} to="/admin/menu-revisions">Задачи меню</Link>}
           <Link className={location.pathname.startsWith('/admin/product-matches') ? 'active' : ''} to="/admin/product-matches">Продукты</Link>
           <Link className={location.pathname.startsWith('/admin/kbju-flags') ? 'active' : ''} to="/admin/kbju-flags">Странные КБЖУ</Link>
