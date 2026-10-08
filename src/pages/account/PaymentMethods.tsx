@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost, apiDelete, isUnauthorizedError } from "@/lib/api";
 import { useAuth } from "@/store/auth";
+import ServiceUnavailable from "@/components/ServiceUnavailable.jsx";
+import { isServiceUnavailableError } from "@/lib/serviceUnavailable.js";
 
 type PaymentMethod = {
     id: number;
@@ -24,12 +26,14 @@ export default function PaymentMethods() {
     const [methods, setMethods] = useState<PaymentMethod[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [serviceError, setServiceError] = useState<unknown>(null);
     const [attaching, setAttaching] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [showDeleteModal, setShowDeleteModal] = useState<number | null>(null);
 
     // Polling state
     const [pollCount, setPollCount] = useState(0);
+    const serviceRetryRef = useRef<(() => void) | null>(null);
 
     const fetchMethods = useCallback(async (isPolling = false) => {
         if (!accessToken) return;
@@ -53,6 +57,10 @@ export default function PaymentMethods() {
                 logout();
             } else {
                 console.error("Failed to fetch payment methods", err);
+                if (isServiceUnavailableError(err)) {
+                    setServiceError(err);
+                    serviceRetryRef.current = () => { void fetchMethods(); };
+                }
                 setError("Не удалось загрузить карты.");
             }
         } finally {
@@ -90,6 +98,7 @@ export default function PaymentMethods() {
         if (!accessToken || attaching) return;
         setAttaching(true);
         setError(null);
+        setServiceError(null);
         try {
             const returnUrl = window.location.origin + window.location.pathname + "/return";
             const res = await apiPost<{ confirmation_url?: string }>("/api/payment-methods/attach", { return_url: returnUrl }, accessToken);
@@ -100,6 +109,10 @@ export default function PaymentMethods() {
             }
         } catch (err) {
             console.error("Attach error", err);
+            if (isServiceUnavailableError(err)) {
+                setServiceError(err);
+                serviceRetryRef.current = () => { void handleAddCard(); };
+            }
             setError("Ошибка при создании привязки.");
         } finally {
             setAttaching(false);
@@ -116,6 +129,10 @@ export default function PaymentMethods() {
             setShowDeleteModal(null);
         } catch (err) {
             console.error("Delete error", err);
+            if (isServiceUnavailableError(err)) {
+                setServiceError(err);
+                serviceRetryRef.current = () => { void confirmDelete(); };
+            }
             alert("Не удалось удалить карту.");
         } finally {
             setDeletingId(null);
@@ -137,7 +154,15 @@ export default function PaymentMethods() {
                 </button>
             </header>
 
-            {error && (
+            {serviceError ? (
+                <ServiceUnavailable
+                    onRetry={() => {
+                        const retry = serviceRetryRef.current;
+                        setServiceError(null);
+                        retry?.();
+                    }}
+                />
+            ) : error && (
                 <div className="account-subscription-v2__error-box account-payment-panel__error">
                     <p>{error}</p>
                 </div>

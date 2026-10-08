@@ -12,6 +12,8 @@ import MetroStationsLayer from './map/MetroStationsLayer'
 import MetroStationsText from './MetroStationsText'
 import { normalizeInstagramUrl } from '@/lib/instagram'
 import { getCatalogMapPointKey, normalizeCatalogMetroStations } from '@/lib/catalogMapItems'
+import ServiceUnavailable from '@/components/ServiceUnavailable.jsx'
+import { isServiceUnavailableError } from '@/lib/serviceUnavailable.js'
 
 const MOSCOW_CENTER = [55.751244, 37.618423]
 const DEFAULT_ZOOM = 10
@@ -200,10 +202,12 @@ export default function CatalogMap({
   loading,
   error,
   totalResults,
+  suppressEmptyCount = false,
   isFavorite,
   onToggleFavorite,
   onOpenRestaurant,
   onShowList,
+  onRetry,
 }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
   const selectedKey = getCatalogMapPointKey(selectedRestaurant)
@@ -226,7 +230,11 @@ export default function CatalogMap({
   return (
     <section className="catalog-map-panel" aria-label="Карта ресторанов">
       <div className="catalog-map-panel__count" role="status">
-        {loading ? 'Загружаем точки…' : `${pointCount.toLocaleString('ru-RU')} на карте`}
+        {loading || suppressEmptyCount
+          ? 'Загружаем точки…'
+          : error
+            ? 'Карта недоступна'
+            : `${pointCount.toLocaleString('ru-RU')} на карте`}
       </div>
 
       <MapContainer
@@ -266,16 +274,22 @@ export default function CatalogMap({
         </div>
       )}
 
-      {!isPickingLocation && (error || hasListResultsWithoutPoints || hasNoResults) && (
+      {!isPickingLocation && isServiceUnavailableError(error) && (
+        <ServiceUnavailable onRetry={onRetry} />
+      )}
+
+      {!isPickingLocation && error && !isServiceUnavailableError(error) && (
         <div className="catalog-map-panel__empty" role="status">
-          <strong>
-            {error
-              ? 'Карта временно недоступна'
-              : hasListResultsWithoutPoints
-                ? 'У найденных ресторанов пока нет координат'
-                : 'По этим фильтрам ничего не найдено'}
-          </strong>
-          <span>{error ? 'Все рестораны по-прежнему доступны списком.' : 'Попробуйте изменить фильтры или открыть список.'}</span>
+          <strong>Карта временно недоступна</strong>
+          <span>Все рестораны по-прежнему доступны списком.</span>
+          <button type="button" onClick={onShowList}>Посмотреть списком</button>
+        </div>
+      )}
+
+      {!isPickingLocation && !error && (hasListResultsWithoutPoints || hasNoResults) && (
+        <div className="catalog-map-panel__empty" role="status">
+          <strong>{hasListResultsWithoutPoints ? 'У найденных ресторанов пока нет координат' : 'По этим фильтрам ничего не найдено'}</strong>
+          <span>Попробуйте изменить фильтры или открыть список.</span>
           <button type="button" onClick={onShowList}>Посмотреть списком</button>
         </div>
       )}

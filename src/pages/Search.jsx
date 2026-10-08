@@ -10,6 +10,8 @@ import { api } from '@/api/client'
 import { getRussianPluralWord, getSearchQueryScore } from '@/lib/text'
 import { saveCatalogCity } from '@/lib/cityPreference'
 import { analytics } from '@/services/analytics'
+import ServiceUnavailable from '@/components/ServiceUnavailable.jsx'
+import { isServiceUnavailableError } from '@/lib/serviceUnavailable.js'
 
 const DEFAULT_TYPE = 'dish'
 const emptyResults = { restaurants: [], dishes: [], otherCities: [] }
@@ -53,7 +55,8 @@ export default function Search() {
 
   const [results, setResults] = useState(emptyResults)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(null)
+  const [retryNonce, setRetryNonce] = useState(0)
   const [submittingSuggest, setSubmittingSuggest] = useState(false)
   const pageViewTracked = useRef(false)
 
@@ -121,7 +124,7 @@ export default function Search() {
     return () => {
       cancelled = true
     }
-  }, [queryParam, searchType, selectedCity])
+  }, [queryParam, retryNonce, searchType, selectedCity])
 
   const updateParams = useCallback((nextQuery, nextType = searchType) => {
     const params = new URLSearchParams()
@@ -289,7 +292,12 @@ export default function Search() {
       </form>
 
       {loading && <div className="search-state">Ищем…</div>}
-      {error && <div className="search-state search-state--error">Ошибка: {error}</div>}
+      {error && isServiceUnavailableError(error) && (
+        <ServiceUnavailable onRetry={() => setRetryNonce((value) => value + 1)} />
+      )}
+      {error && !isServiceUnavailableError(error) && (
+        <div className="search-state search-state--error">Ошибка: {error.message || String(error)}</div>
+      )}
 
       {!loading && hasQuery && restaurants.length === 0 && dishes.length === 0 && otherCities.length === 0 && !error && (
         <div className="search-state search-state--empty search-state--empty-action">

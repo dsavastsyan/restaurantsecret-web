@@ -9,6 +9,8 @@ import { useSubscriptionStore, selectFetchStatus } from "@/store/subscription";
 import { analytics } from "@/services/analytics";
 import mobileDayBackground from "@/assets/login/Login bacground mobile day.png";
 import desktopDayBackground from "@/assets/login/Login bachround desctop day.png";
+import ServiceUnavailable from "@/components/ServiceUnavailable.jsx";
+import { isServiceUnavailableError } from "@/lib/serviceUnavailable.js";
 
 const COMMUNICATION_CONSENT_VERSION = "restaurantsecret-communications-2026-09-16";
 const OTP_RATE_LIMIT_SECONDS = 10 * 60;
@@ -54,6 +56,7 @@ export default function LoginPage() {
   const [step, setStep] = useState<"enter" | "code" | "consent">("enter");
   const [code, setCode] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [serviceError, setServiceError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
   const [otpRateLimitSeconds, setOtpRateLimitSeconds] = useState(0);
@@ -129,6 +132,7 @@ export default function LoginPage() {
 
   const sendCode = async () => {
     setErr(null);
+    setServiceError(null);
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       setErr("Укажите корректный e-mail");
       trackOtpFailure("otp_request_failed", "invalid_email");
@@ -148,6 +152,7 @@ export default function LoginPage() {
         trackOtpFailure("otp_request_failed", "api_rejected", res);
       }
     } catch (error) {
+      if (isServiceUnavailableError(error)) setServiceError(error);
       setErr(error instanceof ApiError && error.status === 429
         ? "Слишком много запросов. Попробуйте снова через 10 минут."
         : "Не удалось отправить код");
@@ -163,6 +168,7 @@ export default function LoginPage() {
 
   const verifyCode = async () => {
     setErr(null);
+    setServiceError(null);
     if (!code || code.length < 4) {
       setErr("Введите код из письма");
       trackOtpFailure("otp_verify_failed", "invalid_code_format");
@@ -192,6 +198,7 @@ export default function LoginPage() {
         trackOtpFailure("otp_verify_failed", "invalid_code", res);
       }
     } catch (error) {
+      if (isServiceUnavailableError(error)) setServiceError(error);
       if (error instanceof ApiError && error.status === 429) {
         setOtpRateLimitSeconds(OTP_RATE_LIMIT_SECONDS);
         setErr(OTP_RATE_LIMIT_ERROR);
@@ -208,6 +215,7 @@ export default function LoginPage() {
   const saveCommunicationConsents = async () => {
     if (!pendingLogin) return;
     setErr(null);
+    setServiceError(null);
     setLoading(true);
     try {
       await apiPost(
@@ -220,7 +228,8 @@ export default function LoginPage() {
         pendingLogin.token,
       );
       finishLogin(pendingLogin.token, pendingLogin.nextPath);
-    } catch {
+    } catch (error) {
+      if (isServiceUnavailableError(error)) setServiceError(error);
       setErr("Не удалось сохранить выбор. Попробуйте ещё раз");
     } finally {
       setLoading(false);
@@ -260,7 +269,14 @@ export default function LoginPage() {
               {step === "code" ? "Отправили код на почту" : "Ешь вкусно, выбирай осознанно"}
             </p>
 
-            {err && <div className="login__alert">
+            {serviceError ? (
+              <ServiceUnavailable
+                onRetry={() => {
+                  if (step === "enter") sendCode();
+                  else verifyCode();
+                }}
+              />
+            ) : err && <div className="login__alert">
               {err === OTP_RATE_LIMIT_ERROR ? otpRateLimitMessage : err}
             </div>}
 
@@ -377,7 +393,9 @@ export default function LoginPage() {
           <div className="login-consent__card">
             <h1 id="communication-consent-title" className="login-consent__title">Оставайтесь на связи</h1>
 
-            {err && <div className="login__alert">{err}</div>}
+            {serviceError ? (
+              <ServiceUnavailable onRetry={saveCommunicationConsents} />
+            ) : err && <div className="login__alert">{err}</div>}
 
             <label className="login-consent__option">
               <input
