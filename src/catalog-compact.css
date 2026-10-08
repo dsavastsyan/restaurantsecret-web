@@ -699,6 +699,14 @@
     display: none;
   }
 
+  .catalog-page--map .catalog-results.catalog-results--service-unavailable {
+    display: grid;
+  }
+
+  .catalog-page--map .catalog-results.catalog-results--service-unavailable > *:not(.service-unavailable) {
+    display: none;
+  }
+
   .catalog-map-column .catalog-map-panel,
   .catalog-map-column .catalog-map-fallback {
     height: calc(100dvh - 194px);
