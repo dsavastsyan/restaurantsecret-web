@@ -5,7 +5,10 @@ test.use({ serviceWorkers: 'block' })
 const setupCatalogApi = async (page, restaurantsStatus = 503) => {
   await page.addInitScript(() => {
     window.localStorage.setItem('catalog_city', 'Москва')
-    window.localStorage.setItem('rs_consent_v1', JSON.stringify({ analytics: 'denied' }))
+    window.localStorage.setItem('rs_consent_v1', JSON.stringify({
+      analytics: 'denied',
+      policyVersion: 'cookies_v1_2026-01-16',
+    }))
   })
   await page.route('**/maintenance.json?*', (route) => route.fulfill({ json: { enabled: false } }))
   await page.route((url) => {
@@ -51,7 +54,7 @@ test('@smoke shows a clear service state for a 503 and retries the request', asy
   await expect(page.locator('.catalog-results__summary')).toHaveCount(0)
   await expect(page.locator('.catalog-map-panel__count')).not.toContainText('0 на карте')
 
-  await page.getByRole('button', { name: 'Обновить' }).first().click()
+  await page.locator('.catalog-results').getByRole('button', { name: 'Обновить' }).click()
   await expect.poll(() => catalogRequests).toBeGreaterThan(1)
 })
 
