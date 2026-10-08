@@ -79,7 +79,34 @@ export default function CleanMapBaseLayer() {
       vectorLayer = maplibreGL({
         style: MAP_STYLE_URL,
         attributionControl: { customAttribution: MAP_ATTRIBUTION },
-      }).addTo(map)
+      })
+
+      const originalZoomEnd = vectorLayer._zoomEnd
+      vectorLayer._zoomEnd = function () {
+        if (!this._map || !this._glMap) return
+        return originalZoomEnd.apply(this, arguments)
+      }
+      vectorLayer._transitionEnd = function () {
+        if (!this._map || !this._glMap) return
+
+        return L.Util.requestAnimFrame(function () {
+          if (!this._map || !this._glMap) return
+
+          const zoom = this._map.getZoom()
+          const center = this._map.getCenter()
+          const offset = this._map.latLngToContainerPoint(this._map.getBounds().getNorthWest())
+          this._resizeContainer()
+          L.DomUtil.setTransform(this._glMap._actualCanvas, offset, 1)
+          this._glMap.once('moveend', L.Util.bind(function () {
+            this._zoomEnd()
+          }, this))
+          this._glMap.jumpTo({
+            center,
+            zoom: zoom - 1,
+          })
+        }, this)
+      }
+      vectorLayer.addTo(map)
 
       maplibreMap = vectorLayer.getMaplibreMap()
       onStyleLoad = () => simplifyMapStyle(maplibreMap)
