@@ -159,6 +159,9 @@ export const adminMenuRevisionsApi = {
     }),
   googlePlaceBranchReviews: () => request('/api/admin/google-place-branch-reviews'),
   googlePlacesUsage: () => request('/api/admin/google-places-usage'),
+  googleCosts: (month) => request(`/api/admin/google-costs?month=${encodeURIComponent(month)}`),
+  updateGoogleBillingSettings: (payload) =>
+    request('/api/admin/google-costs/settings', { method: 'PUT', body: payload }),
   decideGooglePlaceBranchReview: (locationId, body) =>
     request(`/api/admin/google-place-branch-reviews/${encodeURIComponent(locationId)}/decision`, {
       method: 'POST',

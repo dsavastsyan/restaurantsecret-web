@@ -24,6 +24,7 @@
 .admin-place-review__usage-budget progress { width: 100%; height: 9px; accent-color: #65734d; }
 .admin-place-review__usage-budget.is-over-budget progress { accent-color: #b45c4c; }
 .admin-place-review__usage-note { grid-column: 1 / -1; margin: 0; color: #77776f; font-size: 11px; line-height: 1.45; }
+.admin-place-review__usage-link { grid-column: 1 / -1; color: #53643a; font-size: 13px; font-weight: 750; }
 .admin-place-review__eyebrow { margin: 0; color: #77845c; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .admin-place-review__mode-tabs,
 .admin-place-review__status-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
