@@ -12,6 +12,8 @@ import { analytics } from '@/services/analytics';
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants';
 import { useMeta } from '@/lib/useMeta';
 import { safeJsonStringify } from '@/lib/safeJson';
+import ServiceUnavailable from '@/components/ServiceUnavailable.jsx';
+import { isServiceUnavailableError } from '@/lib/serviceUnavailable.js';
 
 // Assumption: subscription is active when you render this page
 // If you still keep useSubscription, you can gate this page by redirecting beforehand.
@@ -22,6 +24,7 @@ export default function RestaurantPage() {
   const [menu, setMenu] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const [retryNonce, setRetryNonce] = useState(0);
   const accessToken = useAuth((state) => state.accessToken);
   const { hasActiveSub, hasSubscriptionHistory, fetchStatus } = useSubscriptionStore((state) => ({
     hasActiveSub: state.hasActiveSub,
@@ -87,13 +90,13 @@ export default function RestaurantPage() {
           analytics.reachGoal('restaurant_view');
         }
       } catch (e) {
-        if (!aborted) setErr('Не удалось загрузить меню');
+        if (!aborted) setErr({ cause: e, message: 'Не удалось загрузить меню' });
       } finally {
         if (!aborted) setLoading(false);
       }
     })();
     return () => { aborted = true; };
-  }, [accessToken, fetchStatus, slug]);
+  }, [accessToken, fetchStatus, retryNonce, slug]);
 
   const handleSubscribeClick = () => {
     const returnTo = window.location.pathname + window.location.search;
@@ -224,7 +227,10 @@ export default function RestaurantPage() {
 
       <section className="rp__content">
         {loading && <p>Загружаем меню…</p>}
-        {err && !loading && <p className="rp__error">{err}</p>}
+        {err && !loading && isServiceUnavailableError(err.cause) && (
+          <ServiceUnavailable onRetry={() => setRetryNonce((value) => value + 1)} />
+        )}
+        {err && !loading && !isServiceUnavailableError(err.cause) && <p className="rp__error">{err.message}</p>}
         {!loading && !err && (
           filtered.length ? (
             <div className="rp__list">

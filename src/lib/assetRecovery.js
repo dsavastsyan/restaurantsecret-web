@@ -6,6 +6,7 @@ const ASSET_RECOVERY_ACTIVE_FLAG = '__RS_ASSET_RECOVERY_ACTIVE__'
 const ASSET_PRELOAD_ERROR_PATTERNS = [
   'Unable to preload CSS for ',
   'Failed to fetch dynamically imported module',
+  'Importing a module script failed.',
   'is not a valid JavaScript MIME type',
 ]
 

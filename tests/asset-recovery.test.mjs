@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { configureAssetRecovery } from '../src/lib/assetRecovery.js'
+import {
+  configureAssetRecovery,
+  isAssetPreloadErrorMessage,
+} from '../src/lib/assetRecovery.js'
 
 function createHarness({ now = 1000, storedTimestamp = null } = {}) {
   let handler
@@ -34,6 +37,10 @@ function createHarness({ now = 1000, storedTimestamp = null } = {}) {
 
   return { handler, reloads, deletedCaches, storageValues }
 }
+
+test('recognizes Safari dynamic import failures as stale asset errors', () => {
+  assert.equal(isAssetPreloadErrorMessage('Importing a module script failed.'), true)
+})
 
 test('preload errors keep the Vite rejection and navigate to a cache-busted URL', async () => {
   const harness = createHarness()

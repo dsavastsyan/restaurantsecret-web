@@ -45,3 +45,10 @@ Backend: none
 и имеет приоритет над строкой. Формат: `{"version": 1, "backend_dependencies": false}` либо
 `services` с `cloudflare` и `pd_api` и их `staging_pull_request`/`production_pull_request`.
 Перед push проверять `node --test tests/backend-release-gate.test.mjs`.
+
+## Sentry
+
+Для подключения, read-only проверки Issues и восстановления цепочки issue → исправление →
+release → фактический deployment следуй единой инструкции
+[`docs/sentry-runbook.md`](docs/sentry-runbook.md). Organization/project и правила доступа
+уже указаны там; не запрашивай их повторно.

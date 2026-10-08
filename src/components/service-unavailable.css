@@ -1,0 +1,41 @@
+.service-unavailable {
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  border: 1px solid #eadfce;
+  border-radius: 18px;
+  background: rgba(255, 251, 244, 0.82);
+  color: #3d342b;
+  text-align: center;
+}
+
+.service-unavailable__title,
+.service-unavailable__text {
+  margin: 0;
+}
+
+.service-unavailable__title {
+  font-size: 20px;
+}
+
+.service-unavailable__text {
+  color: #6b6259;
+}
+
+.service-unavailable__button {
+  justify-self: center;
+  min-height: 40px;
+  padding: 8px 18px;
+  border: 1px solid #66823f;
+  border-radius: 999px;
+  background: #66823f;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.service-unavailable__button:hover {
+  background: #54702f;
+  border-color: #54702f;
+}
