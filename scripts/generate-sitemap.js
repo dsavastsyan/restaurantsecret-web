@@ -751,8 +751,10 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   }
 
   // # Redirect stubs for retired restaurant slugs (see RETIRED_RESTAURANT_SLUGS)
-  // # — only emitted when the target actually still exists as a real
-  // # restaurant today and doesn't collide with a slug already generated
+  // # — both the bare `/restaurants/<old>` URL and its `/menu` variant point
+  // # to the target restaurant, but the bare URL is never emitted over a
+  // # chain hub. Stubs are only emitted when the target still exists as a
+  // # real restaurant today and doesn't collide with a slug already generated
   // # above, so a stale/typo'd map entry degrades to "no stub" rather than
   // # ever overwriting real content.
   const restaurantSlugSet = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
@@ -772,6 +774,18 @@ function generateStaticRoutes(restaurants, menuBySlug) {
       }),
     )
     generatedCount += 1
+
+    if (!chains.has(oldSlug)) {
+      writeRouteHtml(
+        `/restaurants/${oldSlug}`,
+        createRedirectHtml({
+          from: `/restaurants/${oldSlug}`,
+          to: `/restaurants/${newSlug}/menu/`,
+          title: `${name} — меню с КБЖУ | RestaurantSecret`,
+        }),
+      )
+      generatedCount += 1
+    }
   }
 
   console.log(`✅ Static route entrypoints generated: ${generatedCount}`)
