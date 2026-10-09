@@ -6,7 +6,8 @@ const STATUS_LABELS = {
   queued: 'В очереди', checking: 'Проверяем', kbju_highlights: 'КБЖУ в хайлайтах',
   kbju_site_cards: 'КБЖУ в карточках', kbju_document: 'КБЖУ в документе', dm_pending: 'ЛС нужно отправить',
   dm_sent: 'ЛС отправлено', needs_nudge: 'Нужно напомнить', replied: 'Ответил', nudge_sent: 'Напомнили',
-  no_kbju: 'КБЖУ нет', closed: 'Закрыт', discarded: 'Отброшен',
+  no_kbju: 'КБЖУ нет', closed: 'Закрыт', discarded: 'Отброшен', in_person_only: 'Только лично',
+  kbju_received: 'КБЖУ прислали в директ',
 }
 
 const STEP_LABELS = {
@@ -137,7 +138,7 @@ export default function AdminKbjuLeads() {
             <td data-label="Сайт">{lead.website_url ? <a href={lead.website_url} target="_blank" rel="noreferrer">Открыть сайт <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
             <td data-label="Шаг">{STEP_LABELS[lead.check_step] || lead.check_step}</td>
             <td data-label="Статус"><span className={`admin-kbju-leads__status admin-kbju-leads__status--${lead.effective_status}`}>{STATUS_LABELS[lead.effective_status] || lead.effective_status}</span></td>
-            <td data-label="Источник КБЖУ">{SOURCE_LABELS[lead.kbju_source] || <span className="admin-crm__muted">—</span>}</td>
+            <td data-label="Источник КБЖУ">{SOURCE_LABELS[lead.kbju_source] || <span className="admin-crm__muted">—</span>}{lead.effective_status === 'kbju_received' && lead.kbju_url ? <><br /><a href={lead.kbju_url} target="_blank" rel="noreferrer">Открыть КБЖУ <ExternalLink size={13} /></a></> : null}</td>
             <td data-label="Дата ЛС">{displayDate(lead.dm_sent_at)}</td>
             <td data-label="Ответ">{lead.last_reply_at ? displayDate(lead.last_reply_at) : <span className="admin-crm__muted">Нет</span>}</td>
             <td data-label="Изменить"><details className="admin-kbju-leads__details"><summary>Открыть</summary><LeadEditor lead={lead} saving={savingId === lead.id} onSave={save} error={editorError[lead.id]} /></details></td>
