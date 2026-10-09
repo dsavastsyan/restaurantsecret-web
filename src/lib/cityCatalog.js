@@ -38,6 +38,24 @@ const CITY_SLUGS = {
   'Челябинск': 'chelyabinsk',
 }
 
+function decodeSlug(value) {
+  try {
+    return decodeURIComponent(String(value ?? ''))
+  } catch (_) {
+    return null
+  }
+}
+
+export function cityFromSlug(slug) {
+  const decodedSlug = decodeSlug(slug)
+  if (decodedSlug === null) return null
+
+  const match = Object.entries(CITY_SLUGS).find(([, citySlugValue]) => (
+    decodeSlug(citySlugValue) === decodedSlug
+  ))
+  return match ? match[0] : null
+}
+
 // Every H1/title/description on a city catalog page reads "КБЖУ ресторанов
 // {город}" — grammatically wrong in nominative for any Russian city name
 // except the indeclinable ones (Сочи, Кемерово). A city missing here falls
