@@ -375,7 +375,8 @@
 .admin-kbju-leads__status--kbju_highlights, .admin-kbju-leads__status--kbju_document { color: #315f78; background: #e0eff6; }
 .admin-kbju-leads__status--kbju_site_cards, .admin-kbju-leads__status--replied { color: #28603b; background: #daf0df; }
 .admin-kbju-leads__status--dm_sent, .admin-kbju-leads__status--dm_pending { color: #76571c; background: #fff0c9; }
-.admin-kbju-leads__status--discarded, .admin-kbju-leads__status--no_kbju { color: #7a312b; background: #f4e4e1; }
+.admin-kbju-leads__status--discarded, .admin-kbju-leads__status--no_kbju, .admin-kbju-leads__status--in_person_only { color: #7a312b; background: #f4e4e1; }
+.admin-kbju-leads__status--kbju_received { color: #28603b; background: #daf0df; }
 .admin-kbju-leads__table td:last-child { min-width: 90px; }
 .admin-kbju-leads__details summary { color: #59653f; cursor: pointer; font-weight: 800; }
 .admin-kbju-leads__editor { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)); gap: 9px; min-width: 690px; margin-top: 10px; padding: 12px; border: 1px solid #ded9cc; border-radius: 10px; background: #faf9f5; }
