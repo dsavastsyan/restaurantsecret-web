@@ -49,6 +49,7 @@ export function ConsentBanner() {
     };
 
     const handleDecline = () => {
+        analytics.track("cookie_banner_action", { action: "decline", source: "banner" }, { ignoreConsent: true });
         analytics.setConsent("denied");
     };
 
