@@ -24,6 +24,7 @@
 .admin-place-review__usage-budget progress { width: 100%; height: 9px; accent-color: #65734d; }
 .admin-place-review__usage-budget.is-over-budget progress { accent-color: #b45c4c; }
 .admin-place-review__usage-note { grid-column: 1 / -1; margin: 0; color: #77776f; font-size: 11px; line-height: 1.45; }
+.admin-place-review__usage-link { grid-column: 1 / -1; color: #53643a; font-size: 13px; font-weight: 750; }
 .admin-place-review__eyebrow { margin: 0; color: #77845c; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .admin-place-review__mode-tabs,
 .admin-place-review__status-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -361,6 +362,30 @@
 .admin-outreach__parser-form input { padding: 8px; border: 1px solid #cfcbc0; border-radius: 8px; }
 .admin-outreach__parser-form button { padding: 7px 9px; border: 1px solid #d8d4ca; border-radius: 8px; background: #fff; }
 
+.admin-kbju-leads__filters label { display: grid; gap: 6px; color: #67675f; font-size: 12px; font-weight: 800; }
+.admin-kbju-leads__filters input[type="date"], .admin-kbju-leads__filters select { min-height: 40px; box-sizing: border-box; }
+.admin-kbju-leads__checkbox { display: flex !important; align-items: center; align-self: end; min-height: 40px; font-size: 14px !important; }
+.admin-kbju-leads__filters > button { align-self: end; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 9px 12px; color: #59653f; border: 1px solid #b9c19f; border-radius: 9px; background: #fff; font-weight: 800; }
+.admin-kbju-leads__table-wrap { overflow-x: auto; }
+.admin-kbju-leads__table { min-width: 1180px; }
+.admin-kbju-leads__table td:first-child strong, .admin-kbju-leads__table td:first-child small { display: block; }
+.admin-kbju-leads__table td a { display: inline-flex; align-items: center; gap: 4px; color: #59653f; font-weight: 800; text-decoration: none; }
+.admin-kbju-leads__status { display: inline-flex; padding: 6px 8px; border-radius: 999px; color: #62635e; background: #ecece8; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.admin-kbju-leads__status--needs_nudge { color: #8a3a23; background: #fbe7dc; }
+.admin-kbju-leads__status--kbju_highlights, .admin-kbju-leads__status--kbju_document { color: #315f78; background: #e0eff6; }
+.admin-kbju-leads__status--kbju_site_cards, .admin-kbju-leads__status--replied { color: #28603b; background: #daf0df; }
+.admin-kbju-leads__status--dm_sent, .admin-kbju-leads__status--dm_pending { color: #76571c; background: #fff0c9; }
+.admin-kbju-leads__status--discarded, .admin-kbju-leads__status--no_kbju, .admin-kbju-leads__status--in_person_only { color: #7a312b; background: #f4e4e1; }
+.admin-kbju-leads__status--kbju_received { color: #28603b; background: #daf0df; }
+.admin-kbju-leads__table td:last-child { min-width: 90px; }
+.admin-kbju-leads__details summary { color: #59653f; cursor: pointer; font-weight: 800; }
+.admin-kbju-leads__editor { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)); gap: 9px; min-width: 690px; margin-top: 10px; padding: 12px; border: 1px solid #ded9cc; border-radius: 10px; background: #faf9f5; }
+.admin-kbju-leads__editor label { display: grid; gap: 5px; color: #67675f; font-size: 11px; font-weight: 800; }
+.admin-kbju-leads__editor input, .admin-kbju-leads__editor select, .admin-kbju-leads__editor textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #cfcbc0; border-radius: 7px; background: #fff; font: inherit; }
+.admin-kbju-leads__editor-wide { grid-column: span 2; }
+.admin-kbju-leads__editor-error { grid-column: 1 / -1; margin: 0; color: #8b2822; font-size: 12px; }
+.admin-kbju-leads__editor > button { grid-column: 1 / -1; justify-self: start; min-height: 38px; }
+
 .admin-product-match__filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 20px; }
 .admin-product-match__filters button { padding: 10px 13px; color: #66675f; border: 1px solid #d8d4ca; border-radius: 10px; background: #fff; font-weight: 700; }
 .admin-product-match__filters button.active { color: #fff; border-color: #65734d; background: #65734d; }
@@ -454,4 +479,21 @@
   .admin-outreach__parser-form { grid-template-columns: 1fr; min-width: 0; }
   .admin-outreach__parser-form input,
   .admin-outreach__parser-form button { min-height: 42px; box-sizing: border-box; }
+  .admin-kbju-leads__filters { display: grid; grid-template-columns: 1fr; }
+  .admin-kbju-leads__filters > button { justify-self: start; }
+  .admin-kbju-leads__table-wrap { overflow: visible; border: 0; background: transparent; }
+  .admin-kbju-leads__table { display: block; min-width: 0; }
+  .admin-kbju-leads__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .admin-kbju-leads__table tbody { display: grid; gap: 12px; }
+  .admin-kbju-leads__table tr { display: grid; overflow: visible; border: 1px solid #ddd8cc; border-radius: 15px; background: #fff; }
+  .admin-kbju-leads__table tr.requires-action { border-left: 3px solid #d49830; }
+  .admin-kbju-leads__table td { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: center; min-width: 0; padding: 11px 14px; border-top: 1px solid #ece8de; overflow-wrap: anywhere; }
+  .admin-kbju-leads__table td:first-child { display: block; padding-top: 16px; border-top: 0; }
+  .admin-kbju-leads__table td::before { content: attr(data-label); color: #85857d; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+  .admin-kbju-leads__table td:first-child::before { display: none; }
+  .admin-kbju-leads__table td:last-child { align-items: start; }
+  .admin-kbju-leads__details { width: 100%; }
+  .admin-kbju-leads__details summary { min-height: 40px; display: grid; place-items: center; box-sizing: border-box; }
+  .admin-kbju-leads__editor { grid-template-columns: 1fr; min-width: 0; }
+  .admin-kbju-leads__editor-wide { grid-column: auto; }
 }

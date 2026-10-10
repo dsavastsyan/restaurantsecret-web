@@ -38,12 +38,14 @@ const AdminShell = lazy(() => import('../pages/admin/AdminShell.jsx'))
 const AdminLogin = lazy(() => import('../pages/admin/AdminLogin.jsx'))
 const AdminRestaurants = lazy(() => import('../pages/admin/AdminRestaurantList.jsx'))
 const AdminOutreach = lazy(() => import('../pages/admin/AdminOutreach.jsx'))
+const AdminKbjuLeads = lazy(() => import('../pages/admin/AdminKbjuLeads.jsx'))
 const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.jsx'))
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
 const AdminProductMatches = lazy(() => import('../pages/admin/ProductMatchReview.jsx'))
 const AdminKbjuFlags = lazy(() => import('../pages/admin/KbjuFlagReview.jsx'))
 const AdminRestaurantAttributeReviews = lazy(() => import('../pages/admin/AdminRestaurantAttributeReviews.jsx'))
 const AdminGooglePlaceReviews = lazy(() => import('../pages/admin/AdminGooglePlaceReviews.jsx'))
+const AdminGoogleCosts = lazy(() => import('../pages/admin/AdminGoogleCosts.jsx'))
 const AccountLayout = lazy(() => import('../pages/account/Layout.tsx'))
 const AccountOverview = lazy(() => import('../pages/account/Overview.tsx'))
 const AccountSubscription = lazy(() => import('../pages/account/Subscription.tsx'))
@@ -149,12 +151,14 @@ function AppRoutes({ onReady }) {
           <Route path="login" element={<AdminLogin />} />
           <Route path="restaurants" element={<AdminRestaurants />} />
           <Route path="outreach" element={<AdminOutreach />} />
+          <Route path="kbju-leads" element={<AdminKbjuLeads />} />
           {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions" element={<AdminMenuRevisions />} />}
           {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions/:revisionId" element={<AdminMenuRevisionDetail />} />}
           <Route path="product-matches" element={<AdminProductMatches />} />
           <Route path="kbju-flags" element={<AdminKbjuFlags />} />
           <Route path="restaurant-reviews" element={<AdminRestaurantAttributeReviews />} />
           <Route path="google-place-reviews" element={<AdminGooglePlaceReviews />} />
+          <Route path="google-costs" element={<AdminGoogleCosts />} />
           <Route path="*" element={<Navigate to="/admin/restaurants" replace />} />
         </Route>
       </Routes>

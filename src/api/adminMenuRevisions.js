@@ -159,6 +159,9 @@ export const adminMenuRevisionsApi = {
     }),
   googlePlaceBranchReviews: () => request('/api/admin/google-place-branch-reviews'),
   googlePlacesUsage: () => request('/api/admin/google-places-usage'),
+  googleCosts: (month) => request(`/api/admin/google-costs?month=${encodeURIComponent(month)}`),
+  updateGoogleBillingSettings: (payload) =>
+    request('/api/admin/google-costs/settings', { method: 'PUT', body: payload }),
   decideGooglePlaceBranchReview: (locationId, body) =>
     request(`/api/admin/google-place-branch-reviews/${encodeURIComponent(locationId)}/decision`, {
       method: 'POST',
@@ -181,4 +184,13 @@ export const adminMenuRevisionsApi = {
   importOutreach: (city) => request('/api/admin/outreach/import', { method: 'POST', body: { city } }),
   updateOutreach: (candidateId, body) =>
     request(`/api/admin/outreach/${encodeURIComponent(candidateId)}`, { method: 'PATCH', body }),
+  kbjuLeads: ({ status = '', queueDate = '', city = '' } = {}) => {
+    const params = new URLSearchParams()
+    if (status) params.set('status', status)
+    if (queueDate) params.set('queue_date', queueDate)
+    if (city) params.set('city', city)
+    return request(`/api/admin/kbju-leads${params.size ? `?${params}` : ''}`)
+  },
+  updateKbjuLead: (leadId, body) =>
+    request(`/api/admin/kbju-leads/${encodeURIComponent(leadId)}`, { method: 'PATCH', body }),
 }
