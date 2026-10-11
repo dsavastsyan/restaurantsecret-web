@@ -419,6 +419,20 @@ function groupChains(restaurants) {
   return chains
 }
 
+function getResolvableChainSlugs(chains, restaurants) {
+  const restaurantSlugs = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
+  return new Set(
+    [...chains.keys()].filter((chainSlug) => {
+      if (restaurantSlugs.has(chainSlug)) return false
+      const branchCount = restaurants.filter((restaurant) => {
+        const slug = restaurant.slug
+        return slug === chainSlug || slug?.startsWith(`${chainSlug}-`)
+      }).length
+      return branchCount >= 2
+    }),
+  )
+}
+
 function chainHubDescription(chainName, branches, dishCount = 0) {
   return chainHubSeoDescription(chainName, branches.length, dishCount)
 }
@@ -628,8 +642,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   // # Canonicalizing a branch to a hub URL that 404s or belongs to an
   // # unrelated restaurant would be actively wrong, so branches only point at
   // # the hub when it's confirmed to resolve.
-  const restaurantSlugs = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
-  const resolvableChainSlugs = new Set([...chains.keys()].filter((chainSlug) => !restaurantSlugs.has(chainSlug)))
+  const resolvableChainSlugs = getResolvableChainSlugs(chains, restaurants)
   for (const [chainSlug, { chainName, branches }] of chains) {
     // Branches share near-duplicate menus (see chain-duplicate-content.md),
     // so the hub's dish count is "the biggest branch menu we have", not a sum.
@@ -1048,12 +1061,16 @@ async function main() {
 
   // # A chain's hub page (all its branches, one canonical URL) is a stronger
   // # SEO target than any single branch — give it a higher priority.
-  const chainHubUrls = [...groupChains(sitemapRestaurants).keys()].map((chainSlug) => ({
-    loc: `${BASE_URL}/restaurants/${chainSlug}/`,
-    priority: '0.85',
-    changefreq: 'weekly',
-    lastmod: today,
-  }))
+  const sitemapChains = groupChains(sitemapRestaurants)
+  const resolvableChainSlugs = getResolvableChainSlugs(sitemapChains, sitemapRestaurants)
+  const chainHubUrls = [...sitemapChains.keys()]
+    .filter((chainSlug) => resolvableChainSlugs.has(chainSlug))
+    .map((chainSlug) => ({
+      loc: `${BASE_URL}/restaurants/${chainSlug}/`,
+      priority: '0.85',
+      changefreq: 'weekly',
+      lastmod: today,
+    }))
 
   // # Priority scales with how much real content the page has — a 1-restaurant
   // # city is a legitimate page (real title/H1/listing, not a stub), just a
