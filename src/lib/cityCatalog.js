@@ -4,7 +4,7 @@
 // a percent-encoded slug and cityGenitive() falls back to the nominative
 // name — but add it here when a new city shows up, the same way
 // RETIRED_RESTAURANT_SLUGS in generate-sitemap.js is maintained by hand.
-const CITY_SLUGS = {
+export const CITY_SLUGS = {
   'Москва': 'moskva',
   'Санкт-Петербург': 'sankt-peterburg',
   'Нижний Новгород': 'nizhniy-novgorod',
@@ -36,6 +36,29 @@ const CITY_SLUGS = {
   'Уфа': 'ufa',
   'Хабаровск': 'khabarovsk',
   'Челябинск': 'chelyabinsk',
+  'Октябрьский': 'oktyabrskiy',
+  'Чехов': 'chekhov',
+  'Ханты-Мансийск': 'khanty-mansiysk',
+  'Махачкала': 'makhachkala',
+  'Нижневартовск': 'nizhnevartovsk',
+  'Омск': 'omsk',
+  'Пенза': 'penza',
+  'Сергиев Посад': 'sergiev-posad',
+  'Серпухов': 'serpukhov',
+  'Ставрополь': 'stavropol',
+  'Тверь': 'tver',
+  'Череповец': 'cherepovets',
+  'Ижевск': 'izhevsk',
+  'Шебекино': 'shebekino',
+  'Старый Оскол': 'staryy-oskol',
+  'Белгород': 'belgorod',
+  'Валуйки': 'valuyki',
+  'Стерлитамак': 'sterlitamak',
+  'Воткинск': 'votkinsk',
+  'Балашиха': 'balashikha',
+  'Оренбург': 'orenburg',
+  'Великий Новгород': 'velikiy-novgorod',
+  'Ярославль': 'yaroslavl',
 }
 
 // Every H1/title/description on a city catalog page reads "КБЖУ ресторанов
@@ -43,7 +66,7 @@ const CITY_SLUGS = {
 // except the indeclinable ones (Сочи, Кемерово). A city missing here falls
 // back to its nominative name rather than a guessed (and possibly wrong)
 // ending.
-const CITY_GENITIVE = {
+export const CITY_GENITIVE = {
   'Москва': 'Москвы',
   'Санкт-Петербург': 'Санкт-Петербурга',
   'Нижний Новгород': 'Нижнего Новгорода',
@@ -75,16 +98,48 @@ const CITY_GENITIVE = {
   'Уфа': 'Уфы',
   'Хабаровск': 'Хабаровска',
   'Челябинск': 'Челябинска',
+  'Октябрьский': 'Октябрьского',
+  'Чехов': 'Чехова',
+  'Ханты-Мансийск': 'Ханты-Мансийска',
+  'Махачкала': 'Махачкалы',
+  'Нижневартовск': 'Нижневартовска',
+  'Омск': 'Омска',
+  'Пенза': 'Пензы',
+  'Сергиев Посад': 'Сергиева Посада',
+  'Серпухов': 'Серпухова',
+  'Ставрополь': 'Ставрополя',
+  'Тверь': 'Твери',
+  'Череповец': 'Череповца',
+  'Ижевск': 'Ижевска',
+  'Шебекино': 'Шебекино',
+  'Старый Оскол': 'Старого Оскола',
+  'Белгород': 'Белгорода',
+  'Валуйки': 'Валуек',
+  'Стерлитамак': 'Стерлитамака',
+  'Воткинск': 'Воткинска',
+  'Балашиха': 'Балашихи',
+  'Оренбург': 'Оренбурга',
+  'Великий Новгород': 'Великого Новгорода',
+  'Ярославль': 'Ярославля',
 }
 
+const normalizeCityName = (cityName) => String(cityName || '').trim().toLowerCase()
+const CITY_SLUGS_BY_LOWER = new Map(Object.entries(CITY_SLUGS).map(([name, slug]) => [normalizeCityName(name), slug]))
+const CITY_GENITIVE_BY_LOWER = new Map(Object.entries(CITY_GENITIVE).map(([name, genitive]) => [normalizeCityName(name), genitive]))
+
 export function citySlug(cityName) {
-  const name = String(cityName || '').trim()
-  return CITY_SLUGS[name] || encodeURIComponent(name.toLowerCase())
+  const name = normalizeCityName(cityName)
+  return CITY_SLUGS_BY_LOWER.get(name) || encodeURIComponent(name)
 }
 
 export function cityGenitive(cityName) {
   const name = String(cityName || '').trim()
-  return CITY_GENITIVE[name] || name
+  return CITY_GENITIVE_BY_LOWER.get(normalizeCityName(name)) || name
+}
+
+export function isMappedCity(cityName) {
+  const name = normalizeCityName(cityName)
+  return CITY_SLUGS_BY_LOWER.has(name) && CITY_GENITIVE_BY_LOWER.has(name)
 }
 
 // Plain .js (no TS) on purpose: this module is imported both by the Vite app
