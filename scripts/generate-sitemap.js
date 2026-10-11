@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { chainHubSeoDescription, pluralizeRu, restaurantSeoDescription } from '../src/lib/seoDescriptions.js'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '../src/lib/cityCatalog.js'
+import { hubCanonicalChainSlug } from '../src/lib/sitemapCanonical.js'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
 // Not a secret — IndexNow keys are published at <site>/<key>.txt on purpose,
@@ -698,9 +699,9 @@ function generateStaticRoutes(restaurants, menuBySlug) {
     // # ranking signal there instead of treating every branch as a distinct,
     // # competing near-duplicate. The page itself still renders normally for
     // # visitors; only the search-engine signal changes.
-    const chainSlug = stripEmpty(restaurant.chainSlug)
-    const canonicalPath = chainSlug && resolvableChainSlugs.has(chainSlug)
-      ? `/restaurants/${chainSlug}/`
+    const canonicalChainSlug = hubCanonicalChainSlug(restaurant, resolvableChainSlugs)
+    const canonicalPath = canonicalChainSlug
+      ? `/restaurants/${canonicalChainSlug}/`
       : `/restaurants/${slug}/menu/`
 
     writeRouteHtml(
@@ -1050,15 +1051,6 @@ async function main() {
     { loc: `${BASE_URL}/support/`,      priority: '0.4', changefreq: 'monthly', lastmod: today },
   ]
 
-  const restaurantUrls = sitemapRestaurants
-    .filter((r) => r.slug)
-    .map((r) => ({
-      loc: `${BASE_URL}/restaurants/${r.slug}/menu/`,
-      priority: '0.8',
-      changefreq: 'weekly',
-      lastmod: r.updatedAt?.split('T')[0] ?? today,
-    }))
-
   // # A chain's hub page (all its branches, one canonical URL) is a stronger
   // # SEO target than any single branch — give it a higher priority.
   const sitemapChains = groupChains(sitemapRestaurants)
@@ -1071,6 +1063,19 @@ async function main() {
       changefreq: 'weekly',
       lastmod: today,
     }))
+
+  const skippedChainBranchCount = sitemapRestaurants.filter(
+    (restaurant) => restaurant.slug && hubCanonicalChainSlug(restaurant, resolvableChainSlugs),
+  ).length
+  const restaurantUrls = sitemapRestaurants
+    .filter((restaurant) => restaurant.slug && !hubCanonicalChainSlug(restaurant, resolvableChainSlugs))
+    .map((r) => ({
+      loc: `${BASE_URL}/restaurants/${r.slug}/menu/`,
+      priority: '0.8',
+      changefreq: 'weekly',
+      lastmod: r.updatedAt?.split('T')[0] ?? today,
+    }))
+  console.log(`ℹ️  Sitemap: skipped ${skippedChainBranchCount} chain branches canonicalized to their hub`)
 
   // # Priority scales with how much real content the page has — a 1-restaurant
   // # city is a legitimate page (real title/H1/listing, not a stub), just a
