@@ -5,7 +5,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { chainHubSeoDescription, pluralizeRu, restaurantSeoDescription } from '../src/lib/seoDescriptions.js'
-import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '../src/lib/cityCatalog.js'
+import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription, isMappedCity } from '../src/lib/cityCatalog.js'
 import { hubCanonicalChainSlug } from '../src/lib/sitemapCanonical.js'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
@@ -622,6 +622,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
 
   const byCity = groupByCity(restaurants)
   for (const [cityName, cityRestaurants] of byCity) {
+    if (!isMappedCity(cityName)) continue
     const slug = citySlug(cityName)
     writeRouteHtml(
       `/catalog/${slug}`,
@@ -1081,12 +1082,20 @@ async function main() {
   // # city is a legitimate page (real title/H1/listing, not a stub), just a
   // # weaker one than Moscow's 450+, and the sitemap's priority field exists
   // # precisely to say that.
-  const cityUrls = [...groupByCity(sitemapRestaurants).entries()].map(([cityName, cityRestaurants]) => ({
-    loc: `${BASE_URL}/catalog/${citySlug(cityName)}/`,
-    priority: cityRestaurants.length >= 50 ? '0.85' : cityRestaurants.length >= 10 ? '0.7' : '0.5',
-    changefreq: 'daily',
-    lastmod: today,
-  }))
+  const cityUrls = [...groupByCity(sitemapRestaurants).entries()].flatMap(([cityName, cityRestaurants]) => {
+    if (!isMappedCity(cityName)) {
+      console.warn(
+        `::warning title=Unmapped city::Город "${cityName}" не добавлен в CITY_SLUGS/CITY_GENITIVE (src/lib/cityCatalog.js) — страница /catalog/... не сгенерирована`,
+      )
+      return []
+    }
+    return [{
+      loc: `${BASE_URL}/catalog/${citySlug(cityName)}/`,
+      priority: cityRestaurants.length >= 50 ? '0.85' : cityRestaurants.length >= 10 ? '0.7' : '0.5',
+      changefreq: 'daily',
+      lastmod: today,
+    }]
+  })
 
   const allUrls = [...staticUrls, ...cityUrls, ...chainHubUrls, ...restaurantUrls]
 
