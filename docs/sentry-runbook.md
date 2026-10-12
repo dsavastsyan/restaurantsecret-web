@@ -6,20 +6,28 @@ Organization: `restaurantsecret`. Project: `javascript-react` (project ID
 
 ## Подключение и read-only доступ
 
-1. Открой [Issues проекта](https://restaurantsecret.sentry.io/issues/?project=4512183431594064)
-   в существующем браузерном профиле с авторизованной Sentry-сессией. Если к задаче
-   подключён Sentry-инструмент, используй его с теми же organization и project.
-2. Если интерфейс не загружается, открой в той же сессии read-only API endpoint проекта:
-   `https://restaurantsecret.sentry.io/api/0/projects/restaurantsecret/javascript-react/issues/?query=is%3Aunresolved`
-   Используй браузерную сессию; не подставляй credentials в URL, команды или логи.
-3. Ответ `401` означает, что браузерная сессия не авторизована; `403` — что у неё нет
-   read-доступа. Это не повод менять organization/project или использовать CI-токен.
-   Проверь другой уже авторизованный браузерный профиль или подключённый read-only
-   инструмент. Обращайся к founder только если ни одного такого способа нет, и сообщи
-   точный результат проверки доступа. Не проси повторно SENTRY_ORG/SENTRY_PROJECT.
-4. `SENTRY_AUTH_TOKEN` в GitHub Actions предназначен для загрузки source maps и имеет
-   scope `org:ci`; он не является токеном чтения Issues. Не проверяй Sentry им через API,
-   CLI или curl. DSN фронтенда также не даёт read-доступа.
+1. Основной способ чтения Issues — Sentry Web API с отдельным read-only токеном. Создай
+   в Sentry для аккаунта `restaurantsecret` User Auth Token или Internal Integration
+   token со scope `project:read` и `event:read`: Settings → Developer Settings → Auth
+   Tokens. Сохрани его локально в `.secrets/sentry-read.token` в корне `RestSecret/`;
+   этот файл находится вне git, не в этом репозитории и не в GitHub secrets.
+2. Для получения unresolved Issues используй запрос:
+   ```
+   curl -s -H "Authorization: Bearer $(cat .secrets/sentry-read.token)" \
+     "https://restaurantsecret.sentry.io/api/0/projects/restaurantsecret/javascript-react/issues/?query=is%3Aunresolved"
+   ```
+   `SENTRY_AUTH_TOKEN` из GitHub Actions для этого не используй: это другой токен со
+   scope `org:ci`, предназначенный только для загрузки source maps при сборке. Наличие
+   этого токена не означает запрет на API и не делает его токеном чтения Issues. DSN
+   фронтенда также не даёт read-доступа.
+3. Авторизованная браузерная сессия (Claude in Chrome или обычный авторизованный
+   профиль) — необязательный запасной вариант, если read-токена нет под рукой или
+   нужно визуально посмотреть данные, например график. Не используй её как обязательный
+   основной путь.
+4. Ответ `401` означает, что read-токен невалиден или просрочен; `403` — что у токена
+   не хватает scope `project:read` или `event:read`. В этих случаях перегенерируй токен
+   в Sentry, а не меняй organization/project и не используй `org:ci`-токен. Не проси
+   повторно SENTRY_ORG/SENTRY_PROJECT.
 
 ## Разбор issue и история исправлений
 
@@ -44,4 +52,5 @@ Organization: `restaurantsecret`. Project: `javascript-react` (project ID
 ## Секреты
 
 Не записывай и не выводи auth tokens, значения GitHub Actions secrets или секретные части
-DSN в документацию, логи, команды с выводом или ответы.
+DSN в документацию, логи, команды с выводом или ответы. Содержимое `.secrets/sentry-read.token`
+и сам путь к нему в выводе команд или логах также считай секретом.
