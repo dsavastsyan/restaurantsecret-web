@@ -49,6 +49,12 @@ const RETIRED_RESTAURANT_SLUGS = {
   'no_sugar': 'no-sugar',
   'abu_gosh': 'abu-gosh',
   'papa-john-s': 'papa-john-s-ekaterinburg',
+  // 2026-10-13: retired duplicate/closed Maxbakery and Кухня Полли rows;
+  // preserve old URLs at the surviving menu or branch.
+  'max_bakery': 'maxbakery',
+  'kitchenpolly-frunzenskaya': 'kuhnya-polli-biryulevskaya',
+  'kukhnya_polli': 'kuhnya-polli-biryulevskaya',
+  'kitchenpolly-biryulevskaya': 'kuhnya-polli-biryulevskaya',
 }
 const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
