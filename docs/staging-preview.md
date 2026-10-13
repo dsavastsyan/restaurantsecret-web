@@ -11,6 +11,16 @@ Production Pages variables are not changed. Preview deployments set
 `VITE_DEPLOY_ENV=preview`, disable production analytics, return `X-Robots-Tag:
 noindex`, and show a persistent `STAGING` panel.
 
+## Admin boundary
+
+The preview workflow also sets `VITE_RESTAURANT_API_BASE` to the staging Worker,
+so the admin clients included in a preview do not inherit the production admin
+hostname. The admin surface is intentionally not treated as a blanket
+staging-only writer: it combines catalog mutations with partner access,
+contacts, outreach, product/KBJU review, and operational billing. Production
+admin remains unchanged until those scopes are separated and approved; use the
+backend staging-first promotion paths for catalog data.
+
 The catalog's experimental Places UI Kit media requires the repository secret
 `GOOGLE_MAPS_API_KEY`. The workflow exposes it to Vite as
 `VITE_GOOGLE_MAPS_API_KEY`; the browser key must be restricted by website referrer and
