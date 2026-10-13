@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { analytics } from "@/services/analytics";
 import { getSubscriptionCheckoutLink } from "@/lib/subscriptionCta";
-import { useAuth } from "@/store/auth";
+import { readIsReturningUser, useAuth } from "@/store/auth";
 import { useSubscriptionStore } from "@/store/subscription";
 
 import AccountButton from "./AccountButton";
@@ -14,6 +14,7 @@ export default function NavBar({ forceGuest = false }: { forceGuest?: boolean })
     showAccountAction: state.hasActiveSub || state.hasSubscriptionHistory,
     isSubscriptionStatusLoaded: state.isStatusLoaded,
   }));
+  const isReturningUser = readIsReturningUser();
   const location = useLocation();
   const navigate = useNavigate();
   const isLoginPage = location.pathname === "/login";
@@ -71,21 +72,34 @@ export default function NavBar({ forceGuest = false }: { forceGuest?: boolean })
             {isGuestView ? (
               !isLoginPage && (
                 <div className="navbar__guest-actions">
-                  <Link
-                    to="/login"
-                    state={{ from: currentPath }}
-                    className="navbar__login-link"
-                  >
-                    Войти
-                  </Link>
-                  <Link
-                    to={subscriptionCheckoutLink.to}
-                    state={subscriptionCheckoutLink.state}
-                    className="navbar__trial-link"
-                    onClick={() => analytics.track("cta_clicked", { location: "nav", text: "Попробовать бесплатно" })}
-                  >
-                    Попробовать бесплатно
-                  </Link>
+                  {isReturningUser ? (
+                    <Link
+                      to="/login"
+                      state={{ from: currentPath }}
+                      className="navbar__trial-link"
+                      onClick={() => analytics.track("cta_clicked", { location: "nav", text: "Войти" })}
+                    >
+                      Войти
+                    </Link>
+                  ) : (
+                    <>
+                      <Link
+                        to="/login"
+                        state={{ from: currentPath }}
+                        className="navbar__login-link"
+                      >
+                        Войти
+                      </Link>
+                      <Link
+                        to={subscriptionCheckoutLink.to}
+                        state={subscriptionCheckoutLink.state}
+                        className="navbar__trial-link"
+                        onClick={() => analytics.track("cta_clicked", { location: "nav", text: "Попробовать бесплатно" })}
+                      >
+                        Попробовать бесплатно
+                      </Link>
+                    </>
+                  )}
                 </div>
               )
             ) : (

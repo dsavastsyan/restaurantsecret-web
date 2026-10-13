@@ -5,7 +5,7 @@ import Footer from '@/components/Footer'
 import HomeIcon from '@/components/HomeIcon'
 import PublicAccountLink from '@/components/PublicAccountLink'
 import { analytics } from '@/services/analytics'
-import { useAuth } from '@/store/auth'
+import { readIsReturningUser, useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { useMeta } from '@/lib/useMeta'
 import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
@@ -41,6 +41,7 @@ export default function Tariffs() {
     showAccountAction: state.hasActiveSub || state.hasSubscriptionHistory,
     isSubscriptionStatusLoaded: state.isStatusLoaded,
   }))
+  const isReturningUser = !accessToken && readIsReturningUser()
   const showTrialAction = !accessToken || (isSubscriptionStatusLoaded && !showAccountAction)
   const proTo = accessToken ? '/account/subscription' : '/login'
   const proState = accessToken ? undefined : { from: '/account/subscription', returnTo: location.pathname + location.search }
@@ -51,7 +52,7 @@ export default function Tariffs() {
   }
 
   const handleTrialClick = () => {
-    analytics.track('cta_clicked', { location: 'nav', text: 'Попробовать бесплатно' })
+    analytics.track('cta_clicked', { location: 'nav', text: isReturningUser ? 'Войти' : 'Попробовать бесплатно' })
   }
 
   return (
@@ -76,7 +77,7 @@ export default function Tariffs() {
             <PublicAccountLink className="tariffs-nav__cta" />
           ) : (
             <>
-              {!accessToken && (
+              {!accessToken && !isReturningUser && (
                 <Link
                   to="/login"
                   state={{ from: location.pathname + location.search }}
@@ -87,12 +88,12 @@ export default function Tariffs() {
               )}
               {showTrialAction && (
                 <Link
-                  to={subscriptionCheckoutLink.to}
-                  state={subscriptionCheckoutLink.state}
+                  to={isReturningUser ? '/login' : subscriptionCheckoutLink.to}
+                  state={isReturningUser ? { from: location.pathname + location.search } : subscriptionCheckoutLink.state}
                   className="tariffs-nav__cta"
                   onClick={handleTrialClick}
                 >
-                  Попробовать бесплатно
+                  {isReturningUser ? 'Войти' : 'Попробовать бесплатно'}
                 </Link>
               )}
             </>
