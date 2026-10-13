@@ -38,6 +38,12 @@ const RETIRED_RESTAURANT_SLUGS = {
   'fettucciamo': 'fettucciamo-moskva',
   'coba': 'coba-moskva',
   'kaia': 'kaia-moskva',
+  // 2026-10-12: unblocked chain hubs by renaming city-specific branch slugs.
+  'mama_pitstsa': 'mama-pitstsa-moskva',
+  'prosto_vasya': 'prosto-vasya-moskva',
+  '22sm': 'pitstsa-22-sm-moskva',
+  '22-sm': 'pitstsa-22-sm-sankt-peterburg',
+  'cynics-mayakovskaya': 'tsiniki-mayakovskaya',
   // 2026-09-20: deduped — these were the same physical restaurant recorded
   // twice; the surviving row now carries all the content.
   'no_sugar': 'no-sugar',
