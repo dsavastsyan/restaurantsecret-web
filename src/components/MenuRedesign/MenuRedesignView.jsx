@@ -48,6 +48,7 @@ function getInitialGuideStep(readOnly) {
 
 export default function MenuRedesignView({
   seoRestaurantName,
+  seoIntroText,
   heroDishCount,
   guideRestaurantCount,
   guideCityCount,
@@ -405,6 +406,8 @@ export default function MenuRedesignView({
           </div>
         </div>
       </div>
+
+      {seoIntroText && <p className="rsm2-seo-intro">{seoIntroText}</p>}
 
       <div className="rsm2-filters">
         <div className="rsm2-filter-toolbar">

@@ -520,14 +520,14 @@ function menuListHtml(dishes) {
   return `<h2>Блюда в меню</h2>${groupsHtml}`
 }
 
-function restaurantFallback(restaurant, dishes) {
+function restaurantFallback(restaurant, dishes, seo = null) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
   // Same count feeds the description and the "Блюд в меню" bullet below so
   // they can't disagree (regression: the description previously always got
   // called with no count at all, so it silently said "0 блюд" on every page).
   const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
-  const description = getRestaurantDescription(restaurant, dishCount)
+  const description = seo?.description || getRestaurantDescription(restaurant, dishCount)
   const cuisine = stripEmpty(restaurant.cuisine)
   const metro = stripEmpty(restaurant.metro || restaurant.metroName || restaurant.metro_name)
   const details = [
@@ -539,6 +539,7 @@ function restaurantFallback(restaurant, dishes) {
   return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
   <h1 aria-label="${escapeHtml(`Меню ${name} с КБЖУ`)}">${escapeHtml(name)}</h1>
   <p>${escapeHtml(description)}</p>
+  ${seo?.introText ? `<p>${escapeHtml(seo.introText)}</p>` : ''}
   ${details.length ? `<ul>${details.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
   <p>Точные калории, белки, жиры и углеводы каждого блюда — в приложении RestaurantSecret (первые 7 дней бесплатно).</p>
   ${menuListHtml(dishes)}
@@ -704,8 +705,9 @@ function generateStaticRoutes(restaurants, menuBySlug) {
     const menu = menuBySlug.get(slug)
     const dishes = flattenMenuForSeo(menu)
     const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
-    const description = getRestaurantDescription(restaurant, dishCount)
-    const title = `Меню ${name} с полным КБЖУ — калории, белки, жиры, углеводы`
+    const seo = menu?.seo?.title && menu?.seo?.description && menu?.seo?.introText ? menu.seo : null
+    const description = seo?.description || getRestaurantDescription(restaurant, dishCount)
+    const title = seo?.title || `Меню ${name} с полным КБЖУ — калории, белки, жиры, углеводы`
     // # Branches of a chain with a resolvable hub carry heavily overlapping
     // # menus (often the same name and most of the same dishes across
     // # cities) — canonicalizing to the hub tells Google to consolidate
@@ -733,7 +735,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
         description,
         canonical: `${BASE_URL}${canonicalPath}`,
         schema: restaurantSchema(restaurant, dishes),
-        fallbackHtml: restaurantFallback(restaurant, dishes),
+        fallbackHtml: restaurantFallback(restaurant, dishes, seo),
         seoHint: { name, dishCount },
       }),
     )

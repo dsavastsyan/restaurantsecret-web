@@ -536,8 +536,8 @@ export default function Menu({
   useMeta({
     title: previewMode
       ? `Превью меню ${seoRestaurantName} — не опубликовано`
-      : `Меню ${seoRestaurantName} с полным КБЖУ — калории, белки, жиры, углеводы`,
-    description: seoDescription,
+      : menu?.seo?.title || `Меню ${seoRestaurantName} с полным КБЖУ — калории, белки, жиры, углеводы`,
+    description: previewMode ? seoDescription : menu?.seo?.description || seoDescription,
     canonical: previewMode ? undefined : `https://restaurantsecret.ru${canonicalPath}`,
     robots: !previewMode && menu?.chainHubPath ? 'noindex, follow' : undefined,
   })
@@ -630,6 +630,7 @@ export default function Menu({
   return (
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
+      seoIntroText={previewMode ? null : menu?.seo?.introText}
       heroDishCount={seoDishCount}
       guideRestaurantCount={guideCatalogStats?.restaurantCount}
       guideCityCount={guideCatalogStats?.cityCount}
