@@ -134,8 +134,8 @@ export default function AdminKbjuLeads() {
         <div className="admin-crm__table-wrap admin-kbju-leads__table-wrap"><table className="admin-crm__table admin-kbju-leads__table"><thead><tr><th>Ресторан</th><th>Instagram</th><th>Сайт</th><th>Шаг</th><th>Статус</th><th>Источник КБЖУ</th><th>Дата ЛС</th><th>Ответ</th><th>Изменить</th></tr></thead><tbody>
           {leads.map((lead) => <tr key={lead.id} className={lead.effective_status === 'needs_nudge' ? 'requires-action' : ''}>
             <td data-label="Ресторан"><strong>{lead.name}</strong><small>{lead.city}</small></td>
-            <td data-label="Instagram"><a href={lead.instagram_url} target="_blank" rel="noreferrer">@{lead.instagram_handle} <ExternalLink size={13} /></a></td>
-            <td data-label="Сайт">{lead.website_url ? <a href={lead.website_url} target="_blank" rel="noreferrer">Открыть сайт <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
+            <td data-label="Instagram">{lead.instagram_handle && lead.instagram_url ? <a href={lead.instagram_url} target="_blank" rel="noreferrer">@{lead.instagram_handle} <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
+            <td data-label="Сайт">{(lead.parser_url || lead.website_url) ? <a href={lead.parser_url || lead.website_url} target="_blank" rel="noreferrer">{lead.parser_url ? 'Открыть страницу меню' : 'Открыть сайт'} <ExternalLink size={13} /></a> : <span className="admin-crm__muted">—</span>}</td>
             <td data-label="Шаг">{STEP_LABELS[lead.check_step] || lead.check_step}</td>
             <td data-label="Статус"><span className={`admin-kbju-leads__status admin-kbju-leads__status--${lead.effective_status}`}>{STATUS_LABELS[lead.effective_status] || lead.effective_status}</span></td>
             <td data-label="Источник КБЖУ">{SOURCE_LABELS[lead.kbju_source] || <span className="admin-crm__muted">—</span>}{lead.effective_status === 'kbju_received' && lead.kbju_url ? <><br /><a href={lead.kbju_url} target="_blank" rel="noreferrer">Открыть КБЖУ <ExternalLink size={13} /></a></> : null}</td>
