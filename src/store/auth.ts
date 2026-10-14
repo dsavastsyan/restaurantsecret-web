@@ -27,6 +27,28 @@ const readStoredToken = () => {
   }
 };
 
+const RETURNING_KEY = "rs_returning";
+
+// Признак «уже заходил в сервис»: переживает выход из аккаунта, чтобы гостю
+// вместо «Попробовать бесплатно» показывать «Войти».
+const markReturning = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RETURNING_KEY, "1");
+  } catch {
+    /* localStorage может быть недоступен */
+  }
+};
+
+export const readIsReturningUser = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(RETURNING_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
 let state: AuthState;
 
 const persistToken = (token: string | null) => {
@@ -45,6 +67,7 @@ const persistToken = (token: string | null) => {
 export const setToken = (token: string | null) => {
   const wasLoggedOut = !state.accessToken;
   persistToken(token);
+  if (token) markReturning();
   state = { ...state, accessToken: token };
   notify();
   // После логина — линкуем анонимные события с пользователем
@@ -57,8 +80,11 @@ const logout = () => {
   setToken(null);
 };
 
+const initialToken = readStoredToken();
+if (initialToken) markReturning();
+
 state = {
-  accessToken: readStoredToken(),
+  accessToken: initialToken,
   setToken,
   logout,
 };

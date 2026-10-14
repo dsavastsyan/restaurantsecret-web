@@ -9,7 +9,7 @@ import TelegramFooterLink from '@/components/TelegramFooterLink'
 import { postSuggest } from '@/lib/api'
 import { analytics } from '@/services/analytics'
 import { toast } from '@/lib/toast'
-import { useAuth } from '@/store/auth'
+import { readIsReturningUser, useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
 
@@ -140,6 +140,7 @@ export default function HowItWorks() {
     showAccountAction: state.hasActiveSub || state.hasSubscriptionHistory,
     isSubscriptionStatusLoaded: state.isStatusLoaded,
   }))
+  const isReturningUser = !accessToken && readIsReturningUser()
   const showTrialAction = !accessToken || (isSubscriptionStatusLoaded && !showAccountAction)
   const subscriptionCheckoutLink = getSubscriptionCheckoutLink(accessToken, location.pathname + location.search)
   const accessTokenOrUndefined = accessToken || undefined
@@ -226,7 +227,7 @@ export default function HowItWorks() {
             <PublicAccountLink className="landing-warm__nav-cta" />
           ) : (
             <>
-              {!accessToken && (
+              {!accessToken && !isReturningUser && (
                 <Link
                   to="/login"
                   state={{ from: location.pathname + location.search }}
@@ -237,12 +238,12 @@ export default function HowItWorks() {
               )}
               {showTrialAction && (
                 <Link
-                  to={subscriptionCheckoutLink.to}
-                  state={subscriptionCheckoutLink.state}
+                  to={isReturningUser ? '/login' : subscriptionCheckoutLink.to}
+                  state={isReturningUser ? { from: location.pathname + location.search } : subscriptionCheckoutLink.state}
                   className="landing-warm__nav-cta"
-                  onClick={() => analytics.track('cta_clicked', { location: 'nav', text: 'Попробовать бесплатно' })}
+                  onClick={() => analytics.track('cta_clicked', { location: 'nav', text: isReturningUser ? 'Войти' : 'Попробовать бесплатно' })}
                 >
-                  Попробовать бесплатно
+                  {isReturningUser ? 'Войти' : 'Попробовать бесплатно'}
                 </Link>
               )}
             </>

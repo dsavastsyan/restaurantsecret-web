@@ -16,9 +16,10 @@ import InstagramIcon from '@/components/InstagramIcon.jsx'
 import MetroStationsText from '@/components/MetroStationsText.jsx'
 import GooglePlaceMedia from '@/components/GooglePlaceMedia.jsx'
 import ServiceUnavailable from '@/components/ServiceUnavailable.jsx'
+import NotFound from '@/pages/NotFound.jsx'
 import { isServiceUnavailableError } from '@/lib/serviceUnavailable.js'
 import { saveCatalogCity } from '@/lib/cityPreference'
-import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
+import { citySlug, cityFromSlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '@/lib/cityCatalog'
 import { getMetroSelectionPoints } from '@/lib/metroSelection'
 import {
   enrichCatalogItemsWithMapMetros,
@@ -143,15 +144,32 @@ export default function Catalog() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: citiesData } = useSWRLite('cities', () => api.cities())
   const cities = citiesData?.items || []
-  const selectedCity = cities.find((item) => citySlug(item.id) === cityPath || item.id === cityPath)
-    || cities.find((item) => item.id === localStorage.getItem('catalog_city'))
-    || { id: 'Москва', name: 'Москва' }
+  const cityFromList = cities.find((item) => citySlug(item.id) === cityPath || item.id === cityPath)
+  const cityFromKnownSlug = cityPath ? cityFromSlug(cityPath) : null
+  const selectedCity = cityPath
+    ? cityFromList || (cityFromKnownSlug ? { id: cityFromKnownSlug, name: cityFromKnownSlug } : null)
+    : cities.find((item) => item.id === localStorage.getItem('catalog_city'))
+      || { id: 'Москва', name: 'Москва' }
+  const selectedCityId = selectedCity?.id || ''
+  const hasSelectedCity = Boolean(selectedCity)
   const initialCatalogFilters = parseCatalogFilterState(searchParams)
 
-  const { data: filters } = useSWRLite(`filters:${selectedCity.id}`, () => api.filters(selectedCity.id))
-  const { data: metroResponse } = useSWRLite('metro', () => api.metro())
+  const { data: filters } = useSWRLite(
+    hasSelectedCity ? `filters:${selectedCityId}` : null,
+    () => api.filters(selectedCityId),
+    { enabled: hasSelectedCity },
+  )
+  const { data: metroResponse } = useSWRLite(
+    hasSelectedCity ? 'metro' : null,
+    () => api.metro(),
+    { enabled: hasSelectedCity },
+  )
   const metroData = metroResponse || EMPTY_METRO_DATA
-  const { data: landingStats } = useSWRLite('landing-stats', () => getLandingStats())
+  const { data: landingStats } = useSWRLite(
+    hasSelectedCity ? 'landing-stats' : null,
+    () => getLandingStats(),
+    { enabled: hasSelectedCity },
+  )
   const [selectedCuisines, setSelectedCuisines] = useState(() => initialCatalogFilters.selectedCuisines
     .map(normalizeCatalogCuisine)
     .filter(Boolean))
@@ -277,13 +295,13 @@ export default function Catalog() {
   }, [])
 
   const cityMetroData = useMemo(() => {
-    const stations = (metroData.stations || []).filter((station) => station.city === selectedCity.id)
+    const stations = (metroData.stations || []).filter((station) => station.city === selectedCityId)
     const availableLineIds = new Set(stations.map((station) => String(station.line_id)))
     return {
       lines: (metroData.lines || []).filter((line) => availableLineIds.has(String(line.id))),
       stations,
     }
-  }, [metroData.lines, metroData.stations, selectedCity.id])
+  }, [metroData.lines, metroData.stations, selectedCityId])
 
   const selectedMetroPoints = useMemo(
     () => getMetroSelectionPoints(cityMetroData.stations, selectedMetro),
@@ -343,7 +361,7 @@ export default function Catalog() {
   }, [query])
 
   const changeCity = useCallback((city) => {
-    analytics.track('city_changed', { from_city: selectedCity.id, selected_city: city.id })
+    analytics.track('city_changed', { from_city: selectedCityId, selected_city: city.id })
     saveCatalogCity(city.id, 'manual', accessToken)
     const next = new URLSearchParams(searchParams)
     if (query.trim()) next.set('q', query.trim()); else next.delete('q')
@@ -363,14 +381,14 @@ export default function Catalog() {
     setIsPickingLocation(false)
     setOpenFilter(null)
     setCurrentPage(1)
-  }, [accessToken, navigate, query, searchParams, selectedCity.id])
+  }, [accessToken, navigate, query, searchParams, selectedCityId])
 
   const changeViewMode = useCallback((nextMode) => {
     const next = new URLSearchParams(window.location.search)
     if (nextMode === 'list') next.set('view', 'list'); else next.delete('view')
     setSearchParams(next, { replace: true })
-    analytics.track('catalog_view_changed', { view: nextMode, selected_city: selectedCity.id })
-  }, [selectedCity.id, setSearchParams])
+    analytics.track('catalog_view_changed', { view: nextMode, selected_city: selectedCityId })
+  }, [selectedCityId, setSearchParams])
 
   // Ask the parent layout for access; show the paywall if the user is not
   // subscribed yet.
@@ -387,29 +405,29 @@ export default function Catalog() {
   const openMenu = useCallback((slug) => {
     if (!slug) return
     if (ensureAccess()) {
-      analytics.track('restaurant_open', { slug, selected_city: selectedCity.id })
+      analytics.track('restaurant_open', { slug, selected_city: selectedCityId })
       const menuParams = new URLSearchParams(window.location.search)
-      menuParams.set('city', selectedCity.id)
+      menuParams.set('city', selectedCityId)
       navigate(`/restaurants/${slug}/menu/?${menuParams.toString()}`)
     }
-  }, [ensureAccess, navigate, selectedCity.id])
+  }, [ensureAccess, navigate, selectedCityId])
 
   // The hub just lists a chain's locations (no nutrition data of its own),
   // so — like the catalog itself — it isn't behind the paywall gate.
   const openChainHub = useCallback((chainSlug) => {
     if (!chainSlug) return
-    analytics.track('catalog_chain_open', { chain_slug: chainSlug, selected_city: selectedCity.id })
+    analytics.track('catalog_chain_open', { chain_slug: chainSlug, selected_city: selectedCityId })
     navigate(`/restaurants/${chainSlug}/`)
-  }, [navigate, selectedCity.id])
+  }, [navigate, selectedCityId])
 
   useEffect(() => {
-    if (debouncedQuery) analytics.track('catalog_search', { selected_city: selectedCity.id, has_query: true })
-  }, [debouncedQuery, selectedCity.id])
+    if (debouncedQuery) analytics.track('catalog_search', { selected_city: selectedCityId, has_query: true })
+  }, [debouncedQuery, selectedCityId])
 
   const { data: crossCityResults, loading: searchLoading, error: searchError } = useSWRLite(
-    debouncedQuery ? `search:${selectedCity.id}:${debouncedQuery}:${retryNonce}` : null,
-    () => api.search(debouncedQuery, { city: selectedCity.id }),
-    { enabled: Boolean(debouncedQuery) },
+    hasSelectedCity && debouncedQuery ? `search:${selectedCityId}:${debouncedQuery}:${retryNonce}` : null,
+    () => api.search(debouncedQuery, { city: selectedCityId }),
+    { enabled: Boolean(debouncedQuery && hasSelectedCity) },
   )
   const searchRestaurantSlugs = useMemo(() => (
     Array.from(new Set(
@@ -423,8 +441,8 @@ export default function Catalog() {
     error: hydratedSearchError,
     loading: hydratedSearchLoading,
   } = useSWRLite(
-    searchRestaurantSlugs.length
-      ? `search-restaurants:${selectedCity.id}:${searchRestaurantSlugs.join(',')}:${safeJsonStringify(nutritionCriteria)}:${retryNonce}`
+    hasSelectedCity && searchRestaurantSlugs.length
+      ? `search-restaurants:${selectedCityId}:${searchRestaurantSlugs.join(',')}:${safeJsonStringify(nutritionCriteria)}:${retryNonce}`
       : null,
     async () => {
       const batches = []
@@ -432,14 +450,14 @@ export default function Catalog() {
         batches.push(searchRestaurantSlugs.slice(index, index + SEARCH_RESTAURANT_BATCH_SIZE))
       }
       const responses = await Promise.all(batches.map((slugs) => api.restaurants({
-        city: selectedCity.id,
+        city: selectedCityId,
         limit: slugs.length,
         slugs,
         ...getCatalogNutritionQueryParams(nutritionCriteria),
       })))
       return responses.flatMap((response) => response?.items || [])
     },
-    { enabled: searchRestaurantSlugs.length > 0 },
+    { enabled: hasSelectedCity && searchRestaurantSlugs.length > 0 },
   )
   const hydratedSearchRestaurantsBySlug = useMemo(
     () => new Map((hydratedSearchRestaurants || []).map((restaurant) => [restaurant.slug, restaurant])),
@@ -467,11 +485,13 @@ export default function Catalog() {
   // independent so a long result set cannot turn into an oversized cache key.
   const serverPage = debouncedQuery ? 0 : Math.floor((currentPage - 1) / catalogPagesPerFetch)
   const { data: rawData, loading, error } = useSWRLite(
-    `restaurants:${selectedCity.id}:${serverPage}:${catalogFetchLimit}:${sort}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${safeJsonStringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}:${retryNonce}`,
+    hasSelectedCity
+      ? `restaurants:${selectedCityId}:${serverPage}:${catalogFetchLimit}:${sort}:${selectedCuisines.join(',')}:${selectedVenueTypes.join(',')}:${safeJsonStringify(nutritionCriteria)}:${locationAnchorPoints.map((point) => `${point.lat}:${point.lon}`).join('|')}:${radiusKm}:${retryNonce}`
+      : null,
     () => api.restaurants({
       limit: catalogFetchLimit,
       offset: serverPage * catalogFetchLimit,
-      city: selectedCity.id,
+      city: selectedCityId,
       cuisine: getCatalogCuisineFilterValues(selectedCuisines),
       venue_type: selectedVenueTypes.length === 1 ? selectedVenueTypes[0] : undefined,
       metro: usesClientMetroFilter ? undefined : selectedMetro,
@@ -482,10 +502,12 @@ export default function Catalog() {
       sort,
       ...getCatalogNutritionQueryParams(nutritionCriteria),
     }),
+    { enabled: hasSelectedCity },
   )
   const { data: rawMapData, loading: mapLoading, error: mapError } = useSWRLite(
-    `restaurants-map:${selectedCity.id}:${retryNonce}`,
-    () => api.restaurantMap({ city: selectedCity.id }),
+    hasSelectedCity ? `restaurants-map:${selectedCityId}:${retryNonce}` : null,
+    () => api.restaurantMap({ city: selectedCityId }),
+    { enabled: hasSelectedCity },
   )
 
   const openCatalogDishResults = useCallback((slug) => {
@@ -497,9 +519,9 @@ export default function Catalog() {
 
     const returnTo = `${window.location.pathname}${window.location.search}`
     const checkoutLink = getSubscriptionCheckoutLink(accessToken, returnTo)
-    analytics.track('catalog_filtered_dishes_open', { slug, selected_city: selectedCity.id })
+    analytics.track('catalog_filtered_dishes_open', { slug, selected_city: selectedCityId })
     navigate(checkoutLink.to, { state: checkoutLink.state })
-  }, [accessToken, hasActiveSubscription, hasNutritionFilter, navigate, openMenu, selectedCity.id])
+  }, [accessToken, hasActiveSubscription, hasNutritionFilter, navigate, openMenu, selectedCityId])
   // Normalize data
   const allItems = useMemo(() => {
     if (!rawData) return []
@@ -517,9 +539,9 @@ export default function Catalog() {
   }, [rawData])
 
   const allItemsWithNutrition = useMemo(() => allItems.map((item) => {
-    const menuData = item.slug ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, item.slug)] : null
+    const menuData = item.slug ? nutritionMenuData[getNutritionMenuKey(selectedCityId, item.slug)] : null
     return menuData?.status === 'ready' ? { ...item, dishes: menuData.dishes } : item
-  }), [allItems, nutritionMenuData, selectedCity.id])
+  }), [allItems, nutritionMenuData, selectedCityId])
 
   const searchItems = useMemo(() => {
     const restaurants = Array.isArray(crossCityResults?.restaurants) ? crossCityResults.restaurants : []
@@ -640,7 +662,7 @@ export default function Catalog() {
   }, [catalogPagesPerFetch, currentPage, debouncedQuery, displayItems])
 
   useEffect(() => {
-    if (!hasNutritionFilter) return
+    if (!hasSelectedCity || !hasNutritionFilter) return
     // Search results arrive before their nutrition-aware catalog hydration.
     // Wait for that single batched request instead of starting one full-menu
     // request per card and then replacing the result a moment later.
@@ -649,16 +671,16 @@ export default function Catalog() {
     const candidates = visibleItems.filter((restaurant) => (
       !restaurant.isChainCard
       && restaurant.slug
-      && nutritionMenuData[getNutritionMenuKey(selectedCity.id, restaurant.slug)] == null
+      && nutritionMenuData[getNutritionMenuKey(selectedCityId, restaurant.slug)] == null
       && !Number.isFinite(Number(restaurant.matchingDishesCount ?? restaurant.matching_dishes_count))
-      && !nutritionMenuRequestsRef.current.has(getNutritionMenuKey(selectedCity.id, restaurant.slug))
+      && !nutritionMenuRequestsRef.current.has(getNutritionMenuKey(selectedCityId, restaurant.slug))
     ))
     if (!candidates.length) return
 
     const requests = candidates.map((restaurant) => {
-      const key = getNutritionMenuKey(selectedCity.id, restaurant.slug)
+      const key = getNutritionMenuKey(selectedCityId, restaurant.slug)
       nutritionMenuRequestsRef.current.add(key)
-      return api.menu(restaurant.slug, selectedCity.id)
+      return api.menu(restaurant.slug, selectedCityId)
         .then((payload) => ({
           key,
           status: 'ready',
@@ -677,7 +699,7 @@ export default function Catalog() {
         return next
       })
     })
-  }, [debouncedQuery, hasNutritionFilter, hydratedSearchError, hydratedSearchLoading, hydratedSearchRestaurants, nutritionMenuData, selectedCity.id, visibleItems])
+  }, [debouncedQuery, hasNutritionFilter, hasSelectedCity, hydratedSearchError, hydratedSearchLoading, hydratedSearchRestaurants, nutritionMenuData, selectedCityId, visibleItems])
 
   const catalogLoading = debouncedQuery ? searchLoading : loading
   const catalogError = debouncedQuery ? searchError : error
@@ -685,9 +707,9 @@ export default function Catalog() {
 
   useEffect(() => {
     if (!catalogLoading && !catalogError && !allItems.length && !debouncedQuery) {
-      analytics.track('catalog_empty_city', { selected_city: selectedCity.id })
+      analytics.track('catalog_empty_city', { selected_city: selectedCityId })
     }
-  }, [allItems.length, catalogError, catalogLoading, debouncedQuery, selectedCity.id])
+  }, [allItems.length, catalogError, catalogLoading, debouncedQuery, selectedCityId])
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -887,12 +909,12 @@ export default function Catalog() {
     ? displayItems.length
     : Number(rawData?.total ?? rawData?.count ?? allItems.length)
   const weeklyAdded = Number(landingStats?.weeklyAdded ?? 0)
-  const cityGenitiveName = cityGenitive(selectedCity.name)
+  const cityGenitiveName = cityGenitive(selectedCity?.name || '')
 
   useMeta({
-    title: cityCatalogTitle(selectedCity.name),
-    description: cityCatalogDescription(selectedCity.name, totalRestaurantCount),
-    canonical: `https://restaurantsecret.ru/catalog/${citySlug(selectedCity.id)}/`,
+    title: selectedCity ? cityCatalogTitle(selectedCity.name) : undefined,
+    description: selectedCity ? cityCatalogDescription(selectedCity.name, totalRestaurantCount) : undefined,
+    canonical: selectedCity ? `https://restaurantsecret.ru/catalog/${citySlug(selectedCityId)}/` : undefined,
   })
 
   const crossCitySuggestions = useMemo(() => (
@@ -921,7 +943,7 @@ export default function Catalog() {
         setIsSearchFocused(false)
         analytics.track('catalog_search_suggestion_select', {
           chain_slug: suggestion.slug,
-          selected_city: selectedCity.id,
+          selected_city: selectedCityId,
         })
         return
       }
@@ -929,16 +951,16 @@ export default function Catalog() {
 
     applySearchQuery(query)
     setIsSearchFocused(false)
-  }, [activeSearchSuggestionIndex, applySearchQuery, query, searchSuggestions, selectedCity.id, showSearchSuggestions])
+  }, [activeSearchSuggestionIndex, applySearchQuery, query, searchSuggestions, selectedCityId, showSearchSuggestions])
 
   const selectSearchSuggestion = useCallback((suggestion) => {
     applySearchQuery(suggestion.name)
     setIsSearchFocused(false)
     analytics.track('catalog_search_suggestion_select', {
       chain_slug: suggestion.slug,
-      selected_city: selectedCity.id,
+      selected_city: selectedCityId,
     })
-  }, [applySearchQuery, selectedCity.id])
+  }, [applySearchQuery, selectedCityId])
 
   const handleSearchKeyDown = useCallback((event) => {
     if (!showSearchSuggestions) return
@@ -967,8 +989,8 @@ export default function Catalog() {
   const handleSortChange = useCallback((event) => {
     const nextSort = normalizeCatalogSort(event.target.value)
     setSort(nextSort)
-    analytics.track('catalog_sort_changed', { sort: nextSort, selected_city: selectedCity.id })
-  }, [selectedCity.id])
+    analytics.track('catalog_sort_changed', { sort: nextSort, selected_city: selectedCityId })
+  }, [selectedCityId])
 
   const handleLocationModeChange = useCallback((nextMode) => {
     if (locationMode == null && radiusKm == null) {
@@ -979,9 +1001,9 @@ export default function Catalog() {
     setCurrentPage(1)
     analytics.track('catalog_location_mode_changed', {
       mode: nextMode,
-      selected_city: selectedCity.id,
+      selected_city: selectedCityId,
     })
-  }, [locationMode, radiusKm, selectedCity.id])
+  }, [locationMode, radiusKm, selectedCityId])
 
   const handleRadiusChange = useCallback((value) => {
     setRadiusKm(value)
@@ -989,9 +1011,9 @@ export default function Catalog() {
     analytics.track('catalog_location_radius_changed', {
       mode: locationMode,
       radius_km: value,
-      selected_city: selectedCity.id,
+      selected_city: selectedCityId,
     })
-  }, [locationMode, selectedCity.id])
+  }, [locationMode, selectedCityId])
 
   const handleUseCurrentLocation = useCallback(() => {
     setGeolocationError('')
@@ -1013,7 +1035,7 @@ export default function Catalog() {
         analytics.track('catalog_location_point_selected', {
           source: 'geolocation',
           approximate,
-          selected_city: selectedCity.id,
+          selected_city: selectedCityId,
         })
       },
       () => {
@@ -1024,7 +1046,7 @@ export default function Catalog() {
       // системное окно разрешения открытым дольше, чем длится обычный запрос.
       { enableHighAccuracy: true, maximumAge: 60_000 },
     )
-  }, [selectedCity.id])
+  }, [selectedCityId])
 
   const handleAddressSearch = useCallback(async () => {
     const value = addressQuery.trim()
@@ -1035,12 +1057,12 @@ export default function Catalog() {
     setGeolocationError('')
     setAddressResults([])
     try {
-      const result = await api.geocode(value, selectedCity.id)
+      const result = await api.geocode(value, selectedCityId)
       const items = Array.isArray(result?.items) ? result.items : []
       setAddressResults(items)
       if (!items.length) setAddressError('Адрес не найден. Уточните запрос или выберите точку на карте.')
       analytics.track('catalog_address_search', {
-        selected_city: selectedCity.id,
+        selected_city: selectedCityId,
         has_results: items.length > 0,
       })
     } catch (_) {
@@ -1048,7 +1070,7 @@ export default function Catalog() {
     } finally {
       setAddressLoading(false)
     }
-  }, [addressLoading, addressQuery, selectedCity.id])
+  }, [addressLoading, addressQuery, selectedCityId])
 
   const handleAddressQueryChange = useCallback((value) => {
     setAddressQuery(value)
@@ -1065,9 +1087,9 @@ export default function Catalog() {
     setIsPickingLocation(false)
     analytics.track('catalog_location_point_selected', {
       source: 'address',
-      selected_city: selectedCity.id,
+      selected_city: selectedCityId,
     })
-  }, [selectedCity.id])
+  }, [selectedCityId])
 
   const handlePickOnMap = useCallback(() => {
     setLocationMode('nearby')
@@ -1085,9 +1107,15 @@ export default function Catalog() {
     setIsPickingLocation(false)
     analytics.track('catalog_location_point_selected', {
       source: 'map',
-      selected_city: selectedCity.id,
+      selected_city: selectedCityId,
     })
-  }, [selectedCity.id])
+  }, [selectedCityId])
+
+  if (cityPath && !selectedCity) {
+    return citiesData === null
+      ? <div className="catalog-state">Загружаем города…</div>
+      : <NotFound />
+  }
 
   return (
     <div className={`catalog-page catalog-page--${viewMode}`}>
@@ -1123,8 +1151,8 @@ export default function Catalog() {
                     <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
                     <circle cx="12" cy="10" r="2.1" />
                   </svg>
-                  <select id="catalog-city" value={selectedCity.id}
-                    onFocus={() => analytics.track('city_selector_open', { selected_city: selectedCity.id })}
+                  <select id="catalog-city" value={selectedCityId}
+                    onFocus={() => analytics.track('city_selector_open', { selected_city: selectedCityId })}
                     onChange={(event) => {
                       const city = cities.find((item) => item.id === event.target.value)
                       if (city) changeCity(city)
@@ -1581,7 +1609,7 @@ export default function Catalog() {
             const nutritionStats = getCatalogNutritionStatsForCriteria(r, nutritionCriteria)
             const dishesCount = hasNutritionFilter ? nutritionStats.matching : nutritionStats.total
             const nutritionMenuState = r.slug
-              ? nutritionMenuData[getNutritionMenuKey(selectedCity.id, r.slug)]
+              ? nutritionMenuData[getNutritionMenuKey(selectedCityId, r.slug)]
               : null
             const googleRating = getRestaurantGoogleRating(r)
             const googlePlaceId = getGooglePlaceId(r)

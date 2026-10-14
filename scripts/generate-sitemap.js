@@ -5,7 +5,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { chainHubSeoDescription, pluralizeRu, restaurantSeoDescription } from '../src/lib/seoDescriptions.js'
-import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription } from '../src/lib/cityCatalog.js'
+import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription, isMappedCity } from '../src/lib/cityCatalog.js'
+import { hubCanonicalChainSlug } from '../src/lib/sitemapCanonical.js'
 
 const BASE_URL = (process.env.SITEMAP_BASE_URL || 'https://restaurantsecret.ru').replace(/\/+$/, '')
 // Not a secret — IndexNow keys are published at <site>/<key>.txt on purpose,
@@ -37,11 +38,23 @@ const RETIRED_RESTAURANT_SLUGS = {
   'fettucciamo': 'fettucciamo-moskva',
   'coba': 'coba-moskva',
   'kaia': 'kaia-moskva',
+  // 2026-10-12: unblocked chain hubs by renaming city-specific branch slugs.
+  'mama_pitstsa': 'mama-pitstsa-moskva',
+  'prosto_vasya': 'prosto-vasya-moskva',
+  '22sm': 'pitstsa-22-sm-moskva',
+  '22-sm': 'pitstsa-22-sm-sankt-peterburg',
+  'cynics-mayakovskaya': 'tsiniki-mayakovskaya',
   // 2026-09-20: deduped — these were the same physical restaurant recorded
   // twice; the surviving row now carries all the content.
   'no_sugar': 'no-sugar',
   'abu_gosh': 'abu-gosh',
   'papa-john-s': 'papa-john-s-ekaterinburg',
+  // 2026-10-13: retired duplicate/closed Maxbakery and Кухня Полли rows;
+  // preserve old URLs at the surviving menu or branch.
+  'max_bakery': 'maxbakery',
+  'kitchenpolly-frunzenskaya': 'kuhnya-polli-biryulevskaya',
+  'kukhnya_polli': 'kuhnya-polli-biryulevskaya',
+  'kitchenpolly-biryulevskaya': 'kuhnya-polli-biryulevskaya',
 }
 const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
@@ -507,14 +520,14 @@ function menuListHtml(dishes) {
   return `<h2>Блюда в меню</h2>${groupsHtml}`
 }
 
-function restaurantFallback(restaurant, dishes) {
+function restaurantFallback(restaurant, dishes, seo = null) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
   // Same count feeds the description and the "Блюд в меню" bullet below so
   // they can't disagree (regression: the description previously always got
   // called with no count at all, so it silently said "0 блюд" on every page).
   const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
-  const description = getRestaurantDescription(restaurant, dishCount)
+  const description = seo?.description || getRestaurantDescription(restaurant, dishCount)
   const cuisine = stripEmpty(restaurant.cuisine)
   const metro = stripEmpty(restaurant.metro || restaurant.metroName || restaurant.metro_name)
   const details = [
@@ -526,6 +539,7 @@ function restaurantFallback(restaurant, dishes) {
   return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
   <h1 aria-label="${escapeHtml(`Меню ${name} с КБЖУ`)}">${escapeHtml(name)}</h1>
   <p>${escapeHtml(description)}</p>
+  ${seo?.introText ? `<p>${escapeHtml(seo.introText)}</p>` : ''}
   ${details.length ? `<ul>${details.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
   <p>Точные калории, белки, жиры и углеводы каждого блюда — в приложении RestaurantSecret (первые 7 дней бесплатно).</p>
   ${menuListHtml(dishes)}
@@ -621,6 +635,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
 
   const byCity = groupByCity(restaurants)
   for (const [cityName, cityRestaurants] of byCity) {
+    if (!isMappedCity(cityName)) continue
     const slug = citySlug(cityName)
     writeRouteHtml(
       `/catalog/${slug}`,
@@ -690,17 +705,18 @@ function generateStaticRoutes(restaurants, menuBySlug) {
     const menu = menuBySlug.get(slug)
     const dishes = flattenMenuForSeo(menu)
     const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
-    const description = getRestaurantDescription(restaurant, dishCount)
-    const title = `Меню ${name} с полным КБЖУ — калории, белки, жиры, углеводы`
+    const seo = menu?.seo?.title && menu?.seo?.description && menu?.seo?.introText ? menu.seo : null
+    const description = seo?.description || getRestaurantDescription(restaurant, dishCount)
+    const title = seo?.title || `Меню ${name} с полным КБЖУ — калории, белки, жиры, углеводы`
     // # Branches of a chain with a resolvable hub carry heavily overlapping
     // # menus (often the same name and most of the same dishes across
     // # cities) — canonicalizing to the hub tells Google to consolidate
     // # ranking signal there instead of treating every branch as a distinct,
     // # competing near-duplicate. The page itself still renders normally for
     // # visitors; only the search-engine signal changes.
-    const chainSlug = stripEmpty(restaurant.chainSlug)
-    const canonicalPath = chainSlug && resolvableChainSlugs.has(chainSlug)
-      ? `/restaurants/${chainSlug}/`
+    const canonicalChainSlug = hubCanonicalChainSlug(restaurant, resolvableChainSlugs)
+    const canonicalPath = canonicalChainSlug
+      ? `/restaurants/${canonicalChainSlug}/`
       : `/restaurants/${slug}/menu/`
 
     writeRouteHtml(
@@ -719,7 +735,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
         description,
         canonical: `${BASE_URL}${canonicalPath}`,
         schema: restaurantSchema(restaurant, dishes),
-        fallbackHtml: restaurantFallback(restaurant, dishes),
+        fallbackHtml: restaurantFallback(restaurant, dishes, seo),
         seoHint: { name, dishCount },
       }),
     )
@@ -1050,15 +1066,6 @@ async function main() {
     { loc: `${BASE_URL}/support/`,      priority: '0.4', changefreq: 'monthly', lastmod: today },
   ]
 
-  const restaurantUrls = sitemapRestaurants
-    .filter((r) => r.slug)
-    .map((r) => ({
-      loc: `${BASE_URL}/restaurants/${r.slug}/menu/`,
-      priority: '0.8',
-      changefreq: 'weekly',
-      lastmod: r.updatedAt?.split('T')[0] ?? today,
-    }))
-
   // # A chain's hub page (all its branches, one canonical URL) is a stronger
   // # SEO target than any single branch — give it a higher priority.
   const sitemapChains = groupChains(sitemapRestaurants)
@@ -1072,16 +1079,37 @@ async function main() {
       lastmod: today,
     }))
 
+  const skippedChainBranchCount = sitemapRestaurants.filter(
+    (restaurant) => restaurant.slug && hubCanonicalChainSlug(restaurant, resolvableChainSlugs),
+  ).length
+  const restaurantUrls = sitemapRestaurants
+    .filter((restaurant) => restaurant.slug && !hubCanonicalChainSlug(restaurant, resolvableChainSlugs))
+    .map((r) => ({
+      loc: `${BASE_URL}/restaurants/${r.slug}/menu/`,
+      priority: '0.8',
+      changefreq: 'weekly',
+      lastmod: r.updatedAt?.split('T')[0] ?? today,
+    }))
+  console.log(`ℹ️  Sitemap: skipped ${skippedChainBranchCount} chain branches canonicalized to their hub`)
+
   // # Priority scales with how much real content the page has — a 1-restaurant
   // # city is a legitimate page (real title/H1/listing, not a stub), just a
   // # weaker one than Moscow's 450+, and the sitemap's priority field exists
   // # precisely to say that.
-  const cityUrls = [...groupByCity(sitemapRestaurants).entries()].map(([cityName, cityRestaurants]) => ({
-    loc: `${BASE_URL}/catalog/${citySlug(cityName)}/`,
-    priority: cityRestaurants.length >= 50 ? '0.85' : cityRestaurants.length >= 10 ? '0.7' : '0.5',
-    changefreq: 'daily',
-    lastmod: today,
-  }))
+  const cityUrls = [...groupByCity(sitemapRestaurants).entries()].flatMap(([cityName, cityRestaurants]) => {
+    if (!isMappedCity(cityName)) {
+      console.warn(
+        `::warning title=Unmapped city::Город "${cityName}" не добавлен в CITY_SLUGS/CITY_GENITIVE (src/lib/cityCatalog.js) — страница /catalog/... не сгенерирована`,
+      )
+      return []
+    }
+    return [{
+      loc: `${BASE_URL}/catalog/${citySlug(cityName)}/`,
+      priority: cityRestaurants.length >= 50 ? '0.85' : cityRestaurants.length >= 10 ? '0.7' : '0.5',
+      changefreq: 'daily',
+      lastmod: today,
+    }]
+  })
 
   const allUrls = [...staticUrls, ...cityUrls, ...chainHubUrls, ...restaurantUrls]
 

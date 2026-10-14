@@ -253,6 +253,14 @@ html[data-rs-menu-guide-lock] body {
 
 /* ---------- Filter bar ---------- */
 
+.rsm2-seo-intro {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px 36px 4px;
+  color: var(--rsm2-text-3);
+  font: 400 15px/1.6 Inter, system-ui, sans-serif;
+}
+
 .rsm2-filters {
   border-bottom: 1px solid var(--rsm2-hairline);
   padding: 16px 36px;

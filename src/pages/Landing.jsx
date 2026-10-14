@@ -9,7 +9,7 @@ import PublicAccountLink from '@/components/PublicAccountLink'
 import TelegramFooterLink from '@/components/TelegramFooterLink'
 import { getLandingStats, getRestaurants, postSuggest } from '@/lib/api'
 import { toast } from '@/lib/toast'
-import { useAuth } from '@/store/auth'
+import { readIsReturningUser, useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal'
 import { useFavoritesStore } from '@/store/favorites'
@@ -131,6 +131,7 @@ export default function Landing() {
     showAccountAction: state.hasActiveSub || state.hasSubscriptionHistory,
     isSubscriptionStatusLoaded: state.isStatusLoaded,
   }))
+  const isReturningUser = !accessToken && readIsReturningUser()
   const showTrialAction = !accessToken || (isSubscriptionStatusLoaded && !showAccountAction)
   const subscriptionCheckoutLink = getSubscriptionCheckoutLink(accessToken, location.pathname + location.search)
   const accessTokenOrUndefined = accessToken || undefined
@@ -443,7 +444,7 @@ export default function Landing() {
               <PublicAccountLink className="landing-warm__nav-cta" />
             ) : (
               <>
-                {!accessToken && (
+                {!accessToken && !isReturningUser && (
                   <Link
                     to="/login"
                     state={{ from: location.pathname + location.search }}
@@ -454,12 +455,12 @@ export default function Landing() {
                 )}
                 {showTrialAction && (
                   <Link
-                    to={subscriptionCheckoutLink.to}
-                    state={subscriptionCheckoutLink.state}
+                    to={isReturningUser ? '/login' : subscriptionCheckoutLink.to}
+                    state={isReturningUser ? { from: location.pathname + location.search } : subscriptionCheckoutLink.state}
                     className="landing-warm__nav-cta"
-                    onClick={() => analytics.track('cta_clicked', { location: 'nav', text: 'Попробовать бесплатно' })}
+                    onClick={() => analytics.track('cta_clicked', { location: 'nav', text: isReturningUser ? 'Войти' : 'Попробовать бесплатно' })}
                   >
-                    Попробовать бесплатно
+                    {isReturningUser ? 'Войти' : 'Попробовать бесплатно'}
                   </Link>
                 )}
               </>
