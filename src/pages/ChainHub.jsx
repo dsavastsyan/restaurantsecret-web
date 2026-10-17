@@ -74,8 +74,8 @@ export default function ChainHub() {
   useMeta(
     hub?.isHub
       ? {
-          title: `Меню ${hub.name} с КБЖУ — сеть ресторанов, ${hub.totalCount} ${addressWord(hub.totalCount)}`,
-          description: `${hub.name}: меню с КБЖУ по каждому филиалу сети. ${hub.totalCount} ресторанов в ${cityGroups.length} городах — выберите свой и сравнивайте блюда по калорийности и БЖУ.`,
+          title: hub.seo?.title || `Меню ${hub.name} с КБЖУ — сеть ресторанов, ${hub.totalCount} ${addressWord(hub.totalCount)}`,
+          description: hub.seo?.description || `${hub.name}: меню с КБЖУ по каждому филиалу сети. ${hub.totalCount} ресторанов в ${cityGroups.length} городах — выберите свой и сравнивайте блюда по калорийности и БЖУ.`,
           canonical: `https://restaurantsecret.ru/restaurants/${slug}/`,
         }
       : {},
@@ -121,6 +121,8 @@ export default function ChainHub() {
           ) : null}
         </div>
       </header>
+
+      {hub.seo?.introText ? <p className="rsm2-seo-intro chain-hub__seo-intro">{hub.seo.introText}</p> : null}
 
       <div className="chain-hub__city-select">
         <label htmlFor="chain-hub-city" className="chain-hub__city-select-label">

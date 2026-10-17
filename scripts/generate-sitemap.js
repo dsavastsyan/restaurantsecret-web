@@ -4,6 +4,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
+import { pathToFileURL } from 'url'
 import { chainHubSeoDescription, pluralizeRu, restaurantSeoDescription } from '../src/lib/seoDescriptions.js'
 import { citySlug, cityGenitive, cityCatalogTitle, cityCatalogDescription, isMappedCity } from '../src/lib/cityCatalog.js'
 import { hubCanonicalChainSlug } from '../src/lib/sitemapCanonical.js'
@@ -446,8 +447,12 @@ function getResolvableChainSlugs(chains, restaurants) {
   )
 }
 
-function chainHubDescription(chainName, branches, dishCount = 0) {
-  return chainHubSeoDescription(chainName, branches.length, dishCount)
+function chainHubTitle(chainName, seo = null) {
+  return seo?.title || `${chainName} — адреса и меню сети с КБЖУ`
+}
+
+function chainHubDescription(chainName, branches, dishCount = 0, seo = null) {
+  return seo?.description || chainHubSeoDescription(chainName, branches.length, dishCount)
 }
 
 function chainHubSchema(chainSlug, chainName, branches) {
@@ -465,8 +470,9 @@ function chainHubSchema(chainSlug, chainName, branches) {
   }
 }
 
-function chainHubFallback(chainSlug, chainName, branches, dishCount = 0) {
-  const description = chainHubDescription(chainName, branches, dishCount)
+function chainHubFallback(chainSlug, chainName, branches, dishCount = 0, seo = null) {
+  const description = chainHubDescription(chainName, branches, dishCount, seo)
+  const intro = seo?.introText ? `<p>${escapeHtml(seo.introText)}</p>` : ''
   const links = branches
     .filter((b) => b.slug)
     .map((b) => ({
@@ -478,6 +484,7 @@ function chainHubFallback(chainSlug, chainName, branches, dishCount = 0) {
 
   return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">
   <h1>${escapeHtml(chainName)}</h1>
+  ${intro}
   <p>${escapeHtml(description)}</p>
   <nav><ul>${linkHtml}</ul></nav>
 </main>`
@@ -565,7 +572,7 @@ function websiteSchema() {
   }
 }
 
-function generateStaticRoutes(restaurants, menuBySlug) {
+function generateStaticRoutes(restaurants, menuBySlug, hubBySlug = new Map()) {
   const baseHtml = readFileSync('dist/index.html', 'utf-8')
 
   const staticRoutes = [
@@ -659,6 +666,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
   // # the hub when it's confirmed to resolve.
   const resolvableChainSlugs = getResolvableChainSlugs(chains, restaurants)
   for (const [chainSlug, { chainName, branches }] of chains) {
+    const hubSeo = hubBySlug.get(chainSlug)?.seo || null
     // Branches share near-duplicate menus (see chain-duplicate-content.md),
     // so the hub's dish count is "the biggest branch menu we have", not a sum.
     const dishCount = Math.max(
@@ -668,11 +676,11 @@ function generateStaticRoutes(restaurants, menuBySlug) {
     writeRouteHtml(
       `/restaurants/${chainSlug}`,
       applySeoTags(baseHtml, {
-        title: `${chainName} — адреса и меню сети с КБЖУ`,
-        description: chainHubDescription(chainName, branches, dishCount),
+        title: chainHubTitle(chainName, hubSeo),
+        description: chainHubDescription(chainName, branches, dishCount, hubSeo),
         canonical: `${BASE_URL}/restaurants/${chainSlug}/`,
         schema: chainHubSchema(chainSlug, chainName, branches),
-        fallbackHtml: chainHubFallback(chainSlug, chainName, branches, dishCount),
+        fallbackHtml: chainHubFallback(chainSlug, chainName, branches, dishCount, hubSeo),
       }),
     )
     generatedCount += 1
@@ -692,7 +700,7 @@ function generateStaticRoutes(restaurants, menuBySlug) {
         createRedirectHtml({
           from: `/restaurants/${chainSlug}/menu`,
           to: `/restaurants/${chainSlug}/`,
-          title: `${chainName} — адреса и меню сети с КБЖУ`,
+          title: chainHubTitle(chainName, hubSeo),
         }),
       )
       generatedCount += 1
@@ -908,6 +916,38 @@ async function fetchRestaurantMenu(slug) {
   throw new Error(errors.join('; '))
 }
 
+async function fetchChainHub(slug) {
+  const errors = []
+  for (const apiUrl of API_URLS) {
+    const url = `${apiUrl}/restaurants/${encodeURIComponent(slug)}`
+    try {
+      return await fetchJson(url)
+    } catch (error) {
+      errors.push(`${url}: ${error?.message ?? String(error)}`)
+    }
+  }
+  throw new Error(errors.join('; '))
+}
+
+async function fetchChainHubs(chainSlugs) {
+  const result = new Map()
+  let nextIndex = 0
+  async function worker() {
+    while (nextIndex < chainSlugs.length) {
+      const slug = chainSlugs[nextIndex]
+      nextIndex += 1
+      try {
+        result.set(slug, await fetchChainHub(slug))
+      } catch (error) {
+        console.warn(`⚠️  Failed to fetch hub for ${slug}: ${error?.message ?? String(error)}`)
+      }
+    }
+  }
+  const workerCount = Math.min(MENU_FETCH_CONCURRENCY, chainSlugs.length)
+  await Promise.all(Array.from({ length: workerCount }, worker))
+  return result
+}
+
 async function fetchMenuWithRetry(slug) {
   for (let attempt = 0; ; attempt += 1) {
     try {
@@ -1070,6 +1110,8 @@ async function main() {
   // # SEO target than any single branch — give it a higher priority.
   const sitemapChains = groupChains(sitemapRestaurants)
   const resolvableChainSlugs = getResolvableChainSlugs(sitemapChains, sitemapRestaurants)
+  console.log('🔍 Fetching chain hub SEO for prerender...')
+  const hubBySlug = await fetchChainHubs([...resolvableChainSlugs])
   const chainHubUrls = [...sitemapChains.keys()]
     .filter((chainSlug) => resolvableChainSlugs.has(chainSlug))
     .map((chainSlug) => ({
@@ -1135,10 +1177,14 @@ ${allUrls
 
   await pingIndexNow(allUrls.map((u) => u.loc))
 
-  generateStaticRoutes(sitemapRestaurants, menuBySlug)
+  generateStaticRoutes(sitemapRestaurants, menuBySlug, hubBySlug)
 }
 
-main().catch((error) => {
-  console.error('❌ Failed to generate sitemap:', error)
-  process.exit(1)
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error('❌ Failed to generate sitemap:', error)
+    process.exit(1)
+  })
+}
+
+export { chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }
