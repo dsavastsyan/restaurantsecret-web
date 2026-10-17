@@ -3,6 +3,10 @@ name: e2e-smoke
 on:
   pull_request: {}
 
+concurrency:
+  group: e2e-smoke-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend-release-gate:
     name: backend-release-gate
@@ -29,6 +33,7 @@ jobs:
   smoke:
     needs: backend-release-gate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
