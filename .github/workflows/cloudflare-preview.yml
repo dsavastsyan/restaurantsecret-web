@@ -12,7 +12,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: cloudflare-preview-${{ github.event.pull_request.number || github.ref_name }}
+  group: cloudflare-preview-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -25,6 +25,7 @@ jobs:
   preview:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
