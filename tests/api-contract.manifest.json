@@ -97,6 +97,8 @@
   { "backend": "restaurantPortal", "method": "PATCH", "path": "/api/admin/kbju-leads/{param}", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/parser-runs", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/manual-menu-freshness", "live": false },
+  { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/menu-health", "live": false },
+  { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/menu-health/{param}", "live": false },
   { "backend": "restaurantPortal", "method": "PATCH", "path": "/api/admin/manual-menu-freshness/{param}/source", "live": false },
   { "backend": "restaurantPortal", "method": "POST", "path": "/api/admin/manual-menu-freshness/{param}/confirm", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/restaurant/session", "live": false },
