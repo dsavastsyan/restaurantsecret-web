@@ -17,6 +17,15 @@ import {
   X,
 } from 'lucide-react'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
+import { adminMenuHealthApi } from '@/api/adminMenuHealth'
+import {
+  HEALTH_STATUS,
+  buildHealthIndex,
+  findHealthRecord,
+  formatHealthDate,
+  healthStatusInfo,
+  truncateHealthSummary,
+} from './adminMenuHealth'
 import { PARTNER_ADMIN_ENABLED } from './adminFeatures'
 
 function formatDate(value) {
@@ -37,6 +46,99 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat('ru-RU', {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
   }).format(date)
+}
+
+function HealthCell({ restaurant, healthIndex, loading, error }) {
+  const health = findHealthRecord(restaurant, healthIndex)
+  if (!health && loading) {
+    return <td className="admin-health-cell" data-label="Хелс-чек"><span className="admin-crm__muted">Загружаем…</span></td>
+  }
+  if (!health && error) {
+    return <td className="admin-health-cell" data-label="Хелс-чек"><span className="admin-crm__muted">Не удалось загрузить</span></td>
+  }
+  if (!health) {
+    return <td className="admin-health-cell" data-label="Хелс-чек"><span className="admin-crm__muted">Не проверялось</span></td>
+  }
+  const status = healthStatusInfo(health.status)
+  return (
+    <td className="admin-health-cell" data-label="Хелс-чек">
+      <span className={`admin-health__status admin-health__status--${status.className}`} aria-label={`Статус хелс-чека: ${status.label}`}>{status.label}</span>
+      <span className="admin-health__summary" title={health.summary || undefined}>{truncateHealthSummary(health.summary) || 'Без комментария'}</span>
+      <small>{formatHealthDate(health.checked_at)}</small>
+      <Link to={`/admin/restaurants/health/${encodeURIComponent(health.publicId)}`} aria-label={`Подробнее о хелс-чеке ${health.restaurant_name || restaurant.name}`}>Подробнее</Link>
+      {error && <span className="admin-health__inline-error">Обновление недоступно</span>}
+    </td>
+  )
+}
+
+function useHealthRecords(tab) {
+  const [state, setState] = useState({ records: [], loading: true, error: '' })
+
+  useEffect(() => {
+    let active = true
+    setState({ records: [], loading: true, error: '' })
+    adminMenuHealthApi.list({ tab, limit: 200 })
+      .then((data) => active && setState({ records: data.items || [], loading: false, error: '' }))
+      .catch((requestError) => active && setState({ records: [], loading: false, error: requestError.message || 'Не удалось загрузить результаты хелс-чека.' }))
+    return () => { active = false }
+  }, [tab])
+
+  return state
+}
+
+function PendingMenuHealthDashboard({ records, loading, error }) {
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 25
+
+  const visible = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase('ru-RU')
+    return records.filter((record) => {
+      if (status && record.status !== status) return false
+      if (!normalizedQuery) return true
+      return `${record.restaurant_name || ''} ${record.city || ''}`.toLocaleLowerCase('ru-RU').includes(normalizedQuery)
+    })
+  }, [records, query, status])
+
+  useEffect(() => setPage(1), [query, status])
+
+  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize))
+  const pageItems = visible.slice((page - 1) * pageSize, page * pageSize)
+  const currentPage = Math.min(page, pageCount)
+  const healthIndex = useMemo(() => buildHealthIndex(records), [records])
+
+  if (loading) return <p className="admin-crm__loading">Загружаем рестораны, которые ждут промоушена…</p>
+  if (error) return <p className="admin-menu__error" role="alert">{error}</p>
+  return (
+    <>
+      <div className="admin-crm__filters">
+        <label className="admin-crm__search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ресторан или город" /></label>
+        <select aria-label="Статус хелс-чека" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="">Все статусы</option>
+          {Object.entries(HEALTH_STATUS).map(([value, info]) => <option value={value} key={value}>{info.label}</option>)}
+        </select>
+      </div>
+      <div className="admin-crm__table-wrap admin-health__table-wrap">
+        <table className="admin-crm__table admin-health__table">
+          <thead><tr><th>Ресторан</th><th>Город</th><th>Хелс-чек</th></tr></thead>
+          <tbody>{pageItems.map((record) => (
+            <tr key={record.publicId}>
+              <td><strong>{record.restaurant_name || 'Без названия'}</strong></td>
+              <td>{record.city || <span className="admin-crm__muted">Город не указан</span>}</td>
+              <HealthCell restaurant={record} healthIndex={healthIndex} loading={false} error={false} />
+            </tr>
+          ))}</tbody>
+        </table>
+        {!pageItems.length && <div className="admin-menu__empty">Ресторанов по выбранным условиям нет.</div>}
+      </div>
+      {visible.length > 0 && <div className="admin-health__pagination" aria-label="Пагинация ресторанов, ожидающих промоушен">
+        <button type="button" disabled={currentPage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Назад</button>
+        <span>Страница {currentPage} из {pageCount}</span>
+        <button type="button" disabled={currentPage >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>Вперёд</button>
+      </div>}
+    </>
+  )
 }
 
 const PARSER_STATUS = {
@@ -65,7 +167,7 @@ function statusWithSource(lastCheckedAt, staleAfterDays) {
   return Date.now() - checkedAt >= staleAfterDays * 86400000 ? 'needs_check' : 'current'
 }
 
-function ManualMenuRow({ restaurant, staleAfterDays, onChanged }) {
+function ManualMenuRow({ restaurant, staleAfterDays, onChanged, healthIndex, healthLoading, healthError }) {
   const [sourceType, setSourceType] = useState(restaurant.source_type || '')
   const [sourceUrl, setSourceUrl] = useState(restaurant.source_url || '')
   const [busy, setBusy] = useState('')
@@ -122,6 +224,7 @@ function ManualMenuRow({ restaurant, staleAfterDays, onChanged }) {
           {message && <small role="status">{message}</small>}
         </div>
       </td>
+      <HealthCell restaurant={restaurant} healthIndex={healthIndex} loading={healthLoading} error={healthError} />
       <td>{formatDate(restaurant.last_checked_at)}</td>
       <td><span className={`admin-manual-menu__status admin-manual-menu__status--${restaurant.status}`}>{MANUAL_MENU_STATUS[restaurant.status]}</span></td>
       <td><button className="admin-crm__primary" type="button" disabled={busy !== ''} onClick={confirm}>{busy === 'confirm' ? 'Подтверждаем…' : 'Подтвердить актуальность'}</button></td>
@@ -129,7 +232,7 @@ function ManualMenuRow({ restaurant, staleAfterDays, onChanged }) {
   )
 }
 
-function ManualMenuDashboard() {
+function ManualMenuDashboard({ healthIndex, healthLoading, healthError }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -187,8 +290,8 @@ function ManualMenuDashboard() {
       </div>
       <div className="admin-crm__table-wrap admin-manual-menu__table-wrap">
         <table className="admin-crm__table admin-manual-menu__table">
-          <thead><tr><th>Ресторан</th><th>Источник меню</th><th aria-sort={checkedAtOrder === 'desc' ? 'descending' : checkedAtOrder === 'asc' ? 'ascending' : 'none'}><button className="admin-crm__sort" type="button" onClick={() => setCheckedAtOrder((current) => current === 'desc' ? 'asc' : 'desc')}>Последняя проверка <span aria-hidden="true">{checkedAtOrder === 'asc' ? '↑' : '↓'}</span></button></th><th>Статус</th><th /></tr></thead>
-          <tbody>{visible.map((restaurant) => <ManualMenuRow restaurant={restaurant} staleAfterDays={staleAfterDays} onChanged={(patch) => updateItem(restaurant.slug, patch)} key={restaurant.slug} />)}</tbody>
+          <thead><tr><th>Ресторан</th><th>Источник меню</th><th>Хелс-чек</th><th aria-sort={checkedAtOrder === 'desc' ? 'descending' : checkedAtOrder === 'asc' ? 'ascending' : 'none'}><button className="admin-crm__sort" type="button" onClick={() => setCheckedAtOrder((current) => current === 'desc' ? 'asc' : 'desc')}>Последняя проверка <span aria-hidden="true">{checkedAtOrder === 'asc' ? '↑' : '↓'}</span></button></th><th>Статус</th><th /></tr></thead>
+          <tbody>{visible.map((restaurant) => <ManualMenuRow restaurant={restaurant} staleAfterDays={staleAfterDays} onChanged={(patch) => updateItem(restaurant.slug, patch)} healthIndex={healthIndex} healthLoading={healthLoading} healthError={healthError} key={restaurant.slug} />)}</tbody>
         </table>
         {!visible.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет.</div>}
       </div>
@@ -198,6 +301,9 @@ function ManualMenuDashboard() {
 
 function MenuMaintenanceDashboard() {
   const [section, setSection] = useState('manual')
+  const productionHealth = useHealthRecords('production')
+  const pendingHealth = useHealthRecords('pending')
+  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
   return (
     <section className="admin-crm">
       <div className="admin-menu__title admin-crm__title">
@@ -206,13 +312,19 @@ function MenuMaintenanceDashboard() {
       <div className="admin-crm__section-tabs" role="tablist" aria-label="Способ обновления меню">
         <button type="button" role="tab" aria-selected={section === 'manual'} className={section === 'manual' ? 'active' : ''} onClick={() => setSection('manual')}>Ручные меню</button>
         <button type="button" role="tab" aria-selected={section === 'parsers'} className={section === 'parsers' ? 'active' : ''} onClick={() => setSection('parsers')}>Автоматическое обновление</button>
+        <button type="button" role="tab" aria-selected={section === 'pending'} className={section === 'pending' ? 'active' : ''} onClick={() => setSection('pending')}>Ждут промоушена ({pendingHealth.loading ? '…' : pendingHealth.records.length})</button>
       </div>
-      {section === 'manual' ? <ManualMenuDashboard /> : <ParserDashboard />}
+      {productionHealth.error && section !== 'pending' && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
+      {section === 'manual'
+        ? <ManualMenuDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
+        : section === 'parsers'
+          ? <ParserDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
+          : <PendingMenuHealthDashboard records={pendingHealth.records} loading={pendingHealth.loading} error={pendingHealth.error} />}
     </section>
   )
 }
 
-function ParserDashboard() {
+function ParserDashboard({ healthIndex, healthLoading, healthError }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -247,12 +359,13 @@ function ParserDashboard() {
       </div>
       <div className="admin-crm__table-wrap admin-parser__table-wrap">
         <table className="admin-crm__table admin-parser__table">
-          <thead><tr><th>Ресторан</th><th>Статус</th><th>Последняя проверка</th><th>Последний успех</th><th>Меню опубликовано</th><th>Позиций</th><th>Источник</th></tr></thead>
+          <thead><tr><th>Ресторан</th><th>Хелс-чек</th><th>Статус</th><th>Последняя проверка</th><th>Последний успех</th><th>Меню опубликовано</th><th>Позиций</th><th>Источник</th></tr></thead>
           <tbody>{visible.map((parser) => {
             const parserStatus = parser.enabled ? (parser.run?.status || 'never') : 'disabled'
             return (
               <tr key={parser.parser_id}>
                 <td><strong>{parser.restaurant_name}</strong>{parser.cities.length > 0 && <small>{parser.cities.join(', ')}</small>}</td>
+                <HealthCell restaurant={{ ...parser, name: parser.restaurant_name }} healthIndex={healthIndex} loading={healthLoading} error={healthError} />
                 <td>
                   <span className={`admin-parser__status admin-parser__status--${parserStatus}`}>{PARSER_STATUS[parserStatus]}</span>
                   {parserStatus === 'error' && (

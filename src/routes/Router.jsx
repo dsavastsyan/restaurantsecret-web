@@ -37,6 +37,7 @@ const PartnersSeasonalMenu = lazy(() => import('../pages/partners/SeasonalMenuFl
 const AdminShell = lazy(() => import('../pages/admin/AdminShell.jsx'))
 const AdminLogin = lazy(() => import('../pages/admin/AdminLogin.jsx'))
 const AdminRestaurants = lazy(() => import('../pages/admin/AdminRestaurantList.jsx'))
+const AdminMenuHealthReport = lazy(() => import('../pages/admin/AdminMenuHealthReport.jsx'))
 const AdminKbjuLeads = lazy(() => import('../pages/admin/AdminKbjuLeads.jsx'))
 const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.jsx'))
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
@@ -149,6 +150,7 @@ function AppRoutes({ onReady }) {
           <Route index element={<Navigate to="/admin/restaurants" replace />} />
           <Route path="login" element={<AdminLogin />} />
           <Route path="restaurants" element={<AdminRestaurants />} />
+          <Route path="restaurants/health/:publicId" element={<AdminMenuHealthReport />} />
           <Route path="outreach" element={<Navigate to="/admin/kbju-leads" replace />} />
           <Route path="kbju-leads" element={<AdminKbjuLeads />} />
           {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions" element={<AdminMenuRevisions />} />}
