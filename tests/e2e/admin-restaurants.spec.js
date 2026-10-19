@@ -281,6 +281,77 @@ test('administrator sees parser status, source and error without leaving the res
   await expect(page).toHaveURL(/\/admin\/restaurants$/)
 })
 
+test('administrator reviews menu health in production and pending promotion tabs', async ({ page }) => {
+  const requests = []
+  const productionHealth = [
+    { publicId: 'rest-loulou', restaurant_name: 'Loulou', city: 'Москва', in_production: true, status: 'warning', summary: 'Пять названий отличаются от продакшена', checked_at: '2026-10-18T10:00:00.000Z' },
+    { publicId: 'rest-sage', restaurant_name: 'Sage', city: 'Казань', in_production: true, status: 'needs_decision', summary: 'Нужно проверить КБЖУ блюд', checked_at: '2026-10-17T10:00:00.000Z' },
+  ]
+  const pendingHealth = [
+    { publicId: 'rest-ok', restaurant_name: 'Ок ресторан', city: 'Москва', in_production: false, status: 'ok', summary: 'Проверка пройдена', checked_at: '2026-10-18T10:00:00.000Z' },
+    { publicId: 'rest-warning', restaurant_name: 'Предупреждение', city: 'Самара', in_production: false, status: 'warning', summary: 'Есть предупреждения', checked_at: '2026-10-18T09:00:00.000Z' },
+    { publicId: 'rest-decision', restaurant_name: 'Нужно решение', city: 'Тула', in_production: false, status: 'needs_decision', summary: 'Нужна ручная проверка', checked_at: '2026-10-18T08:00:00.000Z' },
+    { publicId: 'rest-pending', restaurant_name: 'Ждёт проверки', city: 'Пермь', in_production: false, status: 'pending', summary: 'Проверка ещё не завершена', checked_at: '2026-10-18T07:00:00.000Z' },
+  ]
+
+  await page.route('**/api/admin/**', async (route) => {
+    const request = route.request()
+    const url = new URL(request.url())
+    const path = url.pathname
+    requests.push(path)
+    if (path === '/api/admin/auth/me') return route.fulfill({ json: { ok: true, role: 'admin', csrf_token: 'csrf' } })
+    if (path === '/api/admin/manual-menu-freshness') return route.fulfill({ json: { ok: true, stale_after_days: 90, restaurants: [
+      { slug: 'loulou', name: 'Loulou', cities: ['Москва'], source_type: 'website', source_url: 'https://loulou.test/menu', last_checked_at: '2026-10-18T10:00:00.000Z', status: 'current' },
+      { slug: 'sage', name: 'Sage', cities: ['Казань'], source_type: 'website', source_url: 'https://sage.test/menu', last_checked_at: '2026-10-18T10:00:00.000Z', status: 'current' },
+    ] } })
+    if (path === '/api/admin/parser-runs') return route.fulfill({ json: { ok: true, parsers: [] } })
+    if (path === '/api/admin/menu-health' && url.searchParams.get('tab') === 'production') return route.fulfill({ json: { ok: true, items: productionHealth } })
+    if (path === '/api/admin/menu-health' && url.searchParams.get('tab') === 'pending') return route.fulfill({ json: { ok: true, items: pendingHealth } })
+    if (path === '/api/admin/menu-health/rest-loulou') return route.fulfill({ json: { ok: true, record: {
+      publicId: 'rest-loulou', restaurant_name: 'Loulou', city: 'Москва', status: 'warning', summary: 'Пять названий отличаются от продакшена', reasons: ['dish_name_loss'], warnings: ['no_cuisine'], staging_dish_count: 24, production_dish_count: 30, details: { name_loss: { lost: 5, total_prod: 30, examples: ['борщ', 'сырники'] } }, actions: [{ at: '2026-10-18T09:30:00.000Z', text: 'Повторно очищены составы', result: 'ok' }] }, history: [{ id: 1, status: 'warning', checked_at: '2026-10-18T10:00:00.000Z', summary: 'Пять названий отличаются от продакшена' }] } })
+    return route.fulfill({ json: { ok: true } })
+  })
+
+  await page.goto('/admin/restaurants')
+  await expect(page.getByRole('tab', { name: 'Ручные меню' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByText('Предупреждения', { exact: true })).toBeVisible()
+  await expect(page.getByText('Нужно ваше решение', { exact: true })).toBeVisible()
+  const loulouHealthLink = page.getByRole('link', { name: 'Подробнее о хелс-чеке Loulou' })
+  await expect(loulouHealthLink).toHaveAttribute('href', '/admin/restaurants/health/rest-loulou')
+  expect(requests.filter((path) => path === '/api/admin/menu-health').length).toBe(2)
+
+  await loulouHealthLink.click()
+  await expect(page.getByRole('heading', { name: 'Причины и предупреждения' })).toBeVisible()
+  await expect(page.getByText('Потеря названий блюд')).toBeVisible()
+
+  await page.goto('/admin/restaurants')
+  await page.getByRole('tab', { name: /Ждут промоушена/ }).click()
+  await expect(page.getByRole('tab', { name: 'Ждут промоушена (4)' })).toBeVisible()
+  await expect(page.getByLabel('Статус хелс-чека: Всё ок')).toBeVisible()
+  await expect(page.getByLabel('Статус хелс-чека: Ждёт')).toBeVisible()
+  await page.getByRole('link', { name: 'Подробнее о хелс-чеке Ок ресторан' }).click()
+  await expect(page).toHaveURL(/\/admin\/restaurants\/health\/rest-ok$/)
+})
+
+test('administrator sees empty and error states for menu health', async ({ page }) => {
+  await page.route('**/api/admin/**', async (route) => {
+    const request = route.request()
+    const url = new URL(request.url())
+    const path = url.pathname
+    if (path === '/api/admin/auth/me') return route.fulfill({ json: { ok: true, role: 'admin', csrf_token: 'csrf' } })
+    if (path === '/api/admin/manual-menu-freshness') return route.fulfill({ json: { ok: true, restaurants: [] } })
+    if (path === '/api/admin/parser-runs') return route.fulfill({ json: { ok: true, parsers: [] } })
+    if (path === '/api/admin/menu-health' && url.searchParams.get('tab') === 'production') return route.fulfill({ status: 503, json: { error: { message: 'Сервис хелс-чека временно недоступен' } } })
+    if (path === '/api/admin/menu-health' && url.searchParams.get('tab') === 'pending') return route.fulfill({ json: { ok: true, items: [] } })
+    return route.fulfill({ json: { ok: true } })
+  })
+
+  await page.goto('/admin/restaurants')
+  await expect(page.getByRole('alert')).toContainText('Сервис хелс-чека временно недоступен')
+  await page.getByRole('tab', { name: /Ждут промоушена/ }).click()
+  await expect(page.getByText('Ресторанов по выбранным условиям нет.')).toBeVisible()
+})
+
 test('administrator reviews an enrichment suggestion', async ({ page }) => {
   const decisions = []
   await page.route('**/api/admin/**', async (route) => {
