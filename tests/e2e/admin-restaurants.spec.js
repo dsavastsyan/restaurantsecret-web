@@ -185,17 +185,17 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
         stale_after_days: 90,
         restaurants: [{
           slug: 'loulou', name: 'Loulou', cities: ['Москва'],
-          source_type: configured ? 'instagram_highlight' : null,
+          source_type: configured ? 'instagram_highlights' : null,
           source_url: configured ? 'https://instagram.com/loulou/' : null,
           last_checked_at: confirmed ? '2026-09-11T12:00:00Z' : '2026-09-01T12:00:00Z',
           status: configured ? 'current' : 'source_missing',
         }, {
           slug: 'sage', name: 'Sage', cities: ['Москва'],
-          source_type: 'website', source_url: 'https://sage.example/menu',
+          source_type: 'website_cards', source_url: 'https://sage.example/menu',
           last_checked_at: '2026-09-10T12:00:00Z', status: 'current',
         }, {
           slug: 'without-date', name: 'Без даты', cities: ['Москва'],
-          source_type: 'website', source_url: 'https://without-date.example/menu',
+          source_type: 'website_cards', source_url: 'https://without-date.example/menu',
           last_checked_at: null, status: 'needs_check',
         }],
       } })
@@ -223,7 +223,7 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
   await expect(table.locator('th').filter({ hasText: 'Последняя проверка' })).toHaveAttribute('aria-sort', 'ascending')
   const row = page.getByRole('row').filter({ hasText: 'Loulou' })
   await expect(row.getByText('Источник не указан')).toBeVisible()
-  await row.getByLabel('Источник меню Loulou').selectOption('instagram_highlight')
+  await row.getByLabel('Источник меню Loulou').selectOption('instagram_highlights')
   await row.getByLabel('Ссылка на меню Loulou').fill('https://instagram.com/loulou/')
   await row.getByRole('button', { name: 'Сохранить' }).click()
   await expect(row.getByText('Актуально', { exact: true })).toBeVisible()
@@ -235,7 +235,7 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
   await expect.poll(() => requests.some(({ path, method }) => path.endsWith('/loulou/confirm') && method === 'POST')).toBeTruthy()
   expect(requests.some(({ path, method, body }) => (
     path.endsWith('/loulou/source') && method === 'PATCH'
-      && body?.source_type === 'instagram_highlight'
+      && body?.source_type === 'instagram_highlights'
       && body?.source_url === 'https://instagram.com/loulou/'
   ))).toBeTruthy()
 
@@ -339,8 +339,8 @@ test('administrator reviews menu health in production and pending promotion tabs
     requests.push(path)
     if (path === '/api/admin/auth/me') return route.fulfill({ json: { ok: true, role: 'admin', csrf_token: 'csrf' } })
     if (path === '/api/admin/manual-menu-freshness') return route.fulfill({ json: { ok: true, stale_after_days: 90, restaurants: [
-      { slug: 'loulou', name: 'Loulou', cities: ['Москва'], source_type: 'website', source_url: 'https://loulou.test/menu', last_checked_at: '2026-10-18T10:00:00.000Z', status: 'current' },
-      { slug: 'sage', name: 'Sage', cities: ['Казань'], source_type: 'website', source_url: 'https://sage.test/menu', last_checked_at: '2026-10-18T10:00:00.000Z', status: 'current' },
+      { slug: 'loulou', name: 'Loulou', cities: ['Москва'], source_type: 'website_cards', source_url: 'https://loulou.test/menu', last_checked_at: '2026-10-18T10:00:00.000Z', status: 'current' },
+      { slug: 'sage', name: 'Sage', cities: ['Казань'], source_type: 'website_cards', source_url: 'https://sage.test/menu', last_checked_at: '2026-10-18T10:00:00.000Z', status: 'current' },
     ] } })
     if (path === '/api/admin/parser-runs') return route.fulfill({ json: { ok: true, parsers: [] } })
     if (path === '/api/admin/menu-health' && url.searchParams.get('tab') === 'production') return route.fulfill({ json: { ok: true, items: productionHealth } })

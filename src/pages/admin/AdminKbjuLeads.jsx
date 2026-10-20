@@ -15,7 +15,7 @@ const STEP_LABELS = {
 }
 
 const SOURCE_LABELS = {
-  instagram_highlights: 'Instagram', website_cards: 'Сайт', delivery_cards: 'Доставка',
+  instagram_highlights: 'Instagram', website_cards: 'Сайт / доставка',
   document: 'Документ', direct_reply: 'Ответ в директ',
 }
 

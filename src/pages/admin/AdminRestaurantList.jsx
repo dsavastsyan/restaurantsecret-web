@@ -172,9 +172,10 @@ const MANUAL_MENU_STATUS = {
 }
 
 const MANUAL_MENU_SOURCE = {
-  instagram_dm: 'Instagram Direct',
-  instagram_highlight: 'Instagram Highlights',
-  website: 'Сайт',
+  instagram_highlights: 'Instagram Highlights',
+  website_cards: 'Сайт',
+  document: 'Документ',
+  direct_reply: 'Ответ в директ',
 }
 
 function statusWithSource(lastCheckedAt, staleAfterDays) {
