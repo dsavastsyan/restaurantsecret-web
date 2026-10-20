@@ -179,6 +179,8 @@
 .admin-menu__nav { display: flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 20px; }
 .admin-menu__nav a { padding: 9px 12px; border-radius: 9px; color: #686960; text-decoration: none; font-weight: 700; }
 .admin-menu__nav a.active { color: #4e5a37; background: #edf0e5; }
+.admin-menu__section-nav { justify-content: flex-start; width: fit-content; margin: 0 0 18px; padding: 4px; border-radius: 11px; background: #e8e5dc; }
+.admin-menu__section-nav a.active { color: #354022; background: #fff; box-shadow: 0 1px 4px rgba(40, 39, 34, .1); }
 .admin-menu__main { width: min(1500px, 92vw); margin: 0 auto; padding: 42px 0 70px; }
 
 .admin-menu__login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
@@ -252,8 +254,11 @@
 .admin-crm__title > div:last-child { display: flex; align-items: center; gap: 18px; }
 .admin-crm__title > div:last-child strong { color: #9aa387; font-size: 42px; }
 .admin-crm__section-tabs { display: flex; gap: 6px; margin-top: 24px; padding: 4px; width: fit-content; border-radius: 11px; background: #e8e5dc; }
-.admin-crm__section-tabs button { padding: 9px 13px; color: #66675f; border: 0; border-radius: 8px; background: transparent; font-weight: 800; }
-.admin-crm__section-tabs button.active { color: #354022; background: #fff; box-shadow: 0 1px 4px rgba(40, 39, 34, .1); }
+.admin-crm__section-tabs button,
+.admin-crm__section-tabs a { padding: 9px 13px; color: #66675f; border: 0; border-radius: 8px; background: transparent; font-weight: 800; }
+.admin-crm__section-tabs a { text-decoration: none; }
+.admin-crm__section-tabs button.active,
+.admin-crm__section-tabs a.active { color: #354022; background: #fff; box-shadow: 0 1px 4px rgba(40, 39, 34, .1); }
 .admin-crm__primary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 15px; color: #fff; border: 0; border-radius: 11px; background: #65734d; font-weight: 800; }
 .admin-crm__filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 20px; }
 .admin-crm__filters select, .admin-crm__filters > button { min-height: 44px; padding: 0 11px; border: 1px solid #d8d4ca; border-radius: 11px; background: #fff; }
@@ -337,10 +342,9 @@
 .admin-parser__table td:first-child strong, .admin-parser__table td:first-child small { display: block; }
 .admin-parser__table td a { display: inline-flex; align-items: center; gap: 4px; color: #59653f; font-weight: 800; text-decoration: none; }
 .admin-parser__status { display: inline-flex; padding: 6px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
-.admin-parser__status--success { color: #28603b; background: #daf0df; }
-.admin-parser__status--no_change { color: #315f78; background: #e0eff6; }
+.admin-parser__status--current { color: #28603b; background: #daf0df; }
 .admin-parser__status--error { color: #8d312b; background: #fce5e1; }
-.admin-parser__status--never { color: #76571c; background: #fff0c9; }
+.admin-parser__status--waiting { color: #76571c; background: #fff0c9; }
 .admin-parser__status--disabled { color: #62635e; background: #ecece8; }
 .admin-parser__error { width: min(440px, 42vw); margin-top: 8px; }
 .admin-parser__error summary { color: #8d312b; cursor: pointer; font-size: 12px; font-weight: 800; }

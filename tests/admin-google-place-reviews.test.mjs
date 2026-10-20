@@ -16,8 +16,9 @@ const spaEntrypoints = await readFile(
 
 test('admin exposes a dedicated Google Places review route', () => {
   assert.match(router, /path="google-place-reviews"/)
-  assert.match(shell, /to="\/admin\/google-place-reviews"/)
-  assert.match(spaEntrypoints, /'admin\/google-place-reviews'/)
+  assert.match(router, /path="google-places" element={<AdminGooglePlaceReviews \/>}/)
+  assert.match(shell, /to="\/admin\/restaurants"/)
+  assert.match(spaEntrypoints, /'admin\/restaurants\/quality\/accuracy\/google-places'/)
 })
 
 test('review UI keeps network confirmation and branch attachment separate', () => {

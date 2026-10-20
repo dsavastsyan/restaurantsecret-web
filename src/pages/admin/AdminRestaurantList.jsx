@@ -65,7 +65,7 @@ function HealthCell({ restaurant, healthIndex, loading, error }) {
       <span className={`admin-health__status admin-health__status--${status.className}`} aria-label={`Статус хелс-чека: ${status.label}`}>{status.label}</span>
       <span className="admin-health__summary" title={health.summary || undefined}>{truncateHealthSummary(health.summary) || 'Без комментария'}</span>
       <small>{formatHealthDate(health.checked_at)}</small>
-      <Link to={`/admin/restaurants/health/${encodeURIComponent(health.publicId)}`} aria-label={`Подробнее о хелс-чеке ${health.restaurant_name || restaurant.name}`}>Подробнее</Link>
+      <Link to={`/admin/restaurants/publication/health/${encodeURIComponent(health.publicId)}`} aria-label={`Подробнее о хелс-чеке ${health.restaurant_name || restaurant.name}`}>Подробнее</Link>
       {error && <span className="admin-health__inline-error">Обновление недоступно</span>}
     </td>
   )
@@ -142,11 +142,27 @@ function PendingMenuHealthDashboard({ records, loading, error }) {
 }
 
 const PARSER_STATUS = {
-  success: 'Успешно',
-  no_change: 'Без изменений',
   error: 'Ошибка',
-  never: 'Не запускался',
+  waiting: 'Ждёт прогона',
+  current: 'Актуально',
   disabled: 'Отключён',
+}
+
+const PARSER_STATUS_PRIORITY = { error: 0, waiting: 1, current: 2, disabled: 3 }
+
+// The API computes freshness; the fallback keeps the page usable against an older backend
+function parserFreshnessStatus(parser) {
+  if (parser.freshness?.status) return parser.freshness.status
+  if (!parser.enabled) return 'disabled'
+  if (!parser.run) return 'waiting'
+  return parser.run.status === 'error' ? 'error' : 'current'
+}
+
+function formatDaysWithoutUpdate(parser) {
+  const days = parser.freshness?.days_since_success
+  if (days === null || days === undefined) return parser.freshness ? 'Ни разу' : '—'
+  if (days === 0) return 'Сегодня'
+  return `${days} дн.`
 }
 
 const MANUAL_MENU_STATUS = {
@@ -299,29 +315,50 @@ function ManualMenuDashboard({ healthIndex, healthLoading, healthError }) {
   )
 }
 
-function MenuMaintenanceDashboard() {
-  const [section, setSection] = useState('manual')
-  const productionHealth = useHealthRecords('production')
-  const pendingHealth = useHealthRecords('pending')
-  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+function MenuMaintenanceSection({ eyebrow, title, description, children }) {
   return (
     <section className="admin-crm">
       <div className="admin-menu__title admin-crm__title">
-        <div><span>Обновление меню</span><h1>Рестораны</h1><p>Контроль актуальности ручных меню и статусы парсеров.</p></div>
+        <div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>
       </div>
-      <div className="admin-crm__section-tabs" role="tablist" aria-label="Способ обновления меню">
-        <button type="button" role="tab" aria-selected={section === 'manual'} className={section === 'manual' ? 'active' : ''} onClick={() => setSection('manual')}>Ручные меню</button>
-        <button type="button" role="tab" aria-selected={section === 'parsers'} className={section === 'parsers' ? 'active' : ''} onClick={() => setSection('parsers')}>Автоматическое обновление</button>
-        <button type="button" role="tab" aria-selected={section === 'pending'} className={section === 'pending' ? 'active' : ''} onClick={() => setSection('pending')}>Ждут промоушена ({pendingHealth.loading ? '…' : pendingHealth.records.length})</button>
-      </div>
-      {productionHealth.error && section !== 'pending' && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
-      {section === 'manual'
-        ? <ManualMenuDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
-        : section === 'parsers'
-          ? <ParserDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
-          : <PendingMenuHealthDashboard records={pendingHealth.records} loading={pendingHealth.loading} error={pendingHealth.error} />}
+      {children}
     </section>
   )
+}
+
+export function AdminRestaurantManual() {
+  const productionHealth = useHealthRecords('production')
+  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+  return (
+    <MenuMaintenanceSection eyebrow="Актуальность" title="Ручное обновление" description="Контроль актуальности ручных меню">
+      {productionHealth.error && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
+      <ManualMenuDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
+    </MenuMaintenanceSection>
+  )
+}
+
+export function AdminRestaurantAuto() {
+  const productionHealth = useHealthRecords('production')
+  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+  return (
+    <MenuMaintenanceSection eyebrow="Актуальность" title="Автоматическое обновление" description="Статусы парсеров и результаты последних запусков">
+      {productionHealth.error && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
+      <ParserDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
+    </MenuMaintenanceSection>
+  )
+}
+
+export function AdminRestaurantPublication() {
+  const pendingHealth = useHealthRecords('pending')
+  return (
+    <MenuMaintenanceSection eyebrow="Публикация" title={`Ждут промоушена (${pendingHealth.loading ? '…' : pendingHealth.records.length})`} description="Меню, ожидающие публикации">
+      <PendingMenuHealthDashboard records={pendingHealth.records} loading={pendingHealth.loading} error={pendingHealth.error} />
+    </MenuMaintenanceSection>
+  )
+}
+
+function MenuMaintenanceDashboard() {
+  return <AdminRestaurantManual />
 }
 
 function ParserDashboard({ healthIndex, healthLoading, healthError }) {
@@ -340,11 +377,14 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
     return () => { active = false }
   }, [])
 
-  const visible = useMemo(() => items.filter((parser) => {
-    const parserStatus = parser.enabled ? (parser.run?.status || 'never') : 'disabled'
-    if (status && parserStatus !== status) return false
-    return `${parser.restaurant_name} ${parser.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
-  }), [items, query, status])
+  const visible = useMemo(() => items
+    .filter((parser) => {
+      if (status && parserFreshnessStatus(parser) !== status) return false
+      return `${parser.restaurant_name} ${parser.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
+    })
+    .sort((left, right) => PARSER_STATUS_PRIORITY[parserFreshnessStatus(left)] - PARSER_STATUS_PRIORITY[parserFreshnessStatus(right)]
+      || (right.freshness?.days_since_success ?? Infinity) - (left.freshness?.days_since_success ?? Infinity)
+      || left.restaurant_name.localeCompare(right.restaurant_name, 'ru')), [items, query, status])
 
   if (loading) return <p className="admin-crm__loading">Загружаем статусы парсеров…</p>
   if (error) return <p className="admin-menu__error" role="alert">{error}</p>
@@ -359,16 +399,16 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
       </div>
       <div className="admin-crm__table-wrap admin-parser__table-wrap">
         <table className="admin-crm__table admin-parser__table">
-          <thead><tr><th>Ресторан</th><th>Хелс-чек</th><th>Статус</th><th>Последняя проверка</th><th>Последний успех</th><th>Меню опубликовано</th><th>Позиций</th><th>Источник</th></tr></thead>
+          <thead><tr><th>Ресторан</th><th>Хелс-чек</th><th>Статус</th><th>Без обновления</th><th>Последняя проверка</th><th>Последний успех</th><th>Меню опубликовано</th><th>Позиций</th><th>Источник</th></tr></thead>
           <tbody>{visible.map((parser) => {
-            const parserStatus = parser.enabled ? (parser.run?.status || 'never') : 'disabled'
+            const parserStatus = parserFreshnessStatus(parser)
             return (
               <tr key={parser.parser_id}>
                 <td><strong>{parser.restaurant_name}</strong>{parser.cities.length > 0 && <small>{parser.cities.join(', ')}</small>}</td>
                 <HealthCell restaurant={{ ...parser, name: parser.restaurant_name }} healthIndex={healthIndex} loading={healthLoading} error={healthError} />
                 <td>
                   <span className={`admin-parser__status admin-parser__status--${parserStatus}`}>{PARSER_STATUS[parserStatus]}</span>
-                  {parserStatus === 'error' && (
+                  {parserStatus === 'error' && parser.run && (
                     <details className="admin-parser__error"><summary>Что случилось</summary>
                       <strong>{parser.run.error_message || `Парсер завершился с кодом ${parser.run.exit_code}`}</strong>
                       {parser.run.log_excerpt && <pre>{parser.run.log_excerpt}</pre>}
@@ -376,6 +416,7 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
                     </details>
                   )}
                 </td>
+                <td>{formatDaysWithoutUpdate(parser)}</td>
                 <td>{formatDateTime(parser.run?.finished_at)}</td>
                 <td>{formatDateTime(parser.run?.last_success_at)}</td>
                 <td>{parser.published_at && parser.public_menu_url
