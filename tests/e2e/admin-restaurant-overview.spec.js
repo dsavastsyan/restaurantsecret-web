@@ -44,6 +44,17 @@ async function mockAdmin(page, requests = []) {
     if (path === '/api/admin/manual-menu-freshness') return route.fulfill({ json: { ok: true, stale_after_days: 90, restaurants: manualMenus } })
     if (path === '/api/admin/menu-sources') return route.fulfill({ json: { ok: true, sources: menuSources } })
     if (path === '/api/admin/menu-sources/loulou') return route.fulfill({ json: { ok: true, source: { ...menuSources[0], dish_names: ['Борщ', 'Сырники', 'Тыквенный суп'], catalog_missing: ['Сырники', 'Тыквенный суп'] } } })
+    if (path === '/api/admin/menu-catalog-audits') return route.fulfill({ json: { ok: true, audits: [
+      { id: 12, slug: 'loulou', result: 'differs', summary: 'В основном меню появились хинкали, пропали пхали', audited_at: '2026-10-20T12:00:00Z', catalog_captured_at: '2026-02-14 10:00:00', catalog_dish_count: 3, new_count: 1, missing_count: 1, menu_url: 'https://loulou.test/menu' },
+    ] } })
+    if (path === '/api/admin/menu-catalog-audits/12') return route.fulfill({ json: { ok: true, audit: {
+      id: 12, slug: 'loulou', result: 'differs', summary: 'В основном меню появились хинкали, пропали пхали', audited_at: '2026-10-20T12:00:00Z',
+      catalog_captured_at: '2026-02-14 10:00:00', catalog_dish_count: 3, menu_url: 'https://loulou.test/menu',
+      files: [{ url: 'https://loulou.test/menu/main.pdf', label: 'Основное меню' }], new_dishes: ['Хинкали'], missing_dishes: ['Пхали'],
+    }, history: [
+      { id: 12, slug: 'loulou', result: 'differs', summary: 'В основном меню появились хинкали, пропали пхали', audited_at: '2026-10-20T12:00:00Z' },
+      { id: 4, slug: 'loulou', result: 'unreadable', summary: 'Меню картинками', audited_at: '2026-08-10T12:00:00Z' },
+    ] } })
     if (path === '/api/admin/parser-runs') return route.fulfill({ json: { ok: true, parsers: [{
       parser_id: 'sage', restaurant_slug: 'sage', restaurant_name: 'Sage', cities: ['Казань'], enabled: true,
       freshness: { status: 'error', days_since_success: 4 },
@@ -168,4 +179,33 @@ test('completeness lists what each menu lacks and what was already checked', asy
   await expect(rows).toHaveCount(1)
   await rows.first().getByRole('link', { name: 'Loulou' }).click()
   await expect(page).toHaveURL(/\/admin\/restaurants\/all\/loulou$/)
+})
+
+test('the health-check card links the catalog check report of a manual menu', async ({ page }) => {
+  await mockAdmin(page)
+  await page.goto('/admin/restaurants/all/loulou')
+  const card = page.locator('.admin-health-report__card', { has: page.getByRole('heading', { name: 'Хелс-чек' }) })
+  await expect(card.getByText('Сверка меню с каталогом', { exact: true })).toBeVisible()
+  await expect(card.getByText('Есть расхождения')).toBeVisible()
+  await expect(card.getByText(/новых на сайте 1 · нет на сайте 1/)).toBeVisible()
+  await expect(page.getByText('Сверка меню с каталогом: Есть расхождения')).toBeVisible()
+  await card.getByRole('link', { name: 'Отчёт сверки' }).click()
+
+  await expect(page).toHaveURL(/\/admin\/restaurants\/all\/loulou\/catalog-audit\/12$/)
+  await expect(page.getByRole('heading', { name: 'Loulou', level: 1 })).toBeVisible()
+  await expect(page.getByText('В основном меню появились хинкали, пропали пхали').first()).toBeVisible()
+  await expect(page.getByText('Хинкали', { exact: true })).toBeVisible()
+  await expect(page.getByText('Пхали', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Основное меню' })).toHaveAttribute('href', 'https://loulou.test/menu/main.pdf')
+  await expect(page.getByRole('link', { name: 'Меню не прочитать' })).toHaveAttribute('href', '/admin/restaurants/all/loulou/catalog-audit/4')
+  if (process.env.AUDIT_SCREENSHOT) {
+    await page.waitForTimeout(2500)
+    await page.screenshot({ path: `${process.env.AUDIT_SCREENSHOT}-report.png`, fullPage: true })
+    await page.goto('/admin/restaurants/all/loulou')
+    await page.waitForTimeout(2500)
+    await page.locator('.admin-health-report__card', { has: page.getByRole('heading', { name: 'Хелс-чек' }) }).screenshot({ path: `${process.env.AUDIT_SCREENSHOT}-card.png` })
+  }
+
+  await page.goto('/admin/restaurants/all/syrovarnya-kazan')
+  await expect(page.getByText('Это меню ещё не сверяли')).toBeVisible()
 })

@@ -6,6 +6,21 @@ export function restaurantPath(slug) {
   return `/admin/restaurants/all/${encodeURIComponent(slug)}`
 }
 
+export function catalogAuditPath(slug, id) {
+  return `${restaurantPath(slug)}/catalog-audit/${encodeURIComponent(id)}`
+}
+
+// Weekly sample check: the agent compares the regular menu of the site with the catalog
+export const CATALOG_AUDIT_RESULTS = {
+  match: { label: 'Совпадает с каталогом', className: 'ok' },
+  differs: { label: 'Есть расхождения', className: 'warning' },
+  unreadable: { label: 'Меню не прочитать', className: 'pending' },
+}
+
+export function catalogAuditInfo(result) {
+  return CATALOG_AUDIT_RESULTS[result] || { label: 'Неизвестно', className: 'pending' }
+}
+
 export const KBJU_SOURCE_LABELS = {
   instagram_highlights: 'Instagram Highlights',
   website_cards: 'Сайт',
@@ -138,6 +153,7 @@ export function buildRestaurantRecords({
   restaurants = [],
   manualMenus = [],
   menuSources = [],
+  catalogAudits = [],
   parsers = [],
   healthRecords = [],
   leads = [],
@@ -146,6 +162,7 @@ export function buildRestaurantRecords({
 } = {}) {
   const manualBySlug = new Map(manualMenus.map((item) => [item.slug, item]))
   const sourceBySlug = new Map(menuSources.map((item) => [item.slug, item]))
+  const auditBySlug = new Map(catalogAudits.map((item) => [item.slug, item]))
   const leadById = new Map(leads.map((lead) => [Number(lead.id), lead]))
   const healthIndex = buildHealthIndex(healthRecords)
   const parsersBySlug = new Map()
@@ -193,6 +210,7 @@ export function buildRestaurantRecords({
       kind: isParser ? 'parser' : manual ? 'manual' : 'unknown',
       manual,
       menu_source: menuSource,
+      catalog_audit: auditBySlug.get(base.slug) || null,
       parsers: slugParsers,
       health,
       lead,

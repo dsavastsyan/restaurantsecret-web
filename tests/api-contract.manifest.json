@@ -103,6 +103,8 @@
   { "backend": "restaurantPortal", "method": "POST", "path": "/api/admin/manual-menu-freshness/{param}/confirm", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/menu-sources", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/menu-sources/{param}", "live": false },
+  { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/menu-catalog-audits", "live": false },
+  { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/menu-catalog-audits/{param}", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/restaurant/session", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/restaurant/me", "live": false },
   { "backend": "restaurantPortal", "method": "POST", "path": "/api/restaurant/auth/login", "live": false },

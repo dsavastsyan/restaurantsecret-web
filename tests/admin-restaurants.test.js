@@ -105,3 +105,14 @@ test('branch menus of one lead stay next to each other at the position of the mo
 test('restaurant page path is under the «Все рестораны» tab', () => {
   assert.equal(restaurantPath('кафе пушкин'), '/admin/restaurants/all/%D0%BA%D0%B0%D1%84%D0%B5%20%D0%BF%D1%83%D1%88%D0%BA%D0%B8%D0%BD')
 })
+
+test('restaurant record carries the latest catalog check of its menu', async () => {
+  const { catalogAuditInfo, catalogAuditPath } = await import('../src/pages/admin/adminRestaurants.js')
+  const audit = { id: 7, slug: 'loulou', result: 'differs', summary: 'Новые хинкали', new_count: 1, missing_count: 0 }
+  const [record] = buildRestaurantRecords({ manualMenus: [manual()], catalogAudits: [audit] })
+  assert.equal(record.catalog_audit, audit)
+  assert.equal(buildRestaurantRecords({ manualMenus: [manual()] })[0].catalog_audit, null)
+  assert.equal(catalogAuditPath('loulou', 7), '/admin/restaurants/all/loulou/catalog-audit/7')
+  assert.equal(catalogAuditInfo('differs').label, 'Есть расхождения')
+  assert.equal(catalogAuditInfo('other').className, 'pending')
+})
