@@ -96,6 +96,8 @@ export const adminMenuRevisionsApi = {
       method: 'PATCH',
       body,
     }),
+  menuSources: () => request('/api/admin/menu-sources'),
+  menuSource: (slug) => request(`/api/admin/menu-sources/${encodeURIComponent(slug)}`),
   confirmManualMenu: (slug) =>
     request(`/api/admin/manual-menu-freshness/${encodeURIComponent(slug)}/confirm`, {
       method: 'POST',

@@ -15,7 +15,7 @@ export default function AdminLogin() {
     try {
       await adminMenuRevisionsApi.login(key)
       setKey('')
-      navigate('/admin/restaurants/freshness/manual', { replace: true })
+      navigate('/admin/restaurants/all', { replace: true })
     } catch (requestError) {
       setError(requestError.message || 'Не удалось войти.')
     } finally {

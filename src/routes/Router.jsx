@@ -40,6 +40,9 @@ const AdminLogin = lazy(() => import('../pages/admin/AdminLogin.jsx'))
 const AdminRestaurantManual = lazy(() => import('../pages/admin/AdminRestaurantList.jsx').then((module) => ({ default: module.AdminRestaurantManual })))
 const AdminRestaurantAuto = lazy(() => import('../pages/admin/AdminRestaurantList.jsx').then((module) => ({ default: module.AdminRestaurantAuto })))
 const AdminRestaurantPublication = lazy(() => import('../pages/admin/AdminRestaurantList.jsx').then((module) => ({ default: module.AdminRestaurantPublication })))
+const AdminRestaurantOverview = lazy(() => import('../pages/admin/AdminRestaurantOverview.jsx'))
+const AdminRestaurantPage = lazy(() => import('../pages/admin/AdminRestaurantOverview.jsx').then((module) => ({ default: module.AdminRestaurantPage })))
+const AdminRestaurantCompleteness = lazy(() => import('../pages/admin/AdminRestaurantCompleteness.jsx'))
 const AdminMenuHealthReport = lazy(() => import('../pages/admin/AdminMenuHealthReport.jsx'))
 const AdminKbjuLeads = lazy(() => import('../pages/admin/AdminKbjuLeads.jsx'))
 const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.jsx'))
@@ -150,11 +153,15 @@ function AppRoutes({ onReady }) {
         </Route>
 
         <Route path="admin" element={<AdminShell />}>
-          <Route index element={<Navigate to="/admin/restaurants/freshness/manual" replace />} />
+          <Route index element={<Navigate to="/admin/restaurants/all" replace />} />
           <Route path="login" element={<AdminLogin />} />
 
           <Route path="restaurants" element={<AdminSectionLayout section="restaurants" />}>
-            <Route index element={<Navigate to="/admin/restaurants/freshness/manual" replace />} />
+            <Route index element={<Navigate to="/admin/restaurants/all" replace />} />
+            <Route path="all">
+              <Route index element={<AdminRestaurantOverview />} />
+              <Route path=":slug" element={<AdminRestaurantPage />} />
+            </Route>
             <Route path="collection" element={<AdminKbjuLeads />} />
             <Route path="freshness">
               <Route index element={<Navigate to="/admin/restaurants/freshness/manual" replace />} />
@@ -162,7 +169,8 @@ function AppRoutes({ onReady }) {
               <Route path="auto" element={<AdminRestaurantAuto />} />
             </Route>
             <Route path="quality">
-              <Route index element={<Navigate to="/admin/restaurants/quality/accuracy/kbju" replace />} />
+              <Route index element={<Navigate to="/admin/restaurants/quality/completeness" replace />} />
+              <Route path="completeness" element={<AdminRestaurantCompleteness />} />
               <Route path="accuracy">
                 <Route index element={<Navigate to="/admin/restaurants/quality/accuracy/kbju" replace />} />
                 <Route path="kbju" element={<AdminKbjuFlags kind="restaurant-items" />} />
@@ -175,7 +183,7 @@ function AppRoutes({ onReady }) {
               <Route path="health/:publicId" element={<AdminMenuHealthReport />} />
             </Route>
             <Route path="health/:publicId" element={<LegacyAdminHealthRedirect />} />
-            <Route path="*" element={<Navigate to="/admin/restaurants/freshness/manual" replace />} />
+            <Route path="*" element={<Navigate to="/admin/restaurants/all" replace />} />
           </Route>
 
           <Route path="products" element={<AdminSectionLayout section="products" />}>
@@ -209,7 +217,7 @@ function AppRoutes({ onReady }) {
           <Route path="restaurant-reviews" element={<Navigate to="/admin/restaurants/quality/accuracy/attributes" replace />} />
           <Route path="google-place-reviews" element={<Navigate to="/admin/restaurants/quality/accuracy/google-places" replace />} />
           <Route path="google-costs" element={<Navigate to="/admin/costs/google" replace />} />
-          <Route path="*" element={<Navigate to="/admin/restaurants/freshness/manual" replace />} />
+          <Route path="*" element={<Navigate to="/admin/restaurants/all" replace />} />
         </Route>
       </Routes>
       <AppReadySignal onReady={onReady} />

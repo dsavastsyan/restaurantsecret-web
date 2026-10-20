@@ -147,6 +147,21 @@
 .admin-manual-menu__status--current { color: #28603b; background: #e6f3e8; }
 .admin-manual-menu__status--needs_check { color: #8b332d; background: #f8e4e1; }
 .admin-manual-menu__status--source_missing { color: #735616; background: #fff3d5; }
+.admin-manual-menu__status--unknown { color: #62635e; background: #ecece8; }
+.admin-restaurants__table--manual { min-width: 1240px; }
+.admin-restaurants__table td small { display: block; margin-top: 4px; color: #85857d; }
+.admin-restaurants__table td a { color: #59653f; }
+.admin-restaurants__table td:first-child a { color: inherit; text-decoration: none; }
+.admin-restaurants__table td:first-child a:hover strong { text-decoration: underline; }
+.admin-restaurants__group tr:not(.admin-restaurants__group-title) td:first-child { box-shadow: inset 3px 0 #9aa387; }
+.admin-restaurants__group-title td { padding: 9px 13px; color: #59653f; background: #f4f5ee; font-size: 12px; font-weight: 800; }
+.admin-restaurants__cards > a { grid-template-columns: auto minmax(0, 1fr) auto; }
+.admin-restaurants__issues { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+.admin-restaurants__issues .admin-crm__warning { margin-top: 0; }
+.admin-health-report__metrics.admin-restaurant-page__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-health-report__header p a, .admin-health-report__card p a, .admin-health-report__history a { color: #59653f; font-weight: 700; }
+.admin-restaurant-page__value { font-size: 15px !important; }
+.admin-restaurant-page__value a { color: #59653f; }
 
 .admin-menu button,
 .admin-menu input,
@@ -503,6 +518,15 @@
   .admin-manual-menu__table td:first-child, .admin-parser__table td:first-child, .admin-health__table td:first-child { padding-top: 16px; border-top: 0; }
   .admin-manual-menu__table td:not(:first-child)::before, .admin-parser__table td:not(:first-child)::before, .admin-health__table td:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 5px; color: #85857d; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
   .admin-manual-menu__table .admin-health-cell, .admin-parser__table .admin-health-cell, .admin-health__table .admin-health-cell { grid-column: 1 / -1; }
+  .admin-manual-menu__table.admin-restaurants__table--manual { min-width: 0; }
+  .admin-manual-menu__source { min-width: 0; }
+  .admin-manual-menu__table tbody.admin-restaurants__group { padding-left: 10px; border-left: 3px solid #9aa387; }
+  .admin-restaurants__group tr:not(.admin-restaurants__group-title) td:first-child { box-shadow: none; }
+  .admin-restaurants__group-title { border: 0 !important; background: transparent !important; }
+  .admin-restaurants__group-title td { padding: 0 2px; background: transparent; }
+  .admin-restaurants__cards > a { grid-template-columns: auto minmax(0, 1fr); }
+  .admin-restaurants__cards > a > .admin-manual-menu__status { grid-column: 2; justify-self: start; }
+  .admin-health-report__metrics.admin-restaurant-page__fields { grid-template-columns: 1fr; }
   .admin-health__table td { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 8px; align-items: start; }
   .admin-health__table td::before { margin: 0; }
   .admin-health__table .admin-health-cell { display: block; }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
+import { restaurantPath } from './adminRestaurants'
 
 const STATUS_LABELS = {
   pending: 'Ждут решения',
@@ -60,7 +62,7 @@ function ReviewCard({ review, onDecide, working }) {
       <header>
         <div>
           <small>{FIELD_LABELS[review.field] || review.field}</small>
-          <h2>{review.restaurant_name}</h2>
+          <h2>{review.restaurant_slug ? <Link to={restaurantPath(review.restaurant_slug)}>{review.restaurant_name}</Link> : review.restaurant_name}</h2>
           <p>
             город {review.restaurant_city || 'не указан'} · слаг {review.restaurant_slug} · id {review.restaurant_id}
           </p>

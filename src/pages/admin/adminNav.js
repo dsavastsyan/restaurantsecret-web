@@ -4,6 +4,12 @@ export const ADMIN_NAV = {
     path: '/admin/restaurants',
     sections: [
       {
+        key: 'all',
+        label: 'Все рестораны',
+        to: '/admin/restaurants/all',
+        match: '/admin/restaurants/all',
+      },
+      {
         key: 'collection',
         label: 'Сбор',
         to: '/admin/restaurants/collection',
@@ -22,9 +28,10 @@ export const ADMIN_NAV = {
       {
         key: 'quality',
         label: 'Качество данных',
-        to: '/admin/restaurants/quality/accuracy/kbju',
+        to: '/admin/restaurants/quality/completeness',
         match: '/admin/restaurants/quality',
         children: [
+          { key: 'completeness', label: 'Полнота', to: '/admin/restaurants/quality/completeness' },
           {
             key: 'accuracy',
             label: 'Точность',
