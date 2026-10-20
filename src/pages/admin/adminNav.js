@@ -58,20 +58,32 @@ export const ADMIN_NAV = {
     path: '/admin/products',
     sections: [
       {
+        key: 'collection',
+        label: 'Сбор',
+        to: '/admin/products/collection/retailers',
+        match: '/admin/products/collection',
+        children: [
+          { key: 'retailers', label: 'Базы ритейлеров', to: '/admin/products/collection/retailers' },
+          { key: 'barcodes', label: 'Штрихкоды', to: '/admin/products/collection/barcodes' },
+        ],
+      },
+      {
         key: 'freshness',
         label: 'Актуальность',
         to: '/admin/products/freshness/duplicates',
         match: '/admin/products/freshness',
         children: [
           { key: 'duplicates', label: 'Сведение дубликатов', to: '/admin/products/freshness/duplicates' },
+          { key: 'barcodes', label: 'Сведение со штрихкодом', to: '/admin/products/freshness/barcodes' },
         ],
       },
       {
         key: 'quality',
         label: 'Качество данных',
-        to: '/admin/products/quality/accuracy/kbju',
+        to: '/admin/products/quality/completeness',
         match: '/admin/products/quality',
         children: [
+          { key: 'completeness', label: 'Полнота', to: '/admin/products/quality/completeness' },
           {
             key: 'accuracy',
             label: 'Точность',

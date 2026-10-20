@@ -1,0 +1,798 @@
+{
+ "productSources": {
+  "ok": true,
+  "stale_after_days": 30,
+  "sources": [
+   {
+    "key": "metro",
+    "label": "METRO",
+    "country": "RU",
+    "url": "https://online.metro-cc.ru",
+    "method": "Очередь импорта",
+    "status": "current",
+    "status_note": null,
+    "last_import_at": "2026-10-19 08:39:19",
+    "cards": 54576,
+    "cards_with_barcode": 49273,
+    "queue": {
+     "pending": 0,
+     "parsed": 54576,
+     "skipped": 79699,
+     "error": 0,
+     "last_attempted_at": "2026-10-19 08:39:19"
+    },
+    "last_error": null
+   },
+   {
+    "key": "vkusvill",
+    "label": "ВкусВилл",
+    "country": "RU",
+    "url": "https://vkusvill.ru",
+    "method": "Очередь импорта",
+    "status": "waiting",
+    "status_note": "Не обновлялось 47 дн.",
+    "last_import_at": "2026-09-03 17:32:26",
+    "cards": 8580,
+    "cards_with_barcode": 0,
+    "queue": {
+     "pending": 0,
+     "parsed": 7213,
+     "skipped": 6543,
+     "error": 19,
+     "last_attempted_at": "2026-09-03 17:32:26"
+    },
+    "last_error": {
+     "message": "Failed to fetch https://vkusvill.ru/goods/paket-podarochnyy-gromell-dlya-torta-zheltyy-24kh24kh24-sm-114401/ (<urlopen error [Errno 8] nodename nor servname provided, or not known>)",
+     "at": "2026-09-03 07:03:44"
+    }
+   },
+   {
+    "key": "magnit",
+    "label": "Магнит",
+    "country": "RU",
+    "url": "https://magnit.ru",
+    "method": "Очередь импорта",
+    "status": "waiting",
+    "status_note": "Не обновлялось 45 дн.",
+    "last_import_at": "2026-09-05 15:29:08",
+    "cards": 7481,
+    "cards_with_barcode": 0,
+    "queue": {
+     "pending": 0,
+     "parsed": 7467,
+     "skipped": 12309,
+     "error": 106,
+     "last_attempted_at": "2026-09-05 15:29:08"
+    },
+    "last_error": {
+     "message": "IncompleteRead(555727 bytes read, 518092 more expected)",
+     "at": "2026-09-05 14:58:48"
+    }
+   },
+   {
+    "key": "yandex_market",
+    "label": "Яндекс Маркет",
+    "country": "RU",
+    "url": "https://market-delivery.yandex.ru",
+    "method": "JSON-выгрузка",
+    "status": "current",
+    "status_note": null,
+    "last_import_at": "2026-09-22T07:57:28+00:00",
+    "cards": 40781,
+    "cards_with_barcode": 0,
+    "queue": null,
+    "last_error": null
+   },
+   {
+    "key": "lavka",
+    "label": "Яндекс Лавка",
+    "country": "RU",
+    "url": "https://lavka.yandex.ru",
+    "method": "JSON-выгрузка",
+    "status": "current",
+    "status_note": null,
+    "last_import_at": "2026-09-23T07:39:31+00:00",
+    "cards": 379,
+    "cards_with_barcode": 0,
+    "queue": null,
+    "last_error": null
+   },
+   {
+    "key": "perekrestok",
+    "label": "Перекрёсток",
+    "country": "RU",
+    "url": "https://www.perekrestok.ru",
+    "method": "Ручной сбор",
+    "status": "current",
+    "status_note": null,
+    "last_import_at": "2026-10-19T00:00:00+00:00",
+    "cards": 63,
+    "cards_with_barcode": 63,
+    "queue": null,
+    "last_error": null
+   },
+   {
+    "key": "green",
+    "label": "Green",
+    "country": "BY",
+    "url": "https://green-dostavka.by",
+    "method": "Очередь импорта",
+    "status": "waiting",
+    "status_note": "Не обновлялось 47 дн.",
+    "last_import_at": "2026-09-03 17:37:14",
+    "cards": 9776,
+    "cards_with_barcode": 9669,
+    "queue": {
+     "pending": 0,
+     "parsed": 9763,
+     "skipped": 2585,
+     "error": 0,
+     "last_attempted_at": "2026-09-03 17:37:14"
+    },
+    "last_error": null
+   },
+   {
+    "key": "sosedi",
+    "label": "Соседи",
+    "country": "BY",
+    "url": "https://sosedi-dostavka.by",
+    "method": "Очередь импорта",
+    "status": "waiting",
+    "status_note": "Не обновлялось 50 дн.",
+    "last_import_at": "2026-08-31 01:55:39",
+    "cards": 8985,
+    "cards_with_barcode": 8197,
+    "queue": {
+     "pending": 0,
+     "parsed": 8985,
+     "skipped": 4371,
+     "error": 1,
+     "last_attempted_at": "2026-08-31 01:55:39"
+    },
+    "last_error": {
+     "message": "'ascii' codec can't encode character '\\u0456' in position 25: ordinal not in range(128)",
+     "at": "2026-08-28 16:18:20"
+    }
+   },
+   {
+    "key": "edostavka",
+    "label": "Евроопт (Е-доставка)",
+    "country": "BY",
+    "url": "https://edostavka.by",
+    "method": "Очередь импорта",
+    "status": "waiting",
+    "status_note": "Не обновлялось 49 дн.",
+    "last_import_at": "2026-09-01 12:59:20",
+    "cards": 3398,
+    "cards_with_barcode": 0,
+    "queue": {
+     "pending": 0,
+     "parsed": 3398,
+     "skipped": 4078,
+     "error": 0,
+     "last_attempted_at": "2026-09-01 12:59:20"
+    },
+    "last_error": null
+   },
+   {
+    "key": "yamigom",
+    "label": "Ямигом",
+    "country": "BY",
+    "url": "https://yamigom.by",
+    "method": "Очередь импорта",
+    "status": "error",
+    "status_note": "В последнем запуске 48 из 61 страниц с ошибкой",
+    "last_import_at": "2026-09-12 08:58:23",
+    "cards": 2,
+    "cards_with_barcode": 0,
+    "queue": {
+     "pending": 189,
+     "parsed": 2,
+     "skipped": 11,
+     "error": 48,
+     "last_attempted_at": "2026-09-12 08:58:23"
+    },
+    "last_error": {
+     "message": "<urlopen error [Errno 61] Connection refused>",
+     "at": "2026-09-12 08:58:23"
+    }
+   }
+  ]
+ },
+ "barcodeSources": {
+  "ok": true,
+  "stale_after_days": 30,
+  "coverage": {
+   "total": 110906,
+   "in_card": 63802,
+   "candidate_only": 5491,
+   "none": 41613
+  },
+  "sources": [
+   {
+    "key": "retail_gtin",
+    "group": "Ритейлеры",
+    "label": "GTIN из карточек ритейлеров",
+    "status": "current",
+    "status_note": null,
+    "rows": 67202,
+    "rows_label": "из 134 021 карточек",
+    "last_at": "2026-10-19T08:38:42+00:00",
+    "review": null,
+    "note": "Штрихкод сразу попадает в товар при сборке каталога"
+   },
+   {
+    "key": "openfoodfacts",
+    "group": "Справочники",
+    "label": "Open Food Facts",
+    "status": "current",
+    "status_note": null,
+    "rows": 40394,
+    "rows_label": "штрихкодов",
+    "last_at": "2026-10-15 00:20:26",
+    "review": {
+     "pending": 48223,
+     "approved": 0,
+     "rejected": 837,
+     "auto": 53
+    },
+    "note": "Пары строятся только по названию, бренду и весу"
+   },
+   {
+    "key": "barcode_list_ru",
+    "group": "Справочники",
+    "label": "barcode-list.ru",
+    "status": "waiting",
+    "status_note": "Ждут проверки 16 пар",
+    "rows": 16,
+    "rows_label": "пар с товарами",
+    "last_at": "2026-10-16 21:57:49",
+    "review": {
+     "pending": 16,
+     "approved": 0,
+     "rejected": 0,
+     "auto": 0
+    },
+    "note": "Запусков: 3"
+   },
+   {
+    "key": "photos",
+    "group": "Фото упаковок",
+    "label": "Фото упаковок",
+    "status": "waiting",
+    "status_note": "Ждут проверки 1696 пар",
+    "rows": 1696,
+    "rows_label": "пар с товарами",
+    "last_at": "2026-10-18 21:16:42",
+    "review": {
+     "pending": 1696,
+     "approved": 0,
+     "rejected": 0,
+     "auto": 0
+    },
+    "note": "data/barcodes/barcodes_collected.csv · Запусков: 1"
+   },
+   {
+    "key": "nutrola",
+    "group": "Справочники",
+    "label": "Справочник Nutrola",
+    "status": "waiting",
+    "status_note": "Ждут проверки 17 пар",
+    "rows": 17,
+    "rows_label": "пар с товарами",
+    "last_at": "2026-10-17 19:51:54",
+    "review": {
+     "pending": 17,
+     "approved": 0,
+     "rejected": 0,
+     "auto": 0
+    },
+    "note": "Запусков: 1"
+   },
+   {
+    "key": "uhtt",
+    "group": "Справочники",
+    "label": "Справочник UHTT",
+    "status": "waiting",
+    "status_note": "Ждут проверки 824 пар",
+    "rows": 824,
+    "rows_label": "пар с товарами",
+    "last_at": "2026-10-16 13:32:39",
+    "review": {
+     "pending": 824,
+     "approved": 0,
+     "rejected": 0,
+     "auto": 0
+    },
+    "note": "Локальный дамп UHTT · Запусков: 1"
+   },
+   {
+    "key": "references",
+    "group": "Справочники",
+    "label": "Справочники названий по штрихкоду",
+    "status": null,
+    "status_note": "Справочник без запусков",
+    "rows": 218038,
+    "rows_label": "штрихкодов, 242 408 названий",
+    "last_at": null,
+    "review": null,
+    "note": "bcods, DISAI, Korzina74, Samson, VitrinaQR, Nutrola, UHTT, фото — источник строки в таблице не хранится"
+   },
+   {
+    "key": "candidates_semeiniy_KZ",
+    "group": "Кандидаты из других стран",
+    "label": "semeiniy (KZ)",
+    "status": "waiting",
+    "status_note": "В очереди 858 карточек",
+    "rows": 14038,
+    "rows_label": "штрихкодов",
+    "last_at": "2026-10-19 08:29:15",
+    "review": null,
+    "note": "Пары с нашими товарами ещё не строятся"
+   },
+   {
+    "key": "users",
+    "group": "Пользователи",
+    "label": "Предложения из приложения",
+    "status": "waiting",
+    "status_note": "Не обновлялось 35 дн.",
+    "rows": 18,
+    "rows_label": "предложений и голосов",
+    "last_at": "2026-09-15 07:35:40",
+    "review": {
+     "pending": 0,
+     "approved": 0,
+     "rejected": 0,
+     "auto": 0
+    },
+    "note": "Подтверждаются голосами пользователей"
+   }
+  ]
+ },
+ "barcodeCandidatesLink": {
+  "ok": true,
+  "kind": "link",
+  "available": {
+   "link": true,
+   "off": true
+  },
+  "totals": {
+   "link": {
+    "pending": 2553,
+    "approved": 0,
+    "rejected": 0,
+    "auto": 0
+   },
+   "off": {
+    "pending": 48223,
+    "approved": 0,
+    "rejected": 837,
+    "auto": 53
+   }
+  },
+  "offset": 0,
+  "page_size": 300,
+  "next_offset": 300,
+  "pairs": [
+   {
+    "id": 2,
+    "kind": "link",
+    "source_label": "barcode-list.ru",
+    "created_at": "2026-10-15 22:22:48",
+    "score": 1,
+    "product": {
+     "id": "prd_src_122",
+     "name": "Сыр \"Голландский\" нарезка, 150г",
+     "brand": "ООО \"ВЕЛИКОЛУКСКИЙ МОЛОЧНЫЙ КОМБИНАТ\"",
+     "quantity_text": "150 г",
+     "barcode": null,
+     "source_url": "https://vkusvill.ru/goods/syr-gollandskiy-narezka-12159/"
+    },
+    "candidate": {
+     "barcode": "4607023233024",
+     "name": "Сыр нарезка Город сыра Голландский 150гр",
+     "brand": null,
+     "quantity_text": "ШТ.",
+     "names_for_barcode": 1
+    },
+    "verdict": "review",
+    "reasons": [
+     {
+      "code": "brand_missing",
+      "kind": "review",
+      "label": "Бренд указан только у одной стороны"
+     },
+     {
+      "code": "name_words_differ",
+      "kind": "review",
+      "label": "Слова есть только у одной стороны: город, сыра"
+     }
+    ]
+   },
+   {
+    "id": 5,
+    "kind": "link",
+    "source_label": "barcode-list.ru",
+    "created_at": "2026-10-15 22:22:48",
+    "score": 1,
+    "product": {
+     "id": "prd_src_216",
+     "name": "Молоко сгущенное Коровка из Кореновки 8.5% 270г",
+     "brand": "Кореновский МКК",
+     "quantity_text": "270 г",
+     "barcode": null,
+     "source_url": "https://magnit.ru/product/1000000732-korovka_iz_korenovki_moloko_sgushch_gost_8_5_d_p_270g_kmkk_24"
+    },
+    "candidate": {
+     "barcode": "4602358002116",
+     "name": "Молоко сгущенное какао 270г дп \"Коровка из Кореновки\"",
+     "brand": null,
+     "quantity_text": "ШТ",
+     "names_for_barcode": 1
+    },
+    "verdict": "review",
+    "reasons": [
+     {
+      "code": "brand_missing",
+      "kind": "review",
+      "label": "Бренд указан только у одной стороны"
+     },
+     {
+      "code": "fat_missing",
+      "kind": "review",
+      "label": "Жирность указана только у одной стороны"
+     },
+     {
+      "code": "name_words_differ",
+      "kind": "review",
+      "label": "Слова есть только у одной стороны: какао, дп"
+     }
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "link",
+    "source_label": "barcode-list.ru",
+    "created_at": "2026-10-15 22:22:48",
+    "score": 1,
+    "product": {
+     "id": "prd_src_220",
+     "name": "Блинчики С пылу с жару с творогом 360г",
+     "brand": "Лина",
+     "quantity_text": "360 г",
+     "barcode": null,
+     "source_url": "https://magnit.ru/product/1000003776-s_pylu_s_zharu_blinchiki_s_tvorogom_0_36kg_lina_10"
+    },
+    "candidate": {
+     "barcode": "4607018271765",
+     "name": "Загрузка…",
+     "brand": "С пылу с жару",
+     "quantity_text": "360.0 g",
+     "names_for_barcode": 5
+    },
+    "verdict": "review",
+    "reasons": [
+     {
+      "code": "brand_differs",
+      "kind": "review",
+      "label": "Бренд различается: Лина / С пылу с жару"
+     },
+     {
+      "code": "name_words_differ",
+      "kind": "review",
+      "label": "Слова есть только у одной стороны: блинчики, творогом, загрузка"
+     }
+    ]
+   },
+   {
+    "id": 1,
+    "kind": "link",
+    "source_label": "barcode-list.ru",
+    "created_at": "2026-10-15 22:22:48",
+    "score": 1,
+    "product": {
+     "id": "prd_src_7",
+     "name": "Творог зерненый 4%, 230 г",
+     "brand": "АО \"ГК \"РОСМОЛ\"",
+     "quantity_text": "230 г",
+     "barcode": null,
+     "source_url": "https://vkusvill.ru/goods/tvorog-zernenyy-4-91/"
+    },
+    "candidate": {
+     "barcode": "4870002954610",
+     "name": "Творог Одари 7%зерненый со сливками 230г пл. ст.",
+     "brand": null,
+     "quantity_text": "ШТ.",
+     "names_for_barcode": 1
+    },
+    "verdict": "reject",
+    "reasons": [
+     {
+      "code": "fat_differs",
+      "kind": "reject",
+      "label": "Жирность различается: 4 / 7"
+     },
+     {
+      "code": "brand_missing",
+      "kind": "review",
+      "label": "Бренд указан только у одной стороны"
+     },
+     {
+      "code": "name_words_differ",
+      "kind": "review",
+      "label": "Слова есть только у одной стороны: одари, сливками, пл, ст"
+     }
+    ]
+   },
+   {
+    "id": 386,
+    "kind": "link",
+    "source_label": "Справочник UHTT",
+    "created_at": "2026-10-16 13:32:25",
+    "score": 1,
+    "product": {
+     "id": "prd_src_58229",
+     "name": "Масло Благо подсолнечное нерафинированное 650 мл",
+     "brand": "Благо",
+     "quantity_text": "650 мл",
+     "barcode": null,
+     "source_url": "https://market-delivery.yandex.ru/retail/diksi_celevaa?item=7b8b3112-885c-49c8-88c1-415870aa4b82"
+    },
+    "candidate": {
+     "barcode": "4607014784047",
+     "name": "Масло подсолнечное нерафинированное",
+     "brand": "Благо",
+     "quantity_text": "598.0 g",
+     "names_for_barcode": 4
+    },
+    "verdict": "review",
+    "reasons": [
+     {
+      "code": "weight_units",
+      "kind": "review",
+      "label": "Вес в разных единицах: 650 мл / 598 г"
+     }
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "link",
+    "source_label": "Справочник UHTT",
+    "created_at": "2026-10-16 13:32:10",
+    "score": 1,
+    "product": {
+     "id": "prd_src_42188",
+     "name": "Молоко кокосовое Chaokoh 65 мл",
+     "brand": "Chaokoh",
+     "quantity_text": "65 мл",
+     "barcode": null,
+     "source_url": "https://market-delivery.yandex.ru/retail/azbuka_vkusa?item=0581b54e-2eaa-456f-bf7c-506599a52c94"
+    },
+    "candidate": {
+     "barcode": "8850367100149",
+     "name": "Chaokoh кокосовое молоко, 65ml",
+     "brand": "Chaokoh",
+     "quantity_text": null,
+     "names_for_barcode": 1
+    },
+    "verdict": "accept",
+    "reasons": []
+   },
+   {
+    "id": 15,
+    "kind": "link",
+    "source_label": "Справочник UHTT",
+    "created_at": "2026-10-16 13:32:10",
+    "score": 1,
+    "product": {
+     "id": "prd_src_85700",
+     "name": "Соус чили Cholimex Шрирача острый 520 г",
+     "brand": "Cholimex",
+     "quantity_text": "520 г",
+     "barcode": null,
+     "source_url": "https://market-delivery.yandex.ru/retail/perekrestok?item=b3e33424-e6fe-410c-af63-c29a7871376d"
+    },
+    "candidate": {
+     "barcode": "8934637514673",
+     "name": "Cholimex соус шрирача Чили острый 520g",
+     "brand": "CHOLIMEX",
+     "quantity_text": null,
+     "names_for_barcode": 1
+    },
+    "verdict": "accept",
+    "reasons": []
+   }
+  ]
+ },
+ "barcodeCandidatesOff": {
+  "ok": true,
+  "kind": "off",
+  "available": {
+   "link": true,
+   "off": true
+  },
+  "totals": {
+   "link": {
+    "pending": 2553,
+    "approved": 0,
+    "rejected": 0,
+    "auto": 0
+   },
+   "off": {
+    "pending": 48223,
+    "approved": 0,
+    "rejected": 837,
+    "auto": 53
+   }
+  },
+  "offset": 0,
+  "page_size": 300,
+  "next_offset": null,
+  "pairs": [
+   {
+    "id": 5,
+    "kind": "off",
+    "source_label": "Open Food Facts",
+    "created_at": "2026-10-14 23:54:59",
+    "score": 1,
+    "product": {
+     "id": "prd_src_1",
+     "name": "Сметана 25%, 350 г",
+     "brand": "ООО \"ЛЕБЕДЯНЬМОЛОКО\"",
+     "quantity_text": "350 г",
+     "barcode": null,
+     "source_url": "https://vkusvill.ru/goods/smetana-25-52/"
+    },
+    "candidate": {
+     "barcode": "4607074393142",
+     "name": "Сметана",
+     "brand": "Лазовское",
+     "quantity_text": "1x350g",
+     "names_for_barcode": 1
+    },
+    "verdict": "review",
+    "reasons": [
+     {
+      "code": "brand_differs",
+      "kind": "review",
+      "label": "Бренд различается: ООО \"ЛЕБЕДЯНЬМОЛОКО\" / Лазовское"
+     },
+     {
+      "code": "fat_missing",
+      "kind": "review",
+      "label": "Жирность указана только у одной стороны"
+     }
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "off",
+    "source_label": "Open Food Facts",
+    "created_at": "2026-10-15 00:12:07",
+    "score": 1,
+    "product": {
+     "id": "prd_src_2",
+     "name": "Молоко цельное, 1 л",
+     "brand": "ООО \"ШВЕЙЦАРСКОЕ МОЛОКО\"",
+     "quantity_text": "1000 мл",
+     "barcode": null,
+     "source_url": "https://vkusvill.ru/goods/moloko-tselnoe-61/"
+    },
+    "candidate": {
+     "barcode": "1037644400018",
+     "name": "молоко цельное питьевое пастеризованное 3.6-4% жирности",
+     "brand": "родное",
+     "quantity_text": "1l",
+     "names_for_barcode": 1
+    },
+    "verdict": "review",
+    "reasons": [
+     {
+      "code": "brand_differs",
+      "kind": "review",
+      "label": "Бренд различается: ООО \"ШВЕЙЦАРСКОЕ МОЛОКО\" / родное"
+     },
+     {
+      "code": "fat_missing",
+      "kind": "review",
+      "label": "Жирность указана только у одной стороны"
+     },
+     {
+      "code": "name_words_differ",
+      "kind": "review",
+      "label": "Слова есть только у одной стороны: питьевое, пастеризованное, жирности"
+     }
+    ]
+   }
+  ]
+ },
+ "completeness": {
+  "ok": true,
+  "total_products": 110906,
+  "issues": {
+   "no_kbju": 1235,
+   "no_barcode": 41613,
+   "no_weight": 0,
+   "no_manufacturer": 3799
+  },
+  "issue": "no_kbju",
+  "query": "",
+  "offset": 0,
+  "page_size": 100,
+  "matched": 1235,
+  "items": [
+   {
+    "id": "prd_src_235903",
+    "name": "Fine Life Вода минеральная питьевая негазированная с краном, 10л",
+    "brand": "FINE LIFE",
+    "manufacturer": null,
+    "quantity_text": "10000 мл",
+    "barcode": "4620017816201",
+    "nutrition": {
+     "basis": "100g",
+     "calories": 0,
+     "protein_g": 0,
+     "fat_g": 0,
+     "carbs_g": 0
+    },
+    "source_url": "https://online.metro-cc.ru/products/fine-life-voda-mineralnaya-pitevaya-negazirovannaya-10l",
+    "updated_at": "2026-10-19 09:57:47",
+    "generic": true
+   },
+   {
+    "id": "prd_src_233765",
+    "name": "METRO Chef Лед пищевой крошка, 1кг",
+    "brand": "METRO CHEF",
+    "manufacturer": null,
+    "quantity_text": "1000 г",
+    "barcode": "4660077280161",
+    "nutrition": {
+     "basis": "100g",
+     "calories": 0,
+     "protein_g": 0,
+     "fat_g": 0,
+     "carbs_g": 0
+    },
+    "source_url": "https://online.metro-cc.ru/products/metro-chef-led-pischevoy-kroshka-1kg",
+    "updated_at": "2026-10-19 09:56:32",
+    "generic": false
+   },
+   {
+    "id": "prd_src_225425",
+    "name": "METRO Chef Соль морская крупная помол №1, 1кг",
+    "brand": "METRO CHEF",
+    "manufacturer": null,
+    "quantity_text": "1000 г",
+    "barcode": "4607005092748",
+    "nutrition": {
+     "basis": "100g",
+     "calories": 0,
+     "protein_g": 0,
+     "fat_g": 0,
+     "carbs_g": 0
+    },
+    "source_url": "https://online.metro-cc.ru/products/metro-chef-sol-morskaya-krupnaya-pomol-1-1kg",
+    "updated_at": "2026-10-19 09:51:46",
+    "generic": true
+   },
+   {
+    "id": "prd_src_235650",
+    "name": "RIOBA Вода газированная стекло, 330мл",
+    "brand": "RIOBA",
+    "manufacturer": null,
+    "quantity_text": "330 мл",
+    "barcode": "4601342007007",
+    "nutrition": {
+     "basis": "100g",
+     "calories": 0,
+     "protein_g": 0,
+     "fat_g": 0,
+     "carbs_g": 0
+    },
+    "source_url": "https://online.metro-cc.ru/products/033l-voda-rioba-gaz-st-330331",
+    "updated_at": "2026-10-19 09:57:40",
+    "generic": true
+   }
+  ]
+ }
+}
