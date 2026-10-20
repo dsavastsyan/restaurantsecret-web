@@ -15,7 +15,7 @@ test('@smoke unauthenticated admin preview redirects before loading protected pa
     return route.fulfill({ status: 401, json: { ok: false } })
   })
 
-  await page.goto('/admin/google-place-reviews')
+  await page.goto('/admin/restaurants/quality/accuracy/google-places')
 
   await expect(page).toHaveURL(/\/admin\/login$/)
   await expect(page.getByLabel('Ключ доступа')).toBeVisible()
@@ -97,7 +97,7 @@ test('@smoke administrator confirms a network alias and attaches a Google point 
     return route.fulfill({ status: 404, json: { ok: false } })
   })
 
-  await page.goto('/admin/google-place-reviews')
+  await page.goto('/admin/restaurants/quality/accuracy/google-places')
 
   await expect(page.getByRole('heading', { name: 'Ревью сетей и точек' })).toBeVisible()
   await expect(page.getByLabel('Расход Google Places')).toContainText('42 запросов')

@@ -64,7 +64,7 @@ export default function AdminMenuHealthReport() {
   if (state.loading) return <section className="admin-health-report"><p className="admin-crm__loading">Загружаем отчёт…</p></section>
   if (state.error || !state.record) {
     return <section className="admin-health-report">
-      <Link className="admin-health-report__back" to="/admin/restaurants"><ArrowLeft size={16} />Назад к ресторанам</Link>
+      <Link className="admin-health-report__back" to="/admin/restaurants/publication"><ArrowLeft size={16} />Назад к ресторанам</Link>
       <p className="admin-menu__error" role="alert">{state.error || 'Отчёт не найден.'}</p>
     </section>
   }
@@ -87,7 +87,7 @@ export default function AdminMenuHealthReport() {
 
   return (
     <section className="admin-health-report">
-      <Link className="admin-health-report__back" to="/admin/restaurants"><ArrowLeft size={16} />Назад к ресторанам</Link>
+      <Link className="admin-health-report__back" to="/admin/restaurants/publication"><ArrowLeft size={16} />Назад к ресторанам</Link>
       <header className="admin-health-report__header">
         <div><span className="admin-health-report__eyebrow">Отчёт проверки меню</span><h1>{record.restaurant_name || 'Ресторан без названия'}</h1><p>{record.city || 'Город не указан'} · Проверено {formatHealthDate(record.checked_at)}</p></div>
         <span className={`admin-health__status admin-health__status--${status.className}`}>{status.label}</span>

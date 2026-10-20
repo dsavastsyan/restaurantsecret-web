@@ -65,7 +65,7 @@ function HealthCell({ restaurant, healthIndex, loading, error }) {
       <span className={`admin-health__status admin-health__status--${status.className}`} aria-label={`Статус хелс-чека: ${status.label}`}>{status.label}</span>
       <span className="admin-health__summary" title={health.summary || undefined}>{truncateHealthSummary(health.summary) || 'Без комментария'}</span>
       <small>{formatHealthDate(health.checked_at)}</small>
-      <Link to={`/admin/restaurants/health/${encodeURIComponent(health.publicId)}`} aria-label={`Подробнее о хелс-чеке ${health.restaurant_name || restaurant.name}`}>Подробнее</Link>
+      <Link to={`/admin/restaurants/publication/health/${encodeURIComponent(health.publicId)}`} aria-label={`Подробнее о хелс-чеке ${health.restaurant_name || restaurant.name}`}>Подробнее</Link>
       {error && <span className="admin-health__inline-error">Обновление недоступно</span>}
     </td>
   )
@@ -299,29 +299,50 @@ function ManualMenuDashboard({ healthIndex, healthLoading, healthError }) {
   )
 }
 
-function MenuMaintenanceDashboard() {
-  const [section, setSection] = useState('manual')
-  const productionHealth = useHealthRecords('production')
-  const pendingHealth = useHealthRecords('pending')
-  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+function MenuMaintenanceSection({ eyebrow, title, description, children }) {
   return (
     <section className="admin-crm">
       <div className="admin-menu__title admin-crm__title">
-        <div><span>Обновление меню</span><h1>Рестораны</h1><p>Контроль актуальности ручных меню и статусы парсеров.</p></div>
+        <div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>
       </div>
-      <div className="admin-crm__section-tabs" role="tablist" aria-label="Способ обновления меню">
-        <button type="button" role="tab" aria-selected={section === 'manual'} className={section === 'manual' ? 'active' : ''} onClick={() => setSection('manual')}>Ручные меню</button>
-        <button type="button" role="tab" aria-selected={section === 'parsers'} className={section === 'parsers' ? 'active' : ''} onClick={() => setSection('parsers')}>Автоматическое обновление</button>
-        <button type="button" role="tab" aria-selected={section === 'pending'} className={section === 'pending' ? 'active' : ''} onClick={() => setSection('pending')}>Ждут промоушена ({pendingHealth.loading ? '…' : pendingHealth.records.length})</button>
-      </div>
-      {productionHealth.error && section !== 'pending' && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
-      {section === 'manual'
-        ? <ManualMenuDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
-        : section === 'parsers'
-          ? <ParserDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
-          : <PendingMenuHealthDashboard records={pendingHealth.records} loading={pendingHealth.loading} error={pendingHealth.error} />}
+      {children}
     </section>
   )
+}
+
+export function AdminRestaurantManual() {
+  const productionHealth = useHealthRecords('production')
+  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+  return (
+    <MenuMaintenanceSection eyebrow="Актуальность" title="Ручное обновление" description="Контроль актуальности ручных меню">
+      {productionHealth.error && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
+      <ManualMenuDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
+    </MenuMaintenanceSection>
+  )
+}
+
+export function AdminRestaurantAuto() {
+  const productionHealth = useHealthRecords('production')
+  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+  return (
+    <MenuMaintenanceSection eyebrow="Актуальность" title="Автоматическое обновление" description="Статусы парсеров и результаты последних запусков">
+      {productionHealth.error && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
+      <ParserDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
+    </MenuMaintenanceSection>
+  )
+}
+
+export function AdminRestaurantPublication() {
+  const pendingHealth = useHealthRecords('pending')
+  return (
+    <MenuMaintenanceSection eyebrow="Публикация" title={`Ждут промоушена (${pendingHealth.loading ? '…' : pendingHealth.records.length})`} description="Меню, ожидающие публикации">
+      <PendingMenuHealthDashboard records={pendingHealth.records} loading={pendingHealth.loading} error={pendingHealth.error} />
+    </MenuMaintenanceSection>
+  )
+}
+
+function MenuMaintenanceDashboard() {
+  return <AdminRestaurantManual />
 }
 
 function ParserDashboard({ healthIndex, healthLoading, healthError }) {

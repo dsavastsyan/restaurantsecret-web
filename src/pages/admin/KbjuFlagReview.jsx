@@ -95,30 +95,31 @@ function FlaggedCard({ item, kind, approving, onApprove }) {
   )
 }
 
-export default function KbjuFlagReview() {
+export default function KbjuFlagReview({ kind }) {
   const [activeTab, setActiveTab] = useState('products')
   const [itemsByTab, setItemsByTab] = useState({ products: [], 'restaurant-items': [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [approvingId, setApprovingId] = useState(null)
+  const selectedKind = kind || activeTab
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const data = activeTab === 'products'
+      const data = selectedKind === 'products'
         ? await adminMenuRevisionsApi.kbjuFlaggedProducts()
         : await adminMenuRevisionsApi.kbjuFlaggedRestaurantItems()
       setItemsByTab((current) => ({
         ...current,
-        [activeTab]: activeTab === 'products' ? (data.products || []) : (data.items || []),
+        [selectedKind]: selectedKind === 'products' ? (data.products || []) : (data.items || []),
       }))
     } catch (requestError) {
       setError(requestError.message || 'Не удалось загрузить карточки.')
     } finally {
       setLoading(false)
     }
-  }, [activeTab])
+  }, [selectedKind])
 
   useEffect(() => { load() }, [load])
 
@@ -126,19 +127,19 @@ export default function KbjuFlagReview() {
     setApprovingId(itemId)
     setError('')
     try {
-      await adminMenuRevisionsApi.approveKbjuFlag(activeTab, itemId)
+      await adminMenuRevisionsApi.approveKbjuFlag(selectedKind, itemId)
       setItemsByTab((current) => ({
         ...current,
-        [activeTab]: current[activeTab].filter((item) => item.id !== itemId),
+        [selectedKind]: current[selectedKind].filter((item) => item.id !== itemId),
       }))
     } catch (requestError) {
       setError(requestError.message || 'Не удалось подтвердить КБЖУ.')
     } finally {
       setApprovingId(null)
     }
-  }, [activeTab])
+  }, [selectedKind])
 
-  const items = itemsByTab[activeTab]
+  const items = itemsByTab[selectedKind]
 
   return (
     <section className="admin-product-match">
@@ -154,14 +155,16 @@ export default function KbjuFlagReview() {
         <strong>{items.length}</strong>
       </header>
 
-      <nav className="admin-product-match__filters" aria-label="Тип позиций">
-        <button type="button" className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>
-          Продукты
-        </button>
-        <button type="button" className={activeTab === 'restaurant-items' ? 'active' : ''} onClick={() => setActiveTab('restaurant-items')}>
-          Рестораны
-        </button>
-      </nav>
+      {!kind && (
+        <nav className="admin-product-match__filters" aria-label="Тип позиций">
+          <button type="button" className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>
+            Продукты
+          </button>
+          <button type="button" className={activeTab === 'restaurant-items' ? 'active' : ''} onClick={() => setActiveTab('restaurant-items')}>
+            Рестораны
+          </button>
+        </nav>
+      )}
 
       {error ? <p className="admin-crm__notice admin-crm__notice--error">{error}</p> : null}
       {loading ? <p className="admin-crm__loading">Загружаем карточки…</p> : null}

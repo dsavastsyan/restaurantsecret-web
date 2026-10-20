@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
-import { PARTNER_ADMIN_ENABLED } from './adminFeatures'
+import { ADMIN_TOP_LEVEL } from './adminNav'
 import './admin-menu.css'
 
 export default function AdminShell() {
@@ -66,14 +66,9 @@ export default function AdminShell() {
           <span><strong>RestaurantSecret</strong><small>Внутренний кабинет</small></span>
         </Link>
         <nav className="admin-menu__nav" aria-label="Разделы администратора">
-          <Link className={location.pathname.startsWith('/admin/restaurants') ? 'active' : ''} to="/admin/restaurants">Рестораны</Link>
-          <Link className={location.pathname.startsWith('/admin/kbju-leads') ? 'active' : ''} to="/admin/kbju-leads">Сбор КБЖУ</Link>
-          {PARTNER_ADMIN_ENABLED && <Link className={location.pathname.startsWith('/admin/menu-revisions') ? 'active' : ''} to="/admin/menu-revisions">Задачи меню</Link>}
-          <Link className={location.pathname.startsWith('/admin/product-matches') ? 'active' : ''} to="/admin/product-matches">Продукты</Link>
-          <Link className={location.pathname.startsWith('/admin/kbju-flags') ? 'active' : ''} to="/admin/kbju-flags">Странные КБЖУ</Link>
-          <Link className={location.pathname.startsWith('/admin/restaurant-reviews') ? 'active' : ''} to="/admin/restaurant-reviews">Ревью ресторанов</Link>
-          <Link className={location.pathname.startsWith('/admin/google-place-reviews') ? 'active' : ''} to="/admin/google-place-reviews">Точки Google</Link>
-          <Link className={location.pathname.startsWith('/admin/google-costs') ? 'active' : ''} to="/admin/google-costs">Расходы Google</Link>
+          {ADMIN_TOP_LEVEL.map(({ key, label, to }) => (
+            <Link key={key} className={location.pathname.startsWith(to) ? 'active' : ''} to={to}>{label}</Link>
+          ))}
         </nav>
         <button type="button" onClick={logout}>Выйти</button>
       </header>

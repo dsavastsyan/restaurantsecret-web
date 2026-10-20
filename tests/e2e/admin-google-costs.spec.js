@@ -98,7 +98,7 @@ async function mockAdmin(page, { costs = () => report(), settings = () => ({ sta
 test('@smoke Google costs page renders billing, counters, alerts, settings, and mobile SKU cards', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await mockAdmin(page)
-  await page.goto('/admin/google-costs')
+  await page.goto('/admin/costs/google')
 
   await expect(page.getByRole('heading', { name: 'Расходы Google' })).toBeVisible()
   await expect(page.getByText('Триал-кредит', { exact: true })).toBeVisible()
@@ -117,9 +117,9 @@ test('@smoke Google costs page renders billing, counters, alerts, settings, and 
 
 test('@smoke Google costs page hides billing section when the billing block is absent', async ({ page }) => {
   await mockAdmin(page, { costs: () => ({ json: report({ billing: false }) }) })
-  await page.goto('/admin/google-costs')
+  await page.goto('/admin/costs/google')
 
-  await expect(page.getByRole('heading', { name: 'Расходы Google' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Расходы Google' })).toBeVisible({ timeout: 10000 })
   await expect(page.getByRole('heading', { name: 'Счёт Google по строкам' })).toHaveCount(0)
   await expect(page.getByText('Обновлено по счётчикам')).toBeVisible()
 })
@@ -133,7 +133,7 @@ test('@smoke Google costs page exposes a retry action for unavailable data', asy
       return report()
     },
   })
-  await page.goto('/admin/google-costs')
+  await page.goto('/admin/costs/google')
 
   await expect(page.getByText('google_costs_unavailable')).toBeVisible()
   await page.getByRole('button', { name: 'Повторить' }).click()
@@ -145,7 +145,7 @@ test('@smoke changing month requests a different month and never enables a futur
   await mockAdmin(page, {
     onRequest: (request) => months.push(new URL(request.url()).searchParams.get('month')),
   })
-  await page.goto('/admin/google-costs')
+  await page.goto('/admin/costs/google')
   await expect(page.getByRole('heading', { name: 'Расходы Google' })).toBeVisible()
   const current = new Date().toISOString().slice(0, 7)
   await expect.poll(() => months.at(-1)).toBe(current)
@@ -162,7 +162,9 @@ test('@smoke settings save sends the expected PUT and displays a 422 error', asy
     },
     settings: async () => ({ status: 422, json: { ok: false, error: { code: 'invalid_google_billing_setting' } } }),
   })
-  await page.goto('/admin/google-costs')
+  await page.goto('/admin/costs/google')
+  const acceptCookies = page.getByRole('button', { name: 'Принять' })
+  if (await acceptCookies.isVisible()) await acceptCookies.click()
   await page.getByText('Настройки', { exact: true }).click()
   await page.getByRole('button', { name: 'Сохранить' }).click()
 

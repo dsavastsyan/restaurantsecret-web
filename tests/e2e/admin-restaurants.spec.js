@@ -211,8 +211,8 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
     return route.fulfill({ json: { ok: true } })
   })
 
-  await page.goto('/admin/restaurants')
-  await expect(page.getByRole('tab', { name: 'Ручные меню' })).toHaveAttribute('aria-selected', 'true')
+  await page.goto('/admin/restaurants/freshness/manual')
+  await expect(page.getByRole('link', { name: 'Ручное обновление' })).toHaveClass(/active/)
   const table = page.getByRole('table')
   const rowNames = () => table.getByRole('row').locator('td:first-child strong').allTextContents()
   await page.getByRole('button', { name: 'Последняя проверка' }).click()
@@ -226,7 +226,7 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
   await row.getByLabel('Источник меню Loulou').selectOption('instagram_highlight')
   await row.getByLabel('Ссылка на меню Loulou').fill('https://instagram.com/loulou/')
   await row.getByRole('button', { name: 'Сохранить' }).click()
-  await expect(row.getByText('Актуально')).toBeVisible()
+  await expect(row.getByText('Актуально', { exact: true })).toBeVisible()
   expect(requests.filter(({ path, method }) => path === '/api/admin/manual-menu-freshness' && method === 'GET')).toHaveLength(1)
   await row.getByRole('button', { name: 'Подтвердить актуальность' }).click()
   await expect(row.getByText('11 сент.')).toBeVisible()
@@ -238,6 +238,9 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
       && body?.source_type === 'instagram_highlight'
       && body?.source_url === 'https://instagram.com/loulou/'
   ))).toBeTruthy()
+
+  await page.goto('/admin/restaurants')
+  await expect(page).toHaveURL(/\/admin\/restaurants\/freshness\/manual$/)
 })
 
 test('administrator sees parser status, source and error without leaving the restaurant dashboard', async ({ page }) => {
@@ -262,23 +265,22 @@ test('administrator sees parser status, source and error without leaving the res
     return route.fulfill({ json: { ok: true } })
   })
 
-  await page.goto('/admin/restaurants')
-  await page.getByRole('tab', { name: 'Автоматическое обновление' }).click()
-  await expect(page.getByRole('tab', { name: 'Все рестораны' })).toHaveCount(0)
-  await expect(page.getByRole('link', { name: 'Задачи меню' })).toHaveCount(0)
-  await expect(page.getByRole('link', { name: 'Ревью ресторанов' })).toBeVisible()
+  await page.goto('/admin/restaurants/freshness/auto')
+  await expect(page.getByRole('link', { name: 'Рестораны' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Продукты' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Расходы' })).toBeVisible()
   const row = page.getByRole('row').filter({ hasText: 'Sage' })
   await expect(row).not.toContainText('parser-internal-sage')
   await expect(row).toContainText('Москва')
   await expect(row.getByText('Ошибка', { exact: true })).toBeVisible()
   await expect(row.getByRole('link', { name: 'Открыть' })).toHaveAttribute('href', 'https://sage.example/menu')
-  await expect(row.getByRole('link', { name: /09\.09\.2026/ })).toHaveAttribute('href', '/restaurants/sage/menu')
+  await expect(row.getByRole('link', { name: /9 сент\./ })).toHaveAttribute('href', '/restaurants/sage/menu')
   await row.getByText('Что случилось').click()
   await expect(row.getByText('Не найден список блюд')).toBeVisible()
   await expect(row.getByText('ValueError: menu is empty')).toBeVisible()
 
   await page.goto('/admin/menu-revisions')
-  await expect(page).toHaveURL(/\/admin\/restaurants$/)
+  await expect(page).toHaveURL(/\/admin\/restaurants\/freshness\/manual$/)
 })
 
 test('administrator reviews menu health in production and pending promotion tabs', async ({ page }) => {
@@ -312,25 +314,24 @@ test('administrator reviews menu health in production and pending promotion tabs
     return route.fulfill({ json: { ok: true } })
   })
 
-  await page.goto('/admin/restaurants')
-  await expect(page.getByRole('tab', { name: 'Ручные меню' })).toHaveAttribute('aria-selected', 'true')
+  await page.goto('/admin/restaurants/freshness/manual')
+  await expect(page.getByRole('link', { name: 'Ручное обновление' })).toHaveClass(/active/)
   await expect(page.getByText('Предупреждения', { exact: true })).toBeVisible()
   await expect(page.getByText('Нужно ваше решение', { exact: true })).toBeVisible()
   const loulouHealthLink = page.getByRole('link', { name: 'Подробнее о хелс-чеке Loulou' })
-  await expect(loulouHealthLink).toHaveAttribute('href', '/admin/restaurants/health/rest-loulou')
-  expect(requests.filter((path) => path === '/api/admin/menu-health').length).toBe(2)
+  await expect(loulouHealthLink).toHaveAttribute('href', '/admin/restaurants/publication/health/rest-loulou')
+  expect(requests.filter((path) => path === '/api/admin/menu-health').length).toBe(1)
 
   await loulouHealthLink.click()
   await expect(page.getByRole('heading', { name: 'Причины и предупреждения' })).toBeVisible()
   await expect(page.getByText('Потеря названий блюд')).toBeVisible()
 
-  await page.goto('/admin/restaurants')
-  await page.getByRole('tab', { name: /Ждут промоушена/ }).click()
-  await expect(page.getByRole('tab', { name: 'Ждут промоушена (4)' })).toBeVisible()
+  await page.goto('/admin/restaurants/publication')
+  await expect(page.getByRole('heading', { name: 'Ждут промоушена (4)' })).toBeVisible()
   await expect(page.getByLabel('Статус хелс-чека: Всё ок')).toBeVisible()
   await expect(page.getByLabel('Статус хелс-чека: Ждёт')).toBeVisible()
   await page.getByRole('link', { name: 'Подробнее о хелс-чеке Ок ресторан' }).click()
-  await expect(page).toHaveURL(/\/admin\/restaurants\/health\/rest-ok$/)
+  await expect(page).toHaveURL(/\/admin\/restaurants\/publication\/health\/rest-ok$/)
 })
 
 test('administrator sees empty and error states for menu health', async ({ page }) => {
@@ -346,9 +347,9 @@ test('administrator sees empty and error states for menu health', async ({ page 
     return route.fulfill({ json: { ok: true } })
   })
 
-  await page.goto('/admin/restaurants')
+  await page.goto('/admin/restaurants/freshness/manual')
   await expect(page.getByRole('alert')).toContainText('Сервис хелс-чека временно недоступен')
-  await page.getByRole('tab', { name: /Ждут промоушена/ }).click()
+  await page.goto('/admin/restaurants/publication')
   await expect(page.getByText('Ресторанов по выбранным условиям нет.')).toBeVisible()
 })
 
@@ -380,7 +381,7 @@ test('administrator reviews an enrichment suggestion', async ({ page }) => {
     return route.fulfill({ json: { ok: true, restaurants: [] } })
   })
 
-  await page.goto('/admin/restaurant-reviews')
+  await page.goto('/admin/restaurants/quality/accuracy/attributes')
   await expect(page.getByRole('heading', { name: 'Ревью и правки' })).toBeVisible()
   await expect(page.getByText('Сыроварня')).toBeVisible()
   await page.getByLabel('Значение (можно поправить перед применением)').fill('44.877900, 37.310700')
