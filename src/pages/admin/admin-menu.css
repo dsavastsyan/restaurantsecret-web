@@ -342,10 +342,9 @@
 .admin-parser__table td:first-child strong, .admin-parser__table td:first-child small { display: block; }
 .admin-parser__table td a { display: inline-flex; align-items: center; gap: 4px; color: #59653f; font-weight: 800; text-decoration: none; }
 .admin-parser__status { display: inline-flex; padding: 6px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
-.admin-parser__status--success { color: #28603b; background: #daf0df; }
-.admin-parser__status--no_change { color: #315f78; background: #e0eff6; }
+.admin-parser__status--current { color: #28603b; background: #daf0df; }
 .admin-parser__status--error { color: #8d312b; background: #fce5e1; }
-.admin-parser__status--never { color: #76571c; background: #fff0c9; }
+.admin-parser__status--waiting { color: #76571c; background: #fff0c9; }
 .admin-parser__status--disabled { color: #62635e; background: #ecece8; }
 .admin-parser__error { width: min(440px, 42vw); margin-top: 8px; }
 .admin-parser__error summary { color: #8d312b; cursor: pointer; font-size: 12px; font-weight: 800; }

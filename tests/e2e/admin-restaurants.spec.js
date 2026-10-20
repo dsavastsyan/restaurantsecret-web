@@ -243,6 +243,42 @@ test('administrator configures and confirms a manual menu', async ({ page }) => 
   await expect(page).toHaveURL(/\/admin\/restaurants\/freshness\/manual$/)
 })
 
+test('parser freshness shows waiting parsers first with days without an update', async ({ page }) => {
+  const parser = (name, freshness, run) => ({
+    parser_id: name.toLowerCase(), enabled: freshness.status !== 'disabled', restaurant_name: name, cities: ['Москва'],
+    freshness, run,
+  })
+  await page.route('**/api/admin/**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/api/admin/auth/me') return route.fulfill({ json: { ok: true, role: 'admin', csrf_token: 'csrf' } })
+    if (path === '/api/admin/restaurants') return route.fulfill({ json: { ok: true, restaurants: [], filters: { cities: [], menu_statuses: [], partnerships: [] } } })
+    if (path === '/api/admin/parser-runs') return route.fulfill({ json: {
+      ok: true,
+      parsers: [
+        parser('Fresh', { status: 'current', days_since_run: 0, days_since_success: 0 }, { status: 'success', finished_at: '2026-10-20T03:00:00Z' }),
+        parser('Stuck', { status: 'waiting', days_since_run: 7, days_since_success: 7 }, { status: 'success', finished_at: '2026-10-13T03:00:00Z' }),
+        parser('Newbie', { status: 'waiting', days_since_run: null, days_since_success: null }, null),
+      ],
+    } })
+    return route.fulfill({ json: { ok: true } })
+  })
+
+  await page.goto('/admin/restaurants/freshness/auto')
+  const rows = page.locator('.admin-parser__table tbody tr')
+  await expect(rows).toHaveCount(3)
+  await expect(rows.nth(0)).toContainText('Newbie')
+  await expect(rows.nth(0)).toContainText('Ни разу')
+  await expect(rows.nth(1)).toContainText('Stuck')
+  await expect(rows.nth(1).getByText('Ждёт прогона', { exact: true })).toBeVisible()
+  await expect(rows.nth(1)).toContainText('7 дн.')
+  await expect(rows.nth(2).getByText('Актуально', { exact: true })).toBeVisible()
+  await expect(rows.nth(2)).toContainText('Сегодня')
+
+  await page.getByLabel('Статус парсера').selectOption('current')
+  await expect(rows).toHaveCount(1)
+  await expect(rows.nth(0)).toContainText('Fresh')
+})
+
 test('administrator sees parser status, source and error without leaving the restaurant dashboard', async ({ page }) => {
   await page.route('**/api/admin/**', async (route) => {
     const path = new URL(route.request().url()).pathname
