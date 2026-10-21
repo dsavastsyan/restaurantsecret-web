@@ -7,6 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import L from 'leaflet'
 import 'leaflet.markercluster'
 import { API_BASE } from '@/config/api'
+import { api } from '@/api/client'
 import { useAuth } from '@/store/auth'
 import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants'
 import MetroFilter from './MetroFilter'
@@ -442,18 +443,11 @@ export default function RestaurantMap({
     async function fetchRestaurants() {
       setLoading(true)
       try {
-        const params = new URLSearchParams()
-        params.set('city', selectedCity)
-        if (filters.cuisines && filters.cuisines.length > 0) {
-          getCatalogCuisineFilterValues(filters.cuisines)
-            .forEach((cuisine) => params.append('cuisine', cuisine))
-        }
-
-        const res = await fetch(`${API_BASE}/restaurants/map?${params.toString()}`)
-        if (res.ok) {
-          const data = await res.json()
-          setRestaurants(data.items || [])
-        }
+        const data = await api.restaurantMap({
+          city: selectedCity,
+          cuisine: filters.cuisines?.length ? getCatalogCuisineFilterValues(filters.cuisines) : undefined,
+        })
+        setRestaurants(data.items)
       } catch (err) {
         console.error('Failed to load map data', err)
       } finally {
