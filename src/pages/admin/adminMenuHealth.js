@@ -20,6 +20,7 @@ export const HEALTH_REASON_LABELS = {
 
 export const HEALTH_WARNING_LABELS = {
   no_cuisine: 'Не указана кухня',
+  no_instagram: 'Нет Instagram',
   dish_name_loss_minor: 'Часть названий блюд отличается',
 }
 

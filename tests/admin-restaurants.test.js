@@ -49,10 +49,10 @@ test('completeness lists missing sources, dishes without KBJU and health gaps on
   const issues = completenessIssues({
     manual: manual({ source_type: null, source_url: null, notes: 'Хайлайтов нет, сайт без КБЖУ' }),
     menuSource: null,
-    health: { reasons: ['few_dishes', 'wait_location'], warnings: ['no_cuisine'] },
+    health: { reasons: ['few_dishes', 'wait_location'], warnings: ['no_cuisine', 'no_instagram'] },
     isParser: false,
   })
-  assert.deepEqual(issues.map(({ code }) => code), ['kbju_source_missing', 'menu_source_missing', 'few_dishes', 'no_location', 'no_cuisine'])
+  assert.deepEqual(issues.map(({ code }) => code), ['kbju_source_missing', 'menu_source_missing', 'few_dishes', 'no_location', 'no_cuisine', 'no_instagram'])
   assert.equal(issues[0].note, 'Хайлайтов нет, сайт без КБЖУ')
 
   const withSource = completenessIssues({ manual: manual(), menuSource: { catalog_missing_count: 3 }, health: null, isParser: false })

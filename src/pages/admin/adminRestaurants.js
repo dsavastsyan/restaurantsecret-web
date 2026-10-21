@@ -42,6 +42,7 @@ export const COMPLETENESS = {
   few_dishes: 'Мало блюд',
   no_location: 'Нет активной точки',
   no_cuisine: 'Не указана кухня',
+  no_instagram: 'Нет Instagram',
 }
 
 export function toTime(value) {
@@ -104,6 +105,7 @@ export function completenessIssues({ manual, menuSource, health, isParser }) {
   if (codes.has('few_dishes')) issues.push({ code: 'few_dishes', label: COMPLETENESS.few_dishes })
   if (codes.has('wait_location')) issues.push({ code: 'no_location', label: COMPLETENESS.no_location })
   if (codes.has('no_cuisine')) issues.push({ code: 'no_cuisine', label: COMPLETENESS.no_cuisine })
+  if (codes.has('no_instagram')) issues.push({ code: 'no_instagram', label: COMPLETENESS.no_instagram })
   return issues
 }
 
