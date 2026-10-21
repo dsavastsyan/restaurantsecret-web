@@ -21,6 +21,7 @@ test('health status dictionary covers all API statuses', () => {
 test('health reason codes are translated into user-facing Russian', () => {
   assert.equal(healthReasonLabel('dish_drop'), 'Резкое падение числа блюд')
   assert.equal(healthReasonLabel('no_cuisine', 'warning'), 'Не указана кухня')
+  assert.equal(healthReasonLabel('kbju_assumption', 'warning'), 'КБЖУ с допущением')
   assert.equal(healthReasonLabel('unknown_reason'), 'Дополнительная проверка данных')
 })
 
