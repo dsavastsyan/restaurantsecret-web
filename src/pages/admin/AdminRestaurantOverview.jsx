@@ -8,6 +8,8 @@ import {
   DM_STATE_LABELS,
   FRESHNESS,
   KBJU_SOURCE_LABELS,
+  catalogAuditInfo,
+  catalogAuditPath,
   matchesQuery,
   restaurantPath,
   toTime,
@@ -251,6 +253,7 @@ function checkEvents(record, healthHistory) {
   add(record.manual?.last_checked_at, 'КБЖУ проверено')
   add(record.menu_source?.last_checked_at, 'Проверен источник меню')
   add(record.menu_source?.last_changed_at, 'Меню на сайте изменилось')
+  add(record.catalog_audit?.audited_at, `Сверка меню с каталогом: ${catalogAuditInfo(record.catalog_audit?.result).label}`, record.catalog_audit?.summary)
   add(record.manual?.dm_last_sent_at, 'Отправлен запрос в директ')
   add(record.lead?.last_reply_at, 'Ресторан ответил')
   for (const parser of record.parsers) {
@@ -258,6 +261,30 @@ function checkEvents(record, healthHistory) {
   }
   for (const item of healthHistory) add(item.checked_at, `Хелс-чек: ${healthStatusInfo(item.status).label}`, item.summary)
   return events.sort((left, right) => (toTime(right.at) || 0) - (toTime(left.at) || 0))
+}
+
+function auditCounts(audit) {
+  const parts = []
+  if (audit.new_count) parts.push(`новых на сайте ${audit.new_count}`)
+  if (audit.missing_count) parts.push(`нет на сайте ${audit.missing_count}`)
+  return parts.join(' · ')
+}
+
+function CatalogAuditBlock({ record }) {
+  const audit = record.catalog_audit
+  if (!audit) {
+    return <div className="admin-health-report__note"><strong>Сверка меню с каталогом</strong><p>Это меню ещё не сверяли</p></div>
+  }
+  const info = catalogAuditInfo(audit.result)
+  const counts = auditCounts(audit)
+  return (
+    <div className="admin-health-report__note">
+      <strong>Сверка меню с каталогом</strong>
+      <p><span className={`admin-health__status admin-health__status--${info.className}`}>{info.label}</span> · {formatHealthDate(audit.audited_at)}{counts ? ` · ${counts}` : ''}</p>
+      <p>{audit.summary}</p>
+      <p><Link to={catalogAuditPath(record.slug, audit.id)}>Отчёт сверки</Link></p>
+    </div>
+  )
 }
 
 function HealthCard({ record, history }) {
@@ -274,6 +301,7 @@ function HealthCard({ record, history }) {
           <p><Link to={`/admin/restaurants/publication/health/${encodeURIComponent(health.publicId)}`}>Полный отчёт</Link></p>
         </>
       ) : <p className="admin-health-report__empty">Хелс-чек это меню ещё не проверял</p>}
+      {record.kind === 'manual' && <CatalogAuditBlock record={record} />}
       {history.error && <p className="admin-health__inline-error">{history.error}</p>}
     </section>
   )

@@ -44,6 +44,7 @@ const AdminRestaurantOverview = lazy(() => import('../pages/admin/AdminRestauran
 const AdminRestaurantPage = lazy(() => import('../pages/admin/AdminRestaurantOverview.jsx').then((module) => ({ default: module.AdminRestaurantPage })))
 const AdminRestaurantCompleteness = lazy(() => import('../pages/admin/AdminRestaurantCompleteness.jsx'))
 const AdminMenuHealthReport = lazy(() => import('../pages/admin/AdminMenuHealthReport.jsx'))
+const AdminMenuCatalogAuditReport = lazy(() => import('../pages/admin/AdminMenuCatalogAuditReport.jsx'))
 const AdminKbjuLeads = lazy(() => import('../pages/admin/AdminKbjuLeads.jsx'))
 const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.jsx'))
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
@@ -165,6 +166,7 @@ function AppRoutes({ onReady }) {
             <Route path="all">
               <Route index element={<AdminRestaurantOverview />} />
               <Route path=":slug" element={<AdminRestaurantPage />} />
+              <Route path=":slug/catalog-audit/:auditId" element={<AdminMenuCatalogAuditReport />} />
             </Route>
             <Route path="collection" element={<AdminKbjuLeads />} />
             <Route path="freshness">

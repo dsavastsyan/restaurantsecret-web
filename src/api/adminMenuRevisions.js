@@ -98,6 +98,8 @@ export const adminMenuRevisionsApi = {
     }),
   menuSources: () => request('/api/admin/menu-sources'),
   menuSource: (slug) => request(`/api/admin/menu-sources/${encodeURIComponent(slug)}`),
+  menuCatalogAudits: () => request('/api/admin/menu-catalog-audits'),
+  menuCatalogAudit: (id) => request(`/api/admin/menu-catalog-audits/${encodeURIComponent(id)}`),
   confirmManualMenu: (slug) =>
     request(`/api/admin/manual-menu-freshness/${encodeURIComponent(slug)}/confirm`, {
       method: 'POST',

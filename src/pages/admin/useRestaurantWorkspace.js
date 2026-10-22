@@ -22,6 +22,7 @@ const SOURCES = {
   restaurants: { label: 'список меню', load: () => adminMenuRevisionsApi.restaurants().then((data) => data.restaurants || []) },
   manualMenus: { label: 'ручные меню', load: () => adminMenuRevisionsApi.manualMenus().then((data) => data.restaurants || []) },
   menuSources: { label: 'источники меню', load: () => adminMenuRevisionsApi.menuSources().then((data) => data.sources || []) },
+  catalogAudits: { label: 'сверка меню с каталогом', load: () => adminMenuRevisionsApi.menuCatalogAudits().then((data) => data.audits || []) },
   parsers: { label: 'парсеры', load: () => adminMenuRevisionsApi.parserRuns().then((data) => data.parsers || []) },
   healthRecords: { label: 'хелс-чек', load: () => allHealthRecords('production') },
   leads: { label: 'лиды', load: () => adminMenuRevisionsApi.kbjuLeads().then((data) => data.leads || []) },
