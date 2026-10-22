@@ -50,6 +50,10 @@ const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.js
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
 const AdminProductMatches = lazy(() => import('../pages/admin/ProductMatchReview.jsx'))
 const AdminKbjuFlags = lazy(() => import('../pages/admin/KbjuFlagReview.jsx'))
+const AdminProductRetailers = lazy(() => import('../pages/admin/AdminProductSources.jsx').then((module) => ({ default: module.AdminProductRetailers })))
+const AdminBarcodeSources = lazy(() => import('../pages/admin/AdminProductSources.jsx').then((module) => ({ default: module.AdminBarcodeSources })))
+const AdminBarcodeCandidates = lazy(() => import('../pages/admin/BarcodeCandidateReview.jsx'))
+const AdminProductCompleteness = lazy(() => import('../pages/admin/AdminProductCompleteness.jsx'))
 const AdminRestaurantAttributeReviews = lazy(() => import('../pages/admin/AdminRestaurantAttributeReviews.jsx'))
 const AdminGooglePlaceReviews = lazy(() => import('../pages/admin/AdminGooglePlaceReviews.jsx'))
 const AdminGoogleCosts = lazy(() => import('../pages/admin/AdminGoogleCosts.jsx'))
@@ -189,19 +193,26 @@ function AppRoutes({ onReady }) {
           </Route>
 
           <Route path="products" element={<AdminSectionLayout section="products" />}>
-            <Route index element={<Navigate to="/admin/products/freshness/duplicates" replace />} />
+            <Route index element={<Navigate to="/admin/products/collection/retailers" replace />} />
+            <Route path="collection">
+              <Route index element={<Navigate to="/admin/products/collection/retailers" replace />} />
+              <Route path="retailers" element={<AdminProductRetailers />} />
+              <Route path="barcodes" element={<AdminBarcodeSources />} />
+            </Route>
             <Route path="freshness">
               <Route index element={<Navigate to="/admin/products/freshness/duplicates" replace />} />
               <Route path="duplicates" element={<AdminProductMatches />} />
+              <Route path="barcodes" element={<AdminBarcodeCandidates />} />
             </Route>
             <Route path="quality">
-              <Route index element={<Navigate to="/admin/products/quality/accuracy/kbju" replace />} />
+              <Route index element={<Navigate to="/admin/products/quality/completeness" replace />} />
+              <Route path="completeness" element={<AdminProductCompleteness />} />
               <Route path="accuracy">
                 <Route index element={<Navigate to="/admin/products/quality/accuracy/kbju" replace />} />
                 <Route path="kbju" element={<AdminKbjuFlags kind="products" />} />
               </Route>
             </Route>
-            <Route path="*" element={<Navigate to="/admin/products/freshness/duplicates" replace />} />
+            <Route path="*" element={<Navigate to="/admin/products/collection/retailers" replace />} />
           </Route>
 
           <Route path="costs" element={<AdminSectionLayout section="costs" />}>

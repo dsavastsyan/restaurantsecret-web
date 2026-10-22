@@ -18,6 +18,7 @@ import {
   MANUAL_FRESHNESS_FILTERS,
   manualFreshness,
   orderWithLeadGroups,
+  parserSourceLabel,
   restaurantPath,
   toTime,
 } from './adminRestaurants'
@@ -140,10 +141,19 @@ const PARSER_STATUS = {
   error: 'Ошибка',
   waiting: 'Ждёт прогона',
   current: 'Актуально',
+  agent_crawl: 'При промоушене',
   disabled: 'Отключён',
 }
 
-const PARSER_STATUS_PRIORITY = { error: 0, waiting: 1, current: 2, disabled: 3 }
+// Agent crawls have no overdue state, so they sit with current parsers.
+const PARSER_STATUS_PRIORITY = { error: 0, waiting: 1, current: 2, agent_crawl: 2, disabled: 3 }
+
+// Days without an update order parsers that wait for the batch; agent crawls are
+// refreshed by the promotion and are not pushed up by their age.
+function parserStaleness(parser) {
+  if (parserFreshnessStatus(parser) === 'agent_crawl') return -Infinity
+  return parser.freshness?.days_since_success ?? Infinity
+}
 
 // The API computes freshness; the fallback keeps the page usable against an older backend
 function parserFreshnessStatus(parser) {
@@ -456,7 +466,7 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
       return `${parser.restaurant_name} ${parser.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
     })
     .sort((left, right) => PARSER_STATUS_PRIORITY[parserFreshnessStatus(left)] - PARSER_STATUS_PRIORITY[parserFreshnessStatus(right)]
-      || (right.freshness?.days_since_success ?? Infinity) - (left.freshness?.days_since_success ?? Infinity)
+      || (parserStaleness(right) - parserStaleness(left) || 0)
       || left.restaurant_name.localeCompare(right.restaurant_name, 'ru')), [items, query, status])
 
   if (loading) return <p className="admin-crm__loading">Загружаем статусы парсеров…</p>
@@ -481,6 +491,12 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
                 <HealthCell restaurant={{ ...parser, name: parser.restaurant_name }} healthIndex={healthIndex} loading={healthLoading} error={healthError} />
                 <td>
                   <span className={`admin-parser__status admin-parser__status--${parserStatus}`}>{PARSER_STATUS[parserStatus]}</span>
+                  {parserSourceLabel(parser) && (
+                    <span className="admin-parser__kind">
+                      {parserSourceLabel(parser)}
+                      <small>последний обход {formatDate(parser.last_crawl_at)}</small>
+                    </span>
+                  )}
                   {parserStatus === 'error' && parser.run && (
                     <details className="admin-parser__error"><summary>Что случилось</summary>
                       <strong>{parser.run.error_message || `Парсер завершился с кодом ${parser.run.exit_code}`}</strong>

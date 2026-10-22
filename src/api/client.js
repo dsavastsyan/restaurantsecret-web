@@ -2,6 +2,7 @@
 // and provides typed errors for UI handling.
 import { API_BASE, IS_PREVIEW } from '@/config/api';
 import { solveCaptcha } from '@/lib/captchaChallenge';
+import { expandRestaurantMapPayload } from '@/lib/restaurantMapPayload';
 
 const BASE = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
 const URL_BASE = new URL(BASE, globalThis.location?.origin ?? 'http://localhost');
@@ -125,7 +126,9 @@ export const api = {
   metro: () => get('metro'),
   geocode: (query, city) => get('geocode', { query, city }),
   restaurants: (opts) => get('restaurants', opts),
-  restaurantMap: (opts) => get('restaurants/map', opts),
+  restaurantMap: async (opts) => expandRestaurantMapPayload(
+    await get('restaurants/map', { format: 'compact', ...opts }),
+  ),
   restaurant: (slug, city = 'Москва') => get(`restaurants/${encodeURIComponent(slug)}`, { city }),
   menu: (slug, city = 'Москва') => get(`restaurants/${encodeURIComponent(slug)}/menu`, { city }),
   search: (query, opts) => get('search', { query, ...opts }),

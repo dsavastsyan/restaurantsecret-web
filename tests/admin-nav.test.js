@@ -19,9 +19,16 @@ test('admin navigation contains only populated sections', () => {
   const quality = ADMIN_NAV.restaurants.sections.find(({ key }) => key === 'quality')
   assert.deepEqual(quality.children.map(({ label }) => label), ['Полнота', 'Точность'])
   assert.deepEqual(ADMIN_NAV.products.sections.map(({ label, to }) => ({ label, to })), [
+    { label: 'Сбор', to: '/admin/products/collection/retailers' },
     { label: 'Актуальность', to: '/admin/products/freshness/duplicates' },
-    { label: 'Качество данных', to: '/admin/products/quality/accuracy/kbju' },
+    { label: 'Качество данных', to: '/admin/products/quality/completeness' },
   ])
+  const productChildren = Object.fromEntries(ADMIN_NAV.products.sections.map(({ key, children }) => [key, children.map(({ label }) => label)]))
+  assert.deepEqual(productChildren, {
+    collection: ['Базы ритейлеров', 'Штрихкоды'],
+    freshness: ['Сведение дубликатов', 'Сведение со штрихкодом'],
+    quality: ['Полнота', 'Точность'],
+  })
   assert.deepEqual(ADMIN_NAV.costs.sections.map(({ label, to }) => ({ label, to })), [
     { label: 'Расходы Google', to: '/admin/costs/google' },
   ])

@@ -57,6 +57,7 @@ export const COMPLETENESS = {
   few_dishes: 'Мало блюд',
   no_location: 'Нет активной точки',
   no_cuisine: 'Не указана кухня',
+  no_instagram: 'Нет Instagram',
 }
 
 export function toTime(value) {
@@ -91,12 +92,19 @@ export function manualFreshness(manual, menuSource) {
   return 'current'
 }
 
-const PARSER_FRESHNESS = { error: 'parser_error', waiting: 'parser_waiting', disabled: 'parser_disabled', current: 'current' }
+// An agent crawl has no waiting threshold: it is refreshed at every promotion.
+const PARSER_FRESHNESS = { error: 'parser_error', waiting: 'parser_waiting', disabled: 'parser_disabled', current: 'current', agent_crawl: 'current' }
 
 export function parserFreshness(parsers) {
   if (!parsers?.length) return 'unknown'
   const codes = parsers.map((parser) => PARSER_FRESHNESS[parser.freshness?.status] || 'parser_waiting')
   return codes.sort((left, right) => FRESHNESS[left].priority - FRESHNESS[right].priority)[0]
+}
+
+// An agent crawl (RestaurantSecret parsers/agent_crawl_sources.json) is collected by
+// the agent in a browser as a step of every promotion instead of the daily parser batch.
+export function parserSourceLabel(parser) {
+  return parser?.kind === 'agent_crawl' ? 'агентский обход · обновляется при промоушене' : null
 }
 
 function healthCodes(health) {
@@ -119,6 +127,7 @@ export function completenessIssues({ manual, menuSource, health, isParser }) {
   if (codes.has('few_dishes')) issues.push({ code: 'few_dishes', label: COMPLETENESS.few_dishes })
   if (codes.has('wait_location')) issues.push({ code: 'no_location', label: COMPLETENESS.no_location })
   if (codes.has('no_cuisine')) issues.push({ code: 'no_cuisine', label: COMPLETENESS.no_cuisine })
+  if (codes.has('no_instagram')) issues.push({ code: 'no_instagram', label: COMPLETENESS.no_instagram })
   return issues
 }
 
