@@ -77,6 +77,7 @@ export default function AdminMenuHealthReport() {
   const nameLoss = detailValue(details, 'name_loss') || {}
   const nutrition = detailValue(details, 'zero_nutrition', 'nutrition', 'nutrition_zero') || {}
   const nameLossExamples = listValue(nameLoss.examples)
+  const sourceNotes = listValue(details.source_notes).filter((note) => note?.text)
   const actions = listValue(record.actions)
   const automaticActions = actions.filter((action) => ['ok', 'success', 'fixed', 'done'].includes(String(action.result || '').toLowerCase()))
   const waitingActions = actions.filter((action) => !automaticActions.includes(action))
@@ -111,6 +112,7 @@ export default function AdminMenuHealthReport() {
             <Metric value={nutritionCount === null ? (reasons.includes('zero_nutrition') ? 'Есть' : '—') : `${nutritionCount}${nutritionTotal === null ? '' : ` / ${nutritionTotal}`}`} label="нулевое КБЖУ" />
           </div>
           {nameLossExamples.length > 0 && <div className="admin-health-report__note"><strong>Примеры потерянных названий</strong><p>{nameLossExamples.join(', ')}</p></div>}
+          {sourceNotes.map((note, index) => <div className="admin-health-report__note" key={`${note.code}-${index}`}><strong>{healthReasonLabel(note.code, 'warning')}{note.since ? ` · с ${formatHealthDate(note.since)}` : ''}</strong><p>{note.text}</p></div>)}
           {record.summary && <p className="admin-health-report__summary">{record.summary}</p>}
         </section>
 
