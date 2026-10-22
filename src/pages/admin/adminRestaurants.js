@@ -76,7 +76,8 @@ export function manualFreshness(manual, menuSource) {
   return 'current'
 }
 
-const PARSER_FRESHNESS = { error: 'parser_error', waiting: 'parser_waiting', disabled: 'parser_disabled', current: 'current' }
+// An agent crawl has no waiting threshold: it is refreshed at every promotion.
+const PARSER_FRESHNESS = { error: 'parser_error', waiting: 'parser_waiting', disabled: 'parser_disabled', current: 'current', agent_crawl: 'current' }
 
 export function parserFreshness(parsers) {
   if (!parsers?.length) return 'unknown'
@@ -85,10 +86,9 @@ export function parserFreshness(parsers) {
 }
 
 // An agent crawl (RestaurantSecret parsers/agent_crawl_sources.json) is collected by
-// the agent in a browser every interval_days instead of the daily parser batch.
+// the agent in a browser as a step of every promotion instead of the daily parser batch.
 export function parserSourceLabel(parser) {
-  if (parser?.kind !== 'agent_crawl') return null
-  return parser.interval_days ? `агентский обход · раз в ${parser.interval_days} дн.` : 'агентский обход'
+  return parser?.kind === 'agent_crawl' ? 'агентский обход · обновляется при промоушене' : null
 }
 
 function healthCodes(health) {
