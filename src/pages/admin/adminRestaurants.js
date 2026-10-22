@@ -84,6 +84,13 @@ export function parserFreshness(parsers) {
   return codes.sort((left, right) => FRESHNESS[left].priority - FRESHNESS[right].priority)[0]
 }
 
+// An agent crawl (RestaurantSecret parsers/agent_crawl_sources.json) is collected by
+// the agent in a browser every interval_days instead of the daily parser batch.
+export function parserSourceLabel(parser) {
+  if (parser?.kind !== 'agent_crawl') return null
+  return parser.interval_days ? `агентский обход · раз в ${parser.interval_days} дн.` : 'агентский обход'
+}
+
 function healthCodes(health) {
   return new Set([...(health?.reasons || []), ...(health?.warnings || [])])
 }

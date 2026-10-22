@@ -7,6 +7,7 @@ import {
   menuChangedSinceCheck,
   orderWithLeadGroups,
   parserFreshness,
+  parserSourceLabel,
   pluralDishes,
   restaurantPath,
 } from '../src/pages/admin/adminRestaurants.js'
@@ -104,4 +105,11 @@ test('branch menus of one lead stay next to each other at the position of the mo
 
 test('restaurant page path is under the «Все рестораны» tab', () => {
   assert.equal(restaurantPath('кафе пушкин'), '/admin/restaurants/all/%D0%BA%D0%B0%D1%84%D0%B5%20%D0%BF%D1%83%D1%88%D0%BA%D0%B8%D0%BD')
+})
+
+test('agent crawl sources are labelled with their interval, parsers are not', () => {
+  assert.equal(parserSourceLabel({ kind: 'agent_crawl', interval_days: 14 }), 'агентский обход · раз в 14 дн.')
+  assert.equal(parserSourceLabel({ kind: 'agent_crawl' }), 'агентский обход')
+  assert.equal(parserSourceLabel({ kind: 'parser', interval_days: null }), null)
+  assert.equal(parserSourceLabel({}), null)
 })

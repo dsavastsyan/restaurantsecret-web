@@ -18,6 +18,7 @@ import {
   MANUAL_FRESHNESS_FILTERS,
   manualFreshness,
   orderWithLeadGroups,
+  parserSourceLabel,
   restaurantPath,
   toTime,
 } from './adminRestaurants'
@@ -481,6 +482,7 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
                 <HealthCell restaurant={{ ...parser, name: parser.restaurant_name }} healthIndex={healthIndex} loading={healthLoading} error={healthError} />
                 <td>
                   <span className={`admin-parser__status admin-parser__status--${parserStatus}`}>{PARSER_STATUS[parserStatus]}</span>
+                  {parserSourceLabel(parser) && <span className="admin-parser__kind">{parserSourceLabel(parser)}</span>}
                   {parserStatus === 'error' && parser.run && (
                     <details className="admin-parser__error"><summary>Что случилось</summary>
                       <strong>{parser.run.error_message || `Парсер завершился с кодом ${parser.run.exit_code}`}</strong>

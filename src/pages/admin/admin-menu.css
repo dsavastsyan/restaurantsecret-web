@@ -361,6 +361,7 @@
 .admin-parser__status--error { color: #8d312b; background: #fce5e1; }
 .admin-parser__status--waiting { color: #76571c; background: #fff0c9; }
 .admin-parser__status--disabled { color: #62635e; background: #ecece8; }
+.admin-parser__kind { display: block; width: fit-content; margin-top: 6px; padding: 3px 8px; border-radius: 999px; color: #4b4f6b; background: #e8e9f4; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .admin-parser__error { width: min(440px, 42vw); margin-top: 8px; }
 .admin-parser__error summary { color: #8d312b; cursor: pointer; font-size: 12px; font-weight: 800; }
 .admin-parser__error > strong { display: block; margin-top: 8px; color: #742a25; overflow-wrap: anywhere; }
