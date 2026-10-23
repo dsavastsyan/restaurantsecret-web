@@ -122,8 +122,6 @@ export default function ChainHub() {
         </div>
       </header>
 
-      {hub.seo?.introText ? <p className="rsm2-seo-intro chain-hub__seo-intro">{hub.seo.introText}</p> : null}
-
       <div className="chain-hub__city-select">
         <label htmlFor="chain-hub-city" className="chain-hub__city-select-label">
           <svg className="chain-hub__city-select-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -167,6 +165,13 @@ export default function ChainHub() {
           </div>
           <ChainLocationsMap locations={activeGroup.locations} />
         </div>
+      ) : null}
+
+      {hub.seo?.introText ? (
+        <details className="rsm2-seo-intro chain-hub__seo-intro">
+          <summary>О сети</summary>
+          <p>{hub.seo.introText}</p>
+        </details>
       ) : null}
     </div>
   )
