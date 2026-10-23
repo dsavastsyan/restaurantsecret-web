@@ -407,8 +407,6 @@ export default function MenuRedesignView({
         </div>
       </div>
 
-      {seoIntroText && <p className="rsm2-seo-intro">{seoIntroText}</p>}
-
       <div className="rsm2-filters">
         <div className="rsm2-filter-toolbar">
           <div className="rsm2-search">
@@ -643,6 +641,13 @@ export default function MenuRedesignView({
           )
         )}
       </div>
+
+      {seoIntroText && (
+        <details className="rsm2-seo-intro">
+          <summary>О меню</summary>
+          <p>{seoIntroText}</p>
+        </details>
+      )}
 
       {!readOnly && (
         <MenuOutdatedModal
