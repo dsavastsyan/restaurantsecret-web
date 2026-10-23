@@ -256,9 +256,31 @@ html[data-rs-menu-guide-lock] body {
 .rsm2-seo-intro {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px 36px 4px;
+  padding: 20px 36px 40px;
   color: var(--rsm2-text-3);
   font: 400 15px/1.6 Inter, system-ui, sans-serif;
+}
+
+.rsm2-seo-intro summary {
+  cursor: pointer;
+  font-weight: 500;
+  list-style: none;
+}
+
+.rsm2-seo-intro summary::-webkit-details-marker {
+  display: none;
+}
+
+.rsm2-seo-intro summary::after {
+  content: " ▾";
+}
+
+.rsm2-seo-intro[open] summary::after {
+  content: " ▴";
+}
+
+.rsm2-seo-intro p {
+  margin: 10px 0 0;
 }
 
 .rsm2-filters {
