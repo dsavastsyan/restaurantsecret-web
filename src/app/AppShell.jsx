@@ -348,7 +348,10 @@ export default function AppShell() {
       <Suspense fallback={null}><AnyEatLaunchModal /></Suspense>
       <Suspense fallback={null}>
         {!isMarketingPage && !isImmersivePage && <NavBar forceGuest={isFeedbackPage} />}
-        {!isMarketingPage && <DishCardModal />}
+        {/* The landing hero search opens dish cards too — without the modal mounted
+            there the click only flips the store and the card pops up later, over
+            whatever page the user navigates to next. */}
+        {(!isMarketingPage || isLanding) && <DishCardModal />}
         {/* DiaryFloatingButton is kept in the codebase for possible reactivation. */}
       </Suspense>
       <main className="flex-1">
