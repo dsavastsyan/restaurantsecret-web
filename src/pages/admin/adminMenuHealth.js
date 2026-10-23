@@ -16,11 +16,14 @@ export const HEALTH_REASON_LABELS = {
   wait_location: 'Ждёт активную точку ресторана',
   no_cuisine: 'Не указана кухня',
   nutrition_carried_over: 'КБЖУ перенесено без подтверждения',
+  kbju_assumption: 'КБЖУ с допущением',
 }
 
 export const HEALTH_WARNING_LABELS = {
   no_cuisine: 'Не указана кухня',
+  no_instagram: 'Нет Instagram',
   dish_name_loss_minor: 'Часть названий блюд отличается',
+  kbju_assumption: 'КБЖУ с допущением',
 }
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('ru-RU', {

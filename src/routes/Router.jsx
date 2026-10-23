@@ -35,14 +35,25 @@ const PartnersUploadPhotos = lazy(() => import('../pages/partners/UploadPhotos.j
 const PartnersMenuPreview = lazy(() => import('../pages/partners/MenuPreview.jsx'))
 const PartnersSeasonalMenu = lazy(() => import('../pages/partners/SeasonalMenuFlow.jsx'))
 const AdminShell = lazy(() => import('../pages/admin/AdminShell.jsx'))
+const AdminSectionLayout = lazy(() => import('../pages/admin/AdminSectionLayout.jsx'))
 const AdminLogin = lazy(() => import('../pages/admin/AdminLogin.jsx'))
-const AdminRestaurants = lazy(() => import('../pages/admin/AdminRestaurantList.jsx'))
+const AdminRestaurantManual = lazy(() => import('../pages/admin/AdminRestaurantList.jsx').then((module) => ({ default: module.AdminRestaurantManual })))
+const AdminRestaurantAuto = lazy(() => import('../pages/admin/AdminRestaurantList.jsx').then((module) => ({ default: module.AdminRestaurantAuto })))
+const AdminRestaurantPublication = lazy(() => import('../pages/admin/AdminRestaurantList.jsx').then((module) => ({ default: module.AdminRestaurantPublication })))
+const AdminRestaurantOverview = lazy(() => import('../pages/admin/AdminRestaurantOverview.jsx'))
+const AdminRestaurantPage = lazy(() => import('../pages/admin/AdminRestaurantOverview.jsx').then((module) => ({ default: module.AdminRestaurantPage })))
+const AdminRestaurantCompleteness = lazy(() => import('../pages/admin/AdminRestaurantCompleteness.jsx'))
 const AdminMenuHealthReport = lazy(() => import('../pages/admin/AdminMenuHealthReport.jsx'))
+const AdminMenuCatalogAuditReport = lazy(() => import('../pages/admin/AdminMenuCatalogAuditReport.jsx'))
 const AdminKbjuLeads = lazy(() => import('../pages/admin/AdminKbjuLeads.jsx'))
 const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.jsx'))
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
 const AdminProductMatches = lazy(() => import('../pages/admin/ProductMatchReview.jsx'))
 const AdminKbjuFlags = lazy(() => import('../pages/admin/KbjuFlagReview.jsx'))
+const AdminProductRetailers = lazy(() => import('../pages/admin/AdminProductSources.jsx').then((module) => ({ default: module.AdminProductRetailers })))
+const AdminBarcodeSources = lazy(() => import('../pages/admin/AdminProductSources.jsx').then((module) => ({ default: module.AdminBarcodeSources })))
+const AdminBarcodeCandidates = lazy(() => import('../pages/admin/BarcodeCandidateReview.jsx'))
+const AdminProductCompleteness = lazy(() => import('../pages/admin/AdminProductCompleteness.jsx'))
 const AdminRestaurantAttributeReviews = lazy(() => import('../pages/admin/AdminRestaurantAttributeReviews.jsx'))
 const AdminGooglePlaceReviews = lazy(() => import('../pages/admin/AdminGooglePlaceReviews.jsx'))
 const AdminGoogleCosts = lazy(() => import('../pages/admin/AdminGoogleCosts.jsx'))
@@ -147,20 +158,79 @@ function AppRoutes({ onReady }) {
         </Route>
 
         <Route path="admin" element={<AdminShell />}>
-          <Route index element={<Navigate to="/admin/restaurants" replace />} />
+          <Route index element={<Navigate to="/admin/restaurants/all" replace />} />
           <Route path="login" element={<AdminLogin />} />
-          <Route path="restaurants" element={<AdminRestaurants />} />
-          <Route path="restaurants/health/:publicId" element={<AdminMenuHealthReport />} />
-          <Route path="outreach" element={<Navigate to="/admin/kbju-leads" replace />} />
-          <Route path="kbju-leads" element={<AdminKbjuLeads />} />
+
+          <Route path="restaurants" element={<AdminSectionLayout section="restaurants" />}>
+            <Route index element={<Navigate to="/admin/restaurants/all" replace />} />
+            <Route path="all">
+              <Route index element={<AdminRestaurantOverview />} />
+              <Route path=":slug" element={<AdminRestaurantPage />} />
+              <Route path=":slug/catalog-audit/:auditId" element={<AdminMenuCatalogAuditReport />} />
+            </Route>
+            <Route path="collection" element={<AdminKbjuLeads />} />
+            <Route path="freshness">
+              <Route index element={<Navigate to="/admin/restaurants/freshness/manual" replace />} />
+              <Route path="manual" element={<AdminRestaurantManual />} />
+              <Route path="auto" element={<AdminRestaurantAuto />} />
+            </Route>
+            <Route path="quality">
+              <Route index element={<Navigate to="/admin/restaurants/quality/completeness" replace />} />
+              <Route path="completeness" element={<AdminRestaurantCompleteness />} />
+              <Route path="accuracy">
+                <Route index element={<Navigate to="/admin/restaurants/quality/accuracy/kbju" replace />} />
+                <Route path="kbju" element={<AdminKbjuFlags kind="restaurant-items" />} />
+                <Route path="attributes" element={<AdminRestaurantAttributeReviews />} />
+                <Route path="google-places" element={<AdminGooglePlaceReviews />} />
+              </Route>
+            </Route>
+            <Route path="publication">
+              <Route index element={<AdminRestaurantPublication />} />
+              <Route path="health/:publicId" element={<AdminMenuHealthReport />} />
+            </Route>
+            <Route path="health/:publicId" element={<LegacyAdminHealthRedirect />} />
+            <Route path="*" element={<Navigate to="/admin/restaurants/all" replace />} />
+          </Route>
+
+          <Route path="products" element={<AdminSectionLayout section="products" />}>
+            <Route index element={<Navigate to="/admin/products/collection/retailers" replace />} />
+            <Route path="collection">
+              <Route index element={<Navigate to="/admin/products/collection/retailers" replace />} />
+              <Route path="retailers" element={<AdminProductRetailers />} />
+              <Route path="barcodes" element={<AdminBarcodeSources />} />
+            </Route>
+            <Route path="freshness">
+              <Route index element={<Navigate to="/admin/products/freshness/duplicates" replace />} />
+              <Route path="duplicates" element={<AdminProductMatches />} />
+              <Route path="barcodes" element={<AdminBarcodeCandidates />} />
+            </Route>
+            <Route path="quality">
+              <Route index element={<Navigate to="/admin/products/quality/completeness" replace />} />
+              <Route path="completeness" element={<AdminProductCompleteness />} />
+              <Route path="accuracy">
+                <Route index element={<Navigate to="/admin/products/quality/accuracy/kbju" replace />} />
+                <Route path="kbju" element={<AdminKbjuFlags kind="products" />} />
+              </Route>
+            </Route>
+            <Route path="*" element={<Navigate to="/admin/products/collection/retailers" replace />} />
+          </Route>
+
+          <Route path="costs" element={<AdminSectionLayout section="costs" />}>
+            <Route index element={<Navigate to="/admin/costs/google" replace />} />
+            <Route path="google" element={<AdminGoogleCosts />} />
+            <Route path="*" element={<Navigate to="/admin/costs/google" replace />} />
+          </Route>
+
+          <Route path="outreach" element={<Navigate to="/admin/restaurants/collection" replace />} />
+          <Route path="kbju-leads" element={<Navigate to="/admin/restaurants/collection" replace />} />
           {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions" element={<AdminMenuRevisions />} />}
           {PARTNER_ADMIN_ENABLED && <Route path="menu-revisions/:revisionId" element={<AdminMenuRevisionDetail />} />}
-          <Route path="product-matches" element={<AdminProductMatches />} />
-          <Route path="kbju-flags" element={<AdminKbjuFlags />} />
-          <Route path="restaurant-reviews" element={<AdminRestaurantAttributeReviews />} />
-          <Route path="google-place-reviews" element={<AdminGooglePlaceReviews />} />
-          <Route path="google-costs" element={<AdminGoogleCosts />} />
-          <Route path="*" element={<Navigate to="/admin/restaurants" replace />} />
+          <Route path="product-matches" element={<Navigate to="/admin/products/freshness/duplicates" replace />} />
+          <Route path="kbju-flags" element={<Navigate to="/admin/restaurants/quality/accuracy/kbju" replace />} />
+          <Route path="restaurant-reviews" element={<Navigate to="/admin/restaurants/quality/accuracy/attributes" replace />} />
+          <Route path="google-place-reviews" element={<Navigate to="/admin/restaurants/quality/accuracy/google-places" replace />} />
+          <Route path="google-costs" element={<Navigate to="/admin/costs/google" replace />} />
+          <Route path="*" element={<Navigate to="/admin/restaurants/all" replace />} />
         </Route>
       </Routes>
       <AppReadySignal onReady={onReady} />
@@ -247,6 +317,11 @@ function AppReadySignal({ onReady }) {
   }, [location.key, onReady])
 
   return null
+}
+
+function LegacyAdminHealthRedirect() {
+  const { publicId = '' } = useParams()
+  return <Navigate to={`/admin/restaurants/publication/health/${encodeURIComponent(publicId)}`} replace />
 }
 
 // Redirect short public links to the canonical restaurant URL.

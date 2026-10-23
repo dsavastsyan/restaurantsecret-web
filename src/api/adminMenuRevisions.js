@@ -96,6 +96,10 @@ export const adminMenuRevisionsApi = {
       method: 'PATCH',
       body,
     }),
+  menuSources: () => request('/api/admin/menu-sources'),
+  menuSource: (slug) => request(`/api/admin/menu-sources/${encodeURIComponent(slug)}`),
+  menuCatalogAudits: () => request('/api/admin/menu-catalog-audits'),
+  menuCatalogAudit: (id) => request(`/api/admin/menu-catalog-audits/${encodeURIComponent(id)}`),
   confirmManualMenu: (slug) =>
     request(`/api/admin/manual-menu-freshness/${encodeURIComponent(slug)}/confirm`, {
       method: 'POST',
@@ -132,6 +136,22 @@ export const adminMenuRevisionsApi = {
       body: { decision },
     }),
   kbjuFlaggedProducts: () => request('/api/admin/kbju-flagged-products'),
+  productSources: () => request('/api/admin/product-sources'),
+  barcodeSources: () => request('/api/admin/barcode-sources'),
+  barcodeCandidates: ({ kind = 'link', offset = 0 } = {}) => {
+    const params = new URLSearchParams({ kind, offset: String(offset) })
+    return request(`/api/admin/barcode-candidates?${params}`)
+  },
+  decideBarcodeCandidate: (kind, pairId, decision) =>
+    request(`/api/admin/barcode-candidates/${encodeURIComponent(kind)}/${encodeURIComponent(pairId)}/decision`, {
+      method: 'POST',
+      body: { decision },
+    }),
+  productCompleteness: ({ issue = 'no_kbju', query = '', offset = 0 } = {}) => {
+    const params = new URLSearchParams({ issue, offset: String(offset) })
+    if (query) params.set('query', query)
+    return request(`/api/admin/product-completeness?${params}`)
+  },
   kbjuFlaggedRestaurantItems: () => request('/api/admin/kbju-flagged-restaurant-items'),
   approveKbjuFlag: (kind, itemId) =>
     request(`/api/admin/kbju-flags/${encodeURIComponent(kind)}/${encodeURIComponent(itemId)}/approve`, {

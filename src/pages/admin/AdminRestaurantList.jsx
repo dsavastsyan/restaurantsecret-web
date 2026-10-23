@@ -1,21 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  Ban,
-  Check,
-  ChevronDown,
-  Clipboard,
-  ExternalLink,
-  Mail,
-  Pencil,
-  Plus,
-  RotateCcw,
-  Search,
-  ShieldCheck,
-  Trash2,
-  UserPlus,
-  X,
-} from 'lucide-react'
+import { ExternalLink, Search } from 'lucide-react'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
 import { adminMenuHealthApi } from '@/api/adminMenuHealth'
 import {
@@ -26,7 +11,18 @@ import {
   healthStatusInfo,
   truncateHealthSummary,
 } from './adminMenuHealth'
-import { PARTNER_ADMIN_ENABLED } from './adminFeatures'
+import {
+  DM_STATE_LABELS,
+  FRESHNESS,
+  KBJU_SOURCE_LABELS,
+  MANUAL_FRESHNESS_FILTERS,
+  manualFreshness,
+  orderWithLeadGroups,
+  parserSourceLabel,
+  restaurantPath,
+  toTime,
+} from './adminRestaurants'
+import { invalidateRestaurantWorkspace } from './useRestaurantWorkspace'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -65,7 +61,7 @@ function HealthCell({ restaurant, healthIndex, loading, error }) {
       <span className={`admin-health__status admin-health__status--${status.className}`} aria-label={`Статус хелс-чека: ${status.label}`}>{status.label}</span>
       <span className="admin-health__summary" title={health.summary || undefined}>{truncateHealthSummary(health.summary) || 'Без комментария'}</span>
       <small>{formatHealthDate(health.checked_at)}</small>
-      <Link to={`/admin/restaurants/health/${encodeURIComponent(health.publicId)}`} aria-label={`Подробнее о хелс-чеке ${health.restaurant_name || restaurant.name}`}>Подробнее</Link>
+      <Link to={`/admin/restaurants/publication/health/${encodeURIComponent(health.publicId)}`} aria-label={`Подробнее о хелс-чеке ${health.restaurant_name || restaurant.name}`}>Подробнее</Link>
       {error && <span className="admin-health__inline-error">Обновление недоступно</span>}
     </td>
   )
@@ -142,23 +138,36 @@ function PendingMenuHealthDashboard({ records, loading, error }) {
 }
 
 const PARSER_STATUS = {
-  success: 'Успешно',
-  no_change: 'Без изменений',
   error: 'Ошибка',
-  never: 'Не запускался',
+  waiting: 'Ждёт прогона',
+  current: 'Актуально',
+  agent_crawl: 'При промоушене',
   disabled: 'Отключён',
 }
 
-const MANUAL_MENU_STATUS = {
-  current: 'Актуально',
-  needs_check: 'Нужно проверить',
-  source_missing: 'Источник не указан',
+// Agent crawls have no overdue state, so they sit with current parsers.
+const PARSER_STATUS_PRIORITY = { error: 0, waiting: 1, current: 2, agent_crawl: 2, disabled: 3 }
+
+// Days without an update order parsers that wait for the batch; agent crawls are
+// refreshed by the promotion and are not pushed up by their age.
+function parserStaleness(parser) {
+  if (parserFreshnessStatus(parser) === 'agent_crawl') return -Infinity
+  return parser.freshness?.days_since_success ?? Infinity
 }
 
-const MANUAL_MENU_SOURCE = {
-  instagram_dm: 'Instagram Direct',
-  instagram_highlight: 'Instagram Highlights',
-  website: 'Сайт',
+// The API computes freshness; the fallback keeps the page usable against an older backend
+function parserFreshnessStatus(parser) {
+  if (parser.freshness?.status) return parser.freshness.status
+  if (!parser.enabled) return 'disabled'
+  if (!parser.run) return 'waiting'
+  return parser.run.status === 'error' ? 'error' : 'current'
+}
+
+function formatDaysWithoutUpdate(parser) {
+  const days = parser.freshness?.days_since_success
+  if (days === null || days === undefined) return parser.freshness ? 'Ни разу' : '—'
+  if (days === 0) return 'Сегодня'
+  return `${days} дн.`
 }
 
 function statusWithSource(lastCheckedAt, staleAfterDays) {
@@ -167,11 +176,35 @@ function statusWithSource(lastCheckedAt, staleAfterDays) {
   return Date.now() - checkedAt >= staleAfterDays * 86400000 ? 'needs_check' : 'current'
 }
 
-function ManualMenuRow({ restaurant, staleAfterDays, onChanged, healthIndex, healthLoading, healthError }) {
+function MenuSourceCell({ source }) {
+  if (!source) return <td data-label="Источник меню"><span className="admin-crm__muted">Не найден</span></td>
+  return (
+    <td data-label="Источник меню">
+      {KBJU_SOURCE_LABELS[source.source_type] || source.source_type}
+      {source.source_url && <> <a href={source.source_url} target="_blank" rel="noreferrer" aria-label="Открыть источник меню"><ExternalLink size={13} /></a></>}
+      <small>Проверено {formatDate(source.last_checked_at)} · менялось {formatDate(source.last_changed_at)}</small>
+    </td>
+  )
+}
+
+function DmCell({ restaurant, lead }) {
+  const state = restaurant.dm_state || 'none'
+  return (
+    <td data-label="Директ">
+      <span>{DM_STATE_LABELS[state] || state}</span>
+      {restaurant.dm_last_sent_at && <small>Писали {formatDate(restaurant.dm_last_sent_at)}</small>}
+      {restaurant.next_followup_at && <small>Фолоу-ап {formatDate(restaurant.next_followup_at)}</small>}
+      {lead && <small>Лид: {lead.name}</small>}
+    </td>
+  )
+}
+
+function ManualMenuRow({ restaurant, menuSource, lead, staleAfterDays, onChanged, healthIndex, healthLoading, healthError }) {
   const [sourceType, setSourceType] = useState(restaurant.source_type || '')
   const [sourceUrl, setSourceUrl] = useState(restaurant.source_url || '')
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
+  const freshness = manualFreshness(restaurant, menuSource)
 
   const saveSource = async () => {
     setBusy('source')
@@ -188,7 +221,7 @@ function ManualMenuRow({ restaurant, staleAfterDays, onChanged, healthIndex, hea
       })
       setMessage('Источник сохранён')
     } catch (requestError) {
-      setMessage(requestError.message || 'Не удалось сохранить источник.')
+      setMessage(requestError.message || 'Не удалось сохранить источник')
     } finally {
       setBusy('')
     }
@@ -199,9 +232,9 @@ function ManualMenuRow({ restaurant, staleAfterDays, onChanged, healthIndex, hea
     setMessage('')
     try {
       const result = await adminMenuRevisionsApi.confirmManualMenu(restaurant.slug)
-      onChanged({ last_checked_at: result.last_checked_at, status: 'current' })
+      onChanged({ last_checked_at: result.last_checked_at, status: 'current', kbju_stale: false })
     } catch (requestError) {
-      setMessage(requestError.message || 'Не удалось подтвердить актуальность.')
+      setMessage(requestError.message || 'Не удалось подтвердить актуальность')
     } finally {
       setBusy('')
     }
@@ -209,27 +242,60 @@ function ManualMenuRow({ restaurant, staleAfterDays, onChanged, healthIndex, hea
 
   return (
     <tr>
-      <td><strong>{restaurant.name}</strong><small>{restaurant.cities.join(', ') || 'Город не указан'}</small></td>
-      <td>
+      <td><Link to={restaurantPath(restaurant.slug)}><strong>{restaurant.name}</strong></Link><small>{restaurant.cities.join(', ') || 'Город не указан'}</small></td>
+      <td data-label="Источник КБЖУ">
         <div className="admin-manual-menu__source">
-          <select aria-label={`Источник меню ${restaurant.name}`} value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
+          <select aria-label={`Источник КБЖУ ${restaurant.name}`} value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
             <option value="">Выберите источник</option>
-            {Object.entries(MANUAL_MENU_SOURCE).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+            {Object.entries(KBJU_SOURCE_LABELS).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
           </select>
           <div>
-            <input aria-label={`Ссылка на меню ${restaurant.name}`} type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://…" />
-            {restaurant.source_url && <a href={restaurant.source_url} target="_blank" rel="noreferrer" aria-label={`Открыть источник ${restaurant.name}`}><ExternalLink size={16} /></a>}
+            <input aria-label={`Ссылка на КБЖУ ${restaurant.name}`} type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://…" />
+            {restaurant.source_url && <a href={restaurant.source_url} target="_blank" rel="noreferrer" aria-label={`Открыть источник КБЖУ ${restaurant.name}`}><ExternalLink size={16} /></a>}
           </div>
           <button type="button" disabled={busy !== '' || !sourceType || !sourceUrl.trim()} onClick={saveSource}>{busy === 'source' ? 'Сохраняем…' : 'Сохранить'}</button>
           {message && <small role="status">{message}</small>}
         </div>
       </td>
+      <MenuSourceCell source={menuSource} />
       <HealthCell restaurant={restaurant} healthIndex={healthIndex} loading={healthLoading} error={healthError} />
-      <td>{formatDate(restaurant.last_checked_at)}</td>
-      <td><span className={`admin-manual-menu__status admin-manual-menu__status--${restaurant.status}`}>{MANUAL_MENU_STATUS[restaurant.status]}</span></td>
-      <td><button className="admin-crm__primary" type="button" disabled={busy !== ''} onClick={confirm}>{busy === 'confirm' ? 'Подтверждаем…' : 'Подтвердить актуальность'}</button></td>
+      <td data-label="Последняя проверка">{formatDate(restaurant.last_checked_at)}</td>
+      <DmCell restaurant={restaurant} lead={lead} />
+      <td data-label="Статус"><span className={`admin-manual-menu__status admin-manual-menu__status--${FRESHNESS[freshness].tone}`}>{FRESHNESS[freshness].label}</span></td>
+      <td data-label="Действие"><button className="admin-crm__primary" type="button" disabled={busy !== ''} onClick={confirm}>{busy === 'confirm' ? 'Подтверждаем…' : 'Подтвердить актуальность'}</button></td>
     </tr>
   )
+}
+
+function useOptionalList(load) {
+  const [items, setItems] = useState([])
+  useEffect(() => {
+    let active = true
+    load().then((data) => active && setItems(data)).catch(() => active && setItems([]))
+    return () => { active = false }
+  }, [load])
+  return items
+}
+
+const loadMenuSources = () => adminMenuRevisionsApi.menuSources().then((data) => data.sources || [])
+const loadLeads = () => adminMenuRevisionsApi.kbjuLeads().then((data) => data.leads || [])
+
+function sourceTypeMatches(filter, type) {
+  if (!filter) return true
+  if (filter === 'none') return !type
+  return type === filter
+}
+
+function compareCheckedAt(order) {
+  return (left, right) => {
+    const leftTime = toTime(left.last_checked_at)
+    const rightTime = toTime(right.last_checked_at)
+    const leftMissing = Number.isNaN(leftTime)
+    const rightMissing = Number.isNaN(rightTime)
+    if (leftMissing !== rightMissing) return leftMissing ? 1 : -1
+    if (leftMissing) return left.name.localeCompare(right.name, 'ru')
+    return order === 'desc' ? rightTime - leftTime : leftTime - rightTime
+  }
 }
 
 function ManualMenuDashboard({ healthIndex, healthLoading, healthError }) {
@@ -238,8 +304,12 @@ function ManualMenuDashboard({ healthIndex, healthLoading, healthError }) {
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
+  const [kbjuType, setKbjuType] = useState('')
+  const [menuType, setMenuType] = useState('')
   const [checkedAtOrder, setCheckedAtOrder] = useState(null)
   const [staleAfterDays, setStaleAfterDays] = useState(90)
+  const menuSources = useOptionalList(loadMenuSources)
+  const leads = useOptionalList(loadLeads)
 
   useEffect(() => {
     let active = true
@@ -251,31 +321,34 @@ function ManualMenuDashboard({ healthIndex, healthLoading, healthError }) {
         setItems(data.restaurants || [])
         setStaleAfterDays(data.stale_after_days || 90)
       })
-      .catch((requestError) => active && setError(requestError.message || 'Не удалось загрузить ручные меню.'))
+      .catch((requestError) => active && setError(requestError.message || 'Не удалось загрузить ручные меню'))
       .finally(() => active && setLoading(false))
     return () => { active = false }
   }, [])
 
+  const sourceBySlug = useMemo(() => new Map(menuSources.map((source) => [source.slug, source])), [menuSources])
+  const leadById = useMemo(() => new Map(leads.map((lead) => [Number(lead.id), lead])), [leads])
+
   const updateItem = (slug, patch) => {
+    invalidateRestaurantWorkspace()
     setItems((current) => current.map((item) => item.slug === slug ? { ...item, ...patch } : item))
   }
 
-  const visible = useMemo(() => {
+  const groups = useMemo(() => {
     const filtered = items.filter((restaurant) => {
-      if (status && restaurant.status !== status) return false
+      const menuSource = sourceBySlug.get(restaurant.slug)
+      if (status && manualFreshness(restaurant, menuSource) !== status) return false
+      if (!sourceTypeMatches(kbjuType, restaurant.source_type)) return false
+      if (!sourceTypeMatches(menuType, menuSource?.source_type)) return false
       return `${restaurant.name} ${restaurant.slug} ${restaurant.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
     })
-    if (!checkedAtOrder) return filtered
-    return [...filtered].sort((left, right) => {
-      const leftTime = left.last_checked_at ? Date.parse(left.last_checked_at) : Number.NaN
-      const rightTime = right.last_checked_at ? Date.parse(right.last_checked_at) : Number.NaN
-      const leftMissing = Number.isNaN(leftTime)
-      const rightMissing = Number.isNaN(rightTime)
-      if (leftMissing !== rightMissing) return leftMissing ? 1 : -1
-      if (leftMissing) return left.name.localeCompare(right.name, 'ru')
-      return checkedAtOrder === 'desc' ? rightTime - leftTime : leftTime - rightTime
-    })
-  }, [items, query, status, checkedAtOrder])
+    const compare = checkedAtOrder
+      ? compareCheckedAt(checkedAtOrder)
+      : (left, right) => FRESHNESS[manualFreshness(left, sourceBySlug.get(left.slug))].priority
+        - FRESHNESS[manualFreshness(right, sourceBySlug.get(right.slug))].priority
+        || left.name.localeCompare(right.name, 'ru')
+    return orderWithLeadGroups(filtered, compare)
+  }, [items, query, status, kbjuType, menuType, checkedAtOrder, sourceBySlug])
 
   if (loading) return <p className="admin-crm__loading">Загружаем ручные меню…</p>
   if (error) return <p className="admin-menu__error" role="alert">{error}</p>
@@ -285,42 +358,89 @@ function ManualMenuDashboard({ healthIndex, healthLoading, healthError }) {
         <label className="admin-crm__search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ресторан" /></label>
         <select aria-label="Статус актуальности" value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="">Все статусы</option>
-          {Object.entries(MANUAL_MENU_STATUS).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+          {MANUAL_FRESHNESS_FILTERS.map((value) => <option value={value} key={value}>{FRESHNESS[value].label}</option>)}
+        </select>
+        <select aria-label="Тип источника КБЖУ" value={kbjuType} onChange={(event) => setKbjuType(event.target.value)}>
+          <option value="">Любой источник КБЖУ</option>
+          {Object.entries(KBJU_SOURCE_LABELS).map(([value, label]) => <option value={value} key={value}>КБЖУ: {label}</option>)}
+          <option value="none">КБЖУ: не указан</option>
+        </select>
+        <select aria-label="Тип источника меню" value={menuType} onChange={(event) => setMenuType(event.target.value)}>
+          <option value="">Любой источник меню</option>
+          {Object.entries(KBJU_SOURCE_LABELS).map(([value, label]) => <option value={value} key={value}>Меню: {label}</option>)}
+          <option value="none">Меню: не найден</option>
         </select>
       </div>
       <div className="admin-crm__table-wrap admin-manual-menu__table-wrap">
-        <table className="admin-crm__table admin-manual-menu__table">
-          <thead><tr><th>Ресторан</th><th>Источник меню</th><th>Хелс-чек</th><th aria-sort={checkedAtOrder === 'desc' ? 'descending' : checkedAtOrder === 'asc' ? 'ascending' : 'none'}><button className="admin-crm__sort" type="button" onClick={() => setCheckedAtOrder((current) => current === 'desc' ? 'asc' : 'desc')}>Последняя проверка <span aria-hidden="true">{checkedAtOrder === 'asc' ? '↑' : '↓'}</span></button></th><th>Статус</th><th /></tr></thead>
-          <tbody>{visible.map((restaurant) => <ManualMenuRow restaurant={restaurant} staleAfterDays={staleAfterDays} onChanged={(patch) => updateItem(restaurant.slug, patch)} healthIndex={healthIndex} healthLoading={healthLoading} healthError={healthError} key={restaurant.slug} />)}</tbody>
+        <table className="admin-crm__table admin-manual-menu__table admin-restaurants__table admin-restaurants__table--manual">
+          <thead><tr><th>Ресторан</th><th>Источник КБЖУ</th><th>Источник меню</th><th>Хелс-чек</th><th aria-sort={checkedAtOrder === 'desc' ? 'descending' : checkedAtOrder === 'asc' ? 'ascending' : 'none'}><button className="admin-crm__sort" type="button" onClick={() => setCheckedAtOrder((current) => current === 'desc' ? 'asc' : 'desc')}>Последняя проверка <span aria-hidden="true">{checkedAtOrder === 'asc' ? '↑' : '↓'}</span></button></th><th>Директ</th><th>Статус</th><th /></tr></thead>
+          {groups.map((group) => {
+            const lead = group.lead_id == null ? null : leadById.get(Number(group.lead_id))
+            return (
+              <tbody key={group.key} className={group.items.length > 1 ? 'admin-restaurants__group' : undefined}>
+                {group.items.length > 1 && <tr className="admin-restaurants__group-title"><td colSpan={8}>{lead?.name || 'Одна переписка'} · {group.items.length} меню</td></tr>}
+                {group.items.map((restaurant) => (
+                  <ManualMenuRow
+                    restaurant={restaurant}
+                    menuSource={sourceBySlug.get(restaurant.slug) || null}
+                    lead={lead}
+                    staleAfterDays={staleAfterDays}
+                    onChanged={(patch) => updateItem(restaurant.slug, patch)}
+                    healthIndex={healthIndex}
+                    healthLoading={healthLoading}
+                    healthError={healthError}
+                    key={restaurant.slug}
+                  />
+                ))}
+              </tbody>
+            )
+          })}
         </table>
-        {!visible.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет.</div>}
+        {!groups.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет</div>}
       </div>
     </>
   )
 }
 
-function MenuMaintenanceDashboard() {
-  const [section, setSection] = useState('manual')
-  const productionHealth = useHealthRecords('production')
-  const pendingHealth = useHealthRecords('pending')
-  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+function MenuMaintenanceSection({ eyebrow, title, description, children }) {
   return (
     <section className="admin-crm">
       <div className="admin-menu__title admin-crm__title">
-        <div><span>Обновление меню</span><h1>Рестораны</h1><p>Контроль актуальности ручных меню и статусы парсеров.</p></div>
+        <div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>
       </div>
-      <div className="admin-crm__section-tabs" role="tablist" aria-label="Способ обновления меню">
-        <button type="button" role="tab" aria-selected={section === 'manual'} className={section === 'manual' ? 'active' : ''} onClick={() => setSection('manual')}>Ручные меню</button>
-        <button type="button" role="tab" aria-selected={section === 'parsers'} className={section === 'parsers' ? 'active' : ''} onClick={() => setSection('parsers')}>Автоматическое обновление</button>
-        <button type="button" role="tab" aria-selected={section === 'pending'} className={section === 'pending' ? 'active' : ''} onClick={() => setSection('pending')}>Ждут промоушена ({pendingHealth.loading ? '…' : pendingHealth.records.length})</button>
-      </div>
-      {productionHealth.error && section !== 'pending' && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
-      {section === 'manual'
-        ? <ManualMenuDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
-        : section === 'parsers'
-          ? <ParserDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
-          : <PendingMenuHealthDashboard records={pendingHealth.records} loading={pendingHealth.loading} error={pendingHealth.error} />}
+      {children}
     </section>
+  )
+}
+
+export function AdminRestaurantManual() {
+  const productionHealth = useHealthRecords('production')
+  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+  return (
+    <MenuMaintenanceSection eyebrow="Актуальность" title="Ручное обновление" description="Контроль актуальности ручных меню">
+      {productionHealth.error && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
+      <ManualMenuDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
+    </MenuMaintenanceSection>
+  )
+}
+
+export function AdminRestaurantAuto() {
+  const productionHealth = useHealthRecords('production')
+  const productionHealthIndex = useMemo(() => buildHealthIndex(productionHealth.records), [productionHealth.records])
+  return (
+    <MenuMaintenanceSection eyebrow="Актуальность" title="Автоматическое обновление" description="Статусы парсеров и результаты последних запусков">
+      {productionHealth.error && <p className="admin-health__error" role="alert">{productionHealth.error}</p>}
+      <ParserDashboard healthIndex={productionHealthIndex} healthLoading={productionHealth.loading} healthError={!!productionHealth.error} />
+    </MenuMaintenanceSection>
+  )
+}
+
+export function AdminRestaurantPublication() {
+  const pendingHealth = useHealthRecords('pending')
+  return (
+    <MenuMaintenanceSection eyebrow="Публикация" title={`Ждут промоушена (${pendingHealth.loading ? '…' : pendingHealth.records.length})`} description="Меню, ожидающие публикации">
+      <PendingMenuHealthDashboard records={pendingHealth.records} loading={pendingHealth.loading} error={pendingHealth.error} />
+    </MenuMaintenanceSection>
   )
 }
 
@@ -340,11 +460,14 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
     return () => { active = false }
   }, [])
 
-  const visible = useMemo(() => items.filter((parser) => {
-    const parserStatus = parser.enabled ? (parser.run?.status || 'never') : 'disabled'
-    if (status && parserStatus !== status) return false
-    return `${parser.restaurant_name} ${parser.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
-  }), [items, query, status])
+  const visible = useMemo(() => items
+    .filter((parser) => {
+      if (status && parserFreshnessStatus(parser) !== status) return false
+      return `${parser.restaurant_name} ${parser.cities.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
+    })
+    .sort((left, right) => PARSER_STATUS_PRIORITY[parserFreshnessStatus(left)] - PARSER_STATUS_PRIORITY[parserFreshnessStatus(right)]
+      || (parserStaleness(right) - parserStaleness(left) || 0)
+      || left.restaurant_name.localeCompare(right.restaurant_name, 'ru')), [items, query, status])
 
   if (loading) return <p className="admin-crm__loading">Загружаем статусы парсеров…</p>
   if (error) return <p className="admin-menu__error" role="alert">{error}</p>
@@ -359,16 +482,22 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
       </div>
       <div className="admin-crm__table-wrap admin-parser__table-wrap">
         <table className="admin-crm__table admin-parser__table">
-          <thead><tr><th>Ресторан</th><th>Хелс-чек</th><th>Статус</th><th>Последняя проверка</th><th>Последний успех</th><th>Меню опубликовано</th><th>Позиций</th><th>Источник</th></tr></thead>
+          <thead><tr><th>Ресторан</th><th>Хелс-чек</th><th>Статус</th><th>Без обновления</th><th>Последняя проверка</th><th>Последний успех</th><th>Меню опубликовано</th><th>Позиций</th><th>Источник</th></tr></thead>
           <tbody>{visible.map((parser) => {
-            const parserStatus = parser.enabled ? (parser.run?.status || 'never') : 'disabled'
+            const parserStatus = parserFreshnessStatus(parser)
             return (
               <tr key={parser.parser_id}>
-                <td><strong>{parser.restaurant_name}</strong>{parser.cities.length > 0 && <small>{parser.cities.join(', ')}</small>}</td>
+                <td>{parser.restaurant_slug ? <Link to={restaurantPath(parser.restaurant_slug)}><strong>{parser.restaurant_name}</strong></Link> : <strong>{parser.restaurant_name}</strong>}{parser.cities.length > 0 && <small>{parser.cities.join(', ')}</small>}</td>
                 <HealthCell restaurant={{ ...parser, name: parser.restaurant_name }} healthIndex={healthIndex} loading={healthLoading} error={healthError} />
                 <td>
                   <span className={`admin-parser__status admin-parser__status--${parserStatus}`}>{PARSER_STATUS[parserStatus]}</span>
-                  {parserStatus === 'error' && (
+                  {parserSourceLabel(parser) && (
+                    <span className="admin-parser__kind">
+                      {parserSourceLabel(parser)}
+                      <small>последний обход {formatDate(parser.last_crawl_at)}</small>
+                    </span>
+                  )}
+                  {parserStatus === 'error' && parser.run && (
                     <details className="admin-parser__error"><summary>Что случилось</summary>
                       <strong>{parser.run.error_message || `Парсер завершился с кодом ${parser.run.exit_code}`}</strong>
                       {parser.run.log_excerpt && <pre>{parser.run.log_excerpt}</pre>}
@@ -376,6 +505,7 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
                     </details>
                   )}
                 </td>
+                <td>{formatDaysWithoutUpdate(parser)}</td>
                 <td>{formatDateTime(parser.run?.finished_at)}</td>
                 <td>{formatDateTime(parser.run?.last_success_at)}</td>
                 <td>{parser.published_at && parser.public_menu_url
@@ -390,306 +520,5 @@ function ParserDashboard({ healthIndex, healthLoading, healthError }) {
         {!visible.length && <div className="admin-menu__empty">По выбранным условиям парсеров нет.</div>}
       </div>
     </>
-  )
-}
-
-function Dialog({ title, children, onClose }) {
-  return (
-    <div className="admin-crm__dialog-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="admin-crm__dialog" role="dialog" aria-modal="true" aria-labelledby="admin-crm-dialog-title">
-        <header>
-          <h2 id="admin-crm-dialog-title">{title}</h2>
-          <button type="button" aria-label="Закрыть" onClick={onClose}><X size={20} /></button>
-        </header>
-        {children}
-      </section>
-    </div>
-  )
-}
-
-function RestaurantForm({ onClose, onSaved }) {
-  const [form, setForm] = useState({ name: '', city: '', email: '' })
-  const [candidates, setCandidates] = useState([])
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  const submit = async (event, existingSlug = '') => {
-    event?.preventDefault?.()
-    setBusy(true)
-    setError('')
-    try {
-      await adminMenuRevisionsApi.createRestaurant({ ...form, ...(existingSlug ? { existing_slug: existingSlug } : {}) })
-      onSaved('Ресторан добавлен в CRM. Письмо не отправлено — пригласите его, когда будете готовы.')
-      onClose()
-    } catch (requestError) {
-      const found = requestError.details?.candidates || []
-      if (requestError.code === 'existing_network_confirmation_required' && found.length) {
-        setCandidates(found)
-      } else {
-        setError(requestError.message || 'Не удалось добавить ресторан.')
-      }
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form className="admin-crm__form" onSubmit={submit}>
-      <label>Название сети<input required autoFocus value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Например, Loulou" /></label>
-      <label>Первый город<input required value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} placeholder="Москва" /></label>
-      <label>Контактный email <small>необязательно</small><input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="manager@restaurant.ru" /></label>
-      <p className="admin-crm__hint">Письмо не уходит при сохранении. Приглашение отправится только по действию «Пригласить ресторан».</p>
-      {candidates.length > 0 && (
-        <div className="admin-crm__candidates">
-          <strong>Похожая сеть уже есть</strong>
-          <p>Выберите её, чтобы не создавать дубль. Сеть станет партнёром, контакт добавится без письма.</p>
-          {candidates.map((candidate) => (
-            <button type="button" key={candidate.slug} disabled={busy} onClick={() => submit(null, candidate.slug)}>
-              <span><b>{candidate.name}</b><small>{candidate.cities.join(', ') || 'Город не указан'} · {candidate.partnership_label}</small></span>
-              <Check size={18} />
-            </button>
-          ))}
-        </div>
-      )}
-      {error && <p className="admin-menu__error" role="alert">{error}</p>}
-      <footer><button type="button" onClick={onClose}>Отмена</button><button className="admin-crm__primary" disabled={busy}>{busy ? 'Сохраняем…' : 'Создать ресторан'}</button></footer>
-    </form>
-  )
-}
-
-function EditRestaurantForm({ restaurant, onClose, onSaved }) {
-  const multiCity = restaurant.cities.length > 1
-  const initialCity = multiCity ? '' : restaurant.cities[0] || ''
-  const [form, setForm] = useState({ name: restaurant.name, city: initialCity })
-  const [removed, setRemoved] = useState([])
-  const [emails, setEmails] = useState(restaurant.contacts.length ? [] : [''])
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  const toggleRemoved = (id) =>
-    setRemoved((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]))
-  const setEmailAt = (index, value) =>
-    setEmails((current) => current.map((email, position) => (position === index ? value : email)))
-
-  const submit = async (event) => {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-    const patch = {}
-    const name = form.name.trim()
-    const city = form.city.trim()
-    if (name && name !== restaurant.name) patch.name = name
-    if (!multiCity && city !== initialCity) patch.city = city
-    const added = emails.map((email) => email.trim()).filter(Boolean)
-    try {
-      if (Object.keys(patch).length) await adminMenuRevisionsApi.updateRestaurant(restaurant.slug, patch)
-      for (const id of removed) await adminMenuRevisionsApi.deleteRestaurantContact(restaurant.slug, id)
-      for (const email of added) await adminMenuRevisionsApi.addRestaurantContact(restaurant.slug, email)
-      onSaved(added.length ? 'Сохранено. Новые адреса добавлены без письма.' : 'Изменения сохранены.')
-      onClose()
-    } catch (requestError) {
-      setError(requestError.message || 'Не удалось сохранить изменения.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form className="admin-crm__form" onSubmit={submit}>
-      <label>Название сети<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
-      {multiCity ? (
-        <label>Города<input value={restaurant.cities.join(', ')} disabled /><small>У сети несколько городов — они меняются в карточках точек.</small></label>
-      ) : (
-        <label>Город<input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} placeholder="Москва" /></label>
-      )}
-
-      <div className="admin-crm__contacts">
-        <strong>Контактные email</strong>
-        {restaurant.contacts.map((contact) => (
-          <div className={`admin-crm__contact${removed.includes(contact.id) ? ' is-removed' : ''}`} key={contact.id}>
-            <span>{contact.email}{contact.invite_sent_at ? <small>приглашение отправлено</small> : <small>без приглашения</small>}</span>
-            <button type="button" aria-label={`Удалить ${contact.email}`} onClick={() => toggleRemoved(contact.id)}>
-              {removed.includes(contact.id) ? <RotateCcw size={16} /> : <Trash2 size={16} />}
-            </button>
-          </div>
-        ))}
-        {emails.map((email, index) => (
-          <input
-            key={`new-${index}`}
-            type="email"
-            value={email}
-            aria-label={`Новый email ${index + 1}`}
-            placeholder="manager@restaurant.ru"
-            onChange={(event) => setEmailAt(index, event.target.value)}
-          />
-        ))}
-        <button className="admin-crm__add-email" type="button" onClick={() => setEmails([...emails, ''])}>
-          <Plus size={16} />Добавить email
-        </button>
-      </div>
-
-      <p className="admin-crm__hint">Письма не отправляются: приглашение уходит отдельным действием.</p>
-      {error && <p className="admin-menu__error" role="alert">{error}</p>}
-      <footer><button type="button" onClick={onClose}>Отмена</button><button className="admin-crm__primary" disabled={busy}>{busy ? 'Сохраняем…' : 'Сохранить'}</button></footer>
-    </form>
-  )
-}
-
-function RestaurantActions({ restaurant, onEdit, onChanged, notify }) {
-  const [contactId, setContactId] = useState(restaurant.contacts[0]?.id || '')
-  const [busy, setBusy] = useState('')
-  const selected = restaurant.contacts.find((contact) => String(contact.id) === String(contactId))
-  const inviteLabel = restaurant.invited ? 'Отправить повторно' : 'Пригласить ресторан'
-
-  const invite = async (sendEmail) => {
-    if (!selected) return onEdit()
-    if (sendEmail && !window.confirm(`Отправить приглашение в кабинет на ${selected.email}?`)) return
-    setBusy(sendEmail ? 'send' : 'copy')
-    try {
-      const result = await adminMenuRevisionsApi.inviteRestaurantContact(restaurant.slug, selected.id, sendEmail)
-      if (sendEmail) notify(`Приглашение отправлено на ${selected.email}.`)
-      else {
-        await navigator.clipboard.writeText(result.invite_url)
-        notify('Новая ссылка скопирована. Предыдущая ссылка больше не действует.')
-      }
-      onChanged()
-    } catch (error) {
-      if (!sendEmail && error.details?.invite_url) {
-        notify(`Не удалось скопировать автоматически: ${error.details.invite_url}`, 'warning')
-      } else {
-        notify(error.message || 'Действие не выполнено.', 'error')
-      }
-      onChanged()
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const toggleAccess = async () => {
-    const verb = restaurant.access_blocked ? 'разблокировать' : 'заблокировать'
-    if (!window.confirm(`Точно ${verb} доступ для всей сети «${restaurant.name}»?`)) return
-    setBusy('access')
-    try {
-      await adminMenuRevisionsApi.setRestaurantAccess(restaurant.slug, !restaurant.access_blocked)
-      notify(restaurant.access_blocked ? 'Доступ разблокирован. Потребуется новый вход.' : 'Доступ ко всей сети заблокирован.')
-      onChanged()
-    } catch (error) {
-      notify(error.message || 'Не удалось изменить доступ.', 'error')
-    } finally {
-      setBusy('')
-    }
-  }
-
-  return (
-    <details className="admin-crm__actions">
-      <summary>Действия <ChevronDown size={15} /></summary>
-      <div>
-        <button type="button" onClick={onEdit}><Pencil size={16} />Редактировать</button>
-        {restaurant.contacts.length > 1 && <select aria-label={`Контакт ${restaurant.name}`} value={contactId} onChange={(event) => setContactId(event.target.value)}>{restaurant.contacts.map((contact) => <option value={contact.id} key={contact.id}>{contact.email}</option>)}</select>}
-        {selected && <button type="button" disabled={!!busy} onClick={() => invite(true)}><Mail size={16} />{busy === 'send' ? 'Отправляем…' : inviteLabel}</button>}
-        {selected && <button type="button" disabled={!!busy} onClick={() => invite(false)}><Clipboard size={16} />{busy === 'copy' ? 'Создаём…' : 'Скопировать ссылку'}</button>}
-        {!selected && <button type="button" onClick={onEdit}><UserPlus size={16} />Добавить email</button>}
-        {restaurant.public_menu_url && <a href={restaurant.public_menu_url} target="_blank" rel="noreferrer"><ExternalLink size={16} />Открыть меню</a>}
-        {!restaurant.public_menu_url && <button type="button" disabled title="Меню ещё не опубликовано"><ExternalLink size={16} />Открыть меню</button>}
-        {restaurant.active_revision_id && <Link to={`/admin/menu-revisions/${restaurant.active_revision_id}`}><ShieldCheck size={16} />Открыть заявку</Link>}
-        <button className={restaurant.access_blocked ? 'is-positive' : 'is-danger'} type="button" disabled={busy === 'access'} onClick={toggleAccess}>{restaurant.access_blocked ? <RotateCcw size={16} /> : <Ban size={16} />}{restaurant.access_blocked ? 'Разблокировать доступ' : 'Заблокировать доступ'}</button>
-      </div>
-    </details>
-  )
-}
-
-export default function AdminRestaurantList() {
-  if (!PARTNER_ADMIN_ENABLED) {
-    return <MenuMaintenanceDashboard />
-  }
-
-  const [section, setSection] = useState('restaurants')
-  const [items, setItems] = useState([])
-  const [filterOptions, setFilterOptions] = useState({ cities: [], menu_statuses: [], partnerships: [] })
-  const [filters, setFilters] = useState({ query: '', city: '', menuStatus: '', partnership: '', requiresAction: false })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [refresh, setRefresh] = useState(0)
-  const [dialog, setDialog] = useState(null)
-  const [notice, setNotice] = useState(null)
-
-  const notify = (message, kind = 'success') => {
-    setNotice({ message, kind })
-    window.setTimeout(() => setNotice(null), 5000)
-  }
-
-  useEffect(() => {
-    const timer = window.setTimeout(async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const data = await adminMenuRevisionsApi.restaurants(filters)
-        setItems(data.restaurants || [])
-        setFilterOptions(data.filters || { cities: [], menu_statuses: [], partnerships: [] })
-      } catch (requestError) {
-        setError(requestError.message || 'Не удалось загрузить рестораны.')
-      } finally {
-        setLoading(false)
-      }
-    }, 180)
-    return () => window.clearTimeout(timer)
-  }, [filters, refresh])
-
-  const hasFilters = useMemo(() => Object.values(filters).some(Boolean), [filters])
-  const reload = () => setRefresh((value) => value + 1)
-  const saved = (message, kind) => { notify(message, kind); reload() }
-
-  return (
-    <section className="admin-crm">
-      <div className="admin-menu__title admin-crm__title">
-        <div><span>Партнёрская CRM</span><h1>Рестораны</h1><p>Одна строка — одна сеть, независимо от количества точек.</p></div>
-        <div><strong>{items.length}</strong><button className="admin-crm__primary" type="button" onClick={() => setDialog({ type: 'restaurant' })}><Plus size={18} />Добавить ресторан</button></div>
-      </div>
-
-      <div className="admin-crm__section-tabs" role="tablist" aria-label="Раздел ресторанов">
-        <button type="button" role="tab" aria-selected={section === 'restaurants'} className={section === 'restaurants' ? 'active' : ''} onClick={() => setSection('restaurants')}>Все рестораны</button>
-        <button type="button" role="tab" aria-selected={section === 'parsers'} className={section === 'parsers' ? 'active' : ''} onClick={() => setSection('parsers')}>Автоматическое обновление</button>
-      </div>
-
-      {section === 'parsers' ? <ParserDashboard /> : <>
-
-      <div className="admin-crm__filters">
-        <label className="admin-crm__search"><Search size={18} /><input value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="Сеть или email" /></label>
-        <select aria-label="Город" value={filters.city} onChange={(event) => setFilters({ ...filters, city: event.target.value })}><option value="">Все города</option>{filterOptions.cities.map((city) => <option key={city}>{city}</option>)}</select>
-        <select aria-label="Статус меню" value={filters.menuStatus} onChange={(event) => setFilters({ ...filters, menuStatus: event.target.value })}><option value="">Все статусы меню</option>{filterOptions.menu_statuses.map((status) => <option value={status.value} key={status.value}>{status.label}</option>)}</select>
-        <select aria-label="Партнёрство" value={filters.partnership} onChange={(event) => setFilters({ ...filters, partnership: event.target.value })}><option value="">Все по партнёрству</option>{filterOptions.partnerships.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select>
-        <label className="admin-crm__checkbox"><input type="checkbox" checked={filters.requiresAction} onChange={(event) => setFilters({ ...filters, requiresAction: event.target.checked })} />Требует моего действия</label>
-        {hasFilters && <button className="admin-crm__clear" type="button" onClick={() => setFilters({ query: '', city: '', menuStatus: '', partnership: '', requiresAction: false })}>Сбросить</button>}
-      </div>
-
-      {notice && <div className={`admin-crm__notice admin-crm__notice--${notice.kind}`} role="status">{notice.message}<button aria-label="Закрыть" onClick={() => setNotice(null)}><X size={16} /></button></div>}
-      {error && <p className="admin-menu__error" role="alert">{error}</p>}
-      {loading ? <p className="admin-crm__loading">Загружаем сети…</p> : (
-        <div className="admin-crm__table-wrap">
-          <table className="admin-crm__table">
-            <thead><tr><th>Сеть</th><th>Города</th><th>Контакт</th><th>Статус меню</th><th>Партнёрство</th><th>Последняя активность</th><th>Следующее действие</th><th /></tr></thead>
-            <tbody>
-              {items.map((restaurant) => (
-                <tr key={restaurant.slug} className={restaurant.requires_action ? 'requires-action' : ''}>
-                  <td><strong>{restaurant.name}</strong><small>{restaurant.slug}</small>{restaurant.access_blocked && <span className="admin-crm__warning"><Ban size={13} />Доступ заблокирован</span>}</td>
-                  <td>{restaurant.city_label}</td>
-                  <td>{restaurant.contacts.length ? <><span>{restaurant.contacts[0].email}</span>{restaurant.contacts.length > 1 && <small>+{restaurant.contacts.length - 1}</small>}{restaurant.invite_error && <span className="admin-crm__warning">Ошибка письма</span>}</> : <span className="admin-crm__muted">—</span>}</td>
-                  <td><span className={`admin-crm__status admin-crm__status--${restaurant.menu_status}`}>{restaurant.menu_status_label}</span></td>
-                  <td><span className={`admin-crm__partnership admin-crm__partnership--${restaurant.partnership}`} title={restaurant.parsers?.length ? `Меню обновляет парсер: ${restaurant.parsers.join(', ')}` : undefined}>{restaurant.partnership_label}</span></td>
-                  <td>{formatDate(restaurant.last_activity_at)}</td>
-                  <td>{restaurant.active_revision_id && restaurant.requires_action ? <Link to={`/admin/menu-revisions/${restaurant.active_revision_id}`}>{restaurant.next_action}</Link> : restaurant.next_action}</td>
-                  <td><RestaurantActions restaurant={restaurant} onEdit={() => setDialog({ type: 'edit', restaurant })} onChanged={reload} notify={notify} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!items.length && <div className="admin-menu__empty">По выбранным условиям ресторанов нет.</div>}
-        </div>
-      )}
-
-      {dialog?.type === 'restaurant' && <Dialog title="Добавить ресторан" onClose={() => setDialog(null)}><RestaurantForm onClose={() => setDialog(null)} onSaved={saved} /></Dialog>}
-      {dialog?.type === 'edit' && <Dialog title={`Редактировать: ${dialog.restaurant.name}`} onClose={() => setDialog(null)}><EditRestaurantForm restaurant={dialog.restaurant} onClose={() => setDialog(null)} onSaved={saved} /></Dialog>}
-      </>}
-    </section>
   )
 }

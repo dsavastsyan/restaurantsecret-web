@@ -147,6 +147,21 @@
 .admin-manual-menu__status--current { color: #28603b; background: #e6f3e8; }
 .admin-manual-menu__status--needs_check { color: #8b332d; background: #f8e4e1; }
 .admin-manual-menu__status--source_missing { color: #735616; background: #fff3d5; }
+.admin-manual-menu__status--unknown { color: #62635e; background: #ecece8; }
+.admin-restaurants__table--manual { min-width: 1240px; }
+.admin-restaurants__table td small { display: block; margin-top: 4px; color: #85857d; }
+.admin-restaurants__table td a { color: #59653f; }
+.admin-restaurants__table td:first-child a { color: inherit; text-decoration: none; }
+.admin-restaurants__table td:first-child a:hover strong { text-decoration: underline; }
+.admin-restaurants__group tr:not(.admin-restaurants__group-title) td:first-child { box-shadow: inset 3px 0 #9aa387; }
+.admin-restaurants__group-title td { padding: 9px 13px; color: #59653f; background: #f4f5ee; font-size: 12px; font-weight: 800; }
+.admin-restaurants__cards > a { grid-template-columns: auto minmax(0, 1fr) auto; }
+.admin-restaurants__issues { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+.admin-restaurants__issues .admin-crm__warning { margin-top: 0; }
+.admin-health-report__metrics.admin-restaurant-page__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-health-report__header p a, .admin-health-report__card p a, .admin-health-report__history a { color: #59653f; font-weight: 700; }
+.admin-restaurant-page__value { font-size: 15px !important; }
+.admin-restaurant-page__value a { color: #59653f; }
 
 .admin-menu button,
 .admin-menu input,
@@ -179,6 +194,8 @@
 .admin-menu__nav { display: flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 20px; }
 .admin-menu__nav a { padding: 9px 12px; border-radius: 9px; color: #686960; text-decoration: none; font-weight: 700; }
 .admin-menu__nav a.active { color: #4e5a37; background: #edf0e5; }
+.admin-menu__section-nav { justify-content: flex-start; width: fit-content; margin: 0 0 18px; padding: 4px; border-radius: 11px; background: #e8e5dc; }
+.admin-menu__section-nav a.active { color: #354022; background: #fff; box-shadow: 0 1px 4px rgba(40, 39, 34, .1); }
 .admin-menu__main { width: min(1500px, 92vw); margin: 0 auto; padding: 42px 0 70px; }
 
 .admin-menu__login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
@@ -252,8 +269,11 @@
 .admin-crm__title > div:last-child { display: flex; align-items: center; gap: 18px; }
 .admin-crm__title > div:last-child strong { color: #9aa387; font-size: 42px; }
 .admin-crm__section-tabs { display: flex; gap: 6px; margin-top: 24px; padding: 4px; width: fit-content; border-radius: 11px; background: #e8e5dc; }
-.admin-crm__section-tabs button { padding: 9px 13px; color: #66675f; border: 0; border-radius: 8px; background: transparent; font-weight: 800; }
-.admin-crm__section-tabs button.active { color: #354022; background: #fff; box-shadow: 0 1px 4px rgba(40, 39, 34, .1); }
+.admin-crm__section-tabs button,
+.admin-crm__section-tabs a { padding: 9px 13px; color: #66675f; border: 0; border-radius: 8px; background: transparent; font-weight: 800; }
+.admin-crm__section-tabs a { text-decoration: none; }
+.admin-crm__section-tabs button.active,
+.admin-crm__section-tabs a.active { color: #354022; background: #fff; box-shadow: 0 1px 4px rgba(40, 39, 34, .1); }
 .admin-crm__primary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 15px; color: #fff; border: 0; border-radius: 11px; background: #65734d; font-weight: 800; }
 .admin-crm__filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 20px; }
 .admin-crm__filters select, .admin-crm__filters > button { min-height: 44px; padding: 0 11px; border: 1px solid #d8d4ca; border-radius: 11px; background: #fff; }
@@ -337,11 +357,13 @@
 .admin-parser__table td:first-child strong, .admin-parser__table td:first-child small { display: block; }
 .admin-parser__table td a { display: inline-flex; align-items: center; gap: 4px; color: #59653f; font-weight: 800; text-decoration: none; }
 .admin-parser__status { display: inline-flex; padding: 6px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
-.admin-parser__status--success { color: #28603b; background: #daf0df; }
-.admin-parser__status--no_change { color: #315f78; background: #e0eff6; }
+.admin-parser__status--current { color: #28603b; background: #daf0df; }
 .admin-parser__status--error { color: #8d312b; background: #fce5e1; }
-.admin-parser__status--never { color: #76571c; background: #fff0c9; }
+.admin-parser__status--waiting { color: #76571c; background: #fff0c9; }
 .admin-parser__status--disabled { color: #62635e; background: #ecece8; }
+.admin-parser__kind { display: block; width: fit-content; margin-top: 6px; padding: 3px 8px; border-radius: 8px; color: #4b4f6b; background: #e8e9f4; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.admin-parser__kind small { display: block; font-weight: 600; opacity: 0.8; }
+.admin-parser__status--agent_crawl { color: #4b4f6b; background: #e8e9f4; }
 .admin-parser__error { width: min(440px, 42vw); margin-top: 8px; }
 .admin-parser__error summary { color: #8d312b; cursor: pointer; font-size: 12px; font-weight: 800; }
 .admin-parser__error > strong { display: block; margin-top: 8px; color: #742a25; overflow-wrap: anywhere; }
@@ -458,6 +480,22 @@
 .admin-menu__badge--auto_matched, .admin-menu__badge--approved { color: #28603b; background: #daf0df; }
 .admin-menu__badge--rejected { color: #8d312b; background: #fce5e1; }
 
+.admin-product-sources__table td small, .admin-product-completeness__table td small { display: block; margin-top: 4px; color: #85857d; }
+.admin-product-sources__table td small a { display: inline-flex; align-items: center; gap: 4px; color: #59653f; font-weight: 800; text-decoration: none; }
+.admin-product-sources__coverage { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 24px 0 0; }
+.admin-product-sources__coverage a { color: #59653f; }
+.admin-product-barcodes__verdict--review { color: #76571c; background: #fff0c9; }
+.admin-product-barcodes__verdict--reject { color: #8d312b; background: #fce5e1; }
+.admin-product-barcodes__verdict--accept { color: #28603b; background: #daf0df; }
+.admin-product-barcodes__reasons { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 4px 20px 16px; list-style: none; }
+.admin-product-barcodes__reasons li { font-size: 12.5px; }
+.admin-product-barcodes__reason--review { color: #76571c; }
+.admin-product-barcodes__hint { margin: 12px 0 18px; color: #73736b; }
+.admin-product-barcodes__more { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 22px 0; color: #73736b; }
+.admin-product-barcodes__more button { padding: 10px 13px; color: #66675f; border: 1px solid #d8d4ca; border-radius: 10px; background: #fff; font-weight: 700; }
+.admin-product-barcodes__more button:disabled { opacity: .5; }
+.admin-product-completeness__table td small.admin-product-completeness__generic { color: #28603b; font-weight: 700; }
+
 @media (max-width: 900px) {
   .admin-menu__workspace { grid-template-columns: 1fr; }
   .admin-menu__cards > a { grid-template-columns: auto 1fr; }
@@ -471,6 +509,7 @@
 }
 
 @media (max-width: 600px) {
+  .admin-product-sources__coverage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-menu__main { width: auto; margin: 0; padding: 24px 16px 70px; }
   .admin-menu__header { padding: 0 3vw; }
   .admin-menu__detail > header { align-items: start; flex-direction: column; }
@@ -499,6 +538,15 @@
   .admin-manual-menu__table td:first-child, .admin-parser__table td:first-child, .admin-health__table td:first-child { padding-top: 16px; border-top: 0; }
   .admin-manual-menu__table td:not(:first-child)::before, .admin-parser__table td:not(:first-child)::before, .admin-health__table td:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 5px; color: #85857d; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
   .admin-manual-menu__table .admin-health-cell, .admin-parser__table .admin-health-cell, .admin-health__table .admin-health-cell { grid-column: 1 / -1; }
+  .admin-manual-menu__table.admin-restaurants__table--manual { min-width: 0; }
+  .admin-manual-menu__source { min-width: 0; }
+  .admin-manual-menu__table tbody.admin-restaurants__group { padding-left: 10px; border-left: 3px solid #9aa387; }
+  .admin-restaurants__group tr:not(.admin-restaurants__group-title) td:first-child { box-shadow: none; }
+  .admin-restaurants__group-title { border: 0 !important; background: transparent !important; }
+  .admin-restaurants__group-title td { padding: 0 2px; background: transparent; }
+  .admin-restaurants__cards > a { grid-template-columns: auto minmax(0, 1fr); }
+  .admin-restaurants__cards > a > .admin-manual-menu__status { grid-column: 2; justify-self: start; }
+  .admin-health-report__metrics.admin-restaurant-page__fields { grid-template-columns: 1fr; }
   .admin-health__table td { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 8px; align-items: start; }
   .admin-health__table td::before { margin: 0; }
   .admin-health__table .admin-health-cell { display: block; }

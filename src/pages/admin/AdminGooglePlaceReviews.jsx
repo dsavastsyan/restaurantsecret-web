@@ -59,7 +59,7 @@ function GooglePlacesUsageCard({ usage, loading, error }) {
         Считаем успешные запросы карточек Google. Для стоимости сверяйте этот показатель с Google Cloud Billing.
         {error ? ` Счётчик недоступен: ${error}` : ''}
       </p>
-      <Link className="admin-place-review__usage-link" to="/admin/google-costs">Все расходы Google</Link>
+      <Link className="admin-place-review__usage-link" to="/admin/costs/google">Все расходы Google</Link>
     </aside>
   )
 }

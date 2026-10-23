@@ -419,6 +419,18 @@ function cityCatalogFallback(cityName, cityRestaurants) {
 </main>`
 }
 
+// # Honest <lastmod>: the API's updatedAt only — never the build date, which would
+// # make every URL look changed daily. Returns undefined when nothing is known.
+function restaurantLastmod(restaurant) {
+  const date = typeof restaurant?.updatedAt === 'string' ? restaurant.updatedAt.split('T')[0] : ''
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined
+}
+
+function latestLastmod(restaurants) {
+  const dates = restaurants.map(restaurantLastmod).filter(Boolean).sort()
+  return dates.at(-1)
+}
+
 function groupChains(restaurants) {
   const chains = new Map()
   for (const restaurant of restaurants) {
@@ -1118,7 +1130,7 @@ async function main() {
       loc: `${BASE_URL}/restaurants/${chainSlug}/`,
       priority: '0.85',
       changefreq: 'weekly',
-      lastmod: today,
+      lastmod: latestLastmod(sitemapChains.get(chainSlug).branches),
     }))
 
   const skippedChainBranchCount = sitemapRestaurants.filter(
@@ -1130,7 +1142,7 @@ async function main() {
       loc: `${BASE_URL}/restaurants/${r.slug}/menu/`,
       priority: '0.8',
       changefreq: 'weekly',
-      lastmod: r.updatedAt?.split('T')[0] ?? today,
+      lastmod: restaurantLastmod(r),
     }))
   console.log(`ℹ️  Sitemap: skipped ${skippedChainBranchCount} chain branches canonicalized to their hub`)
 
@@ -1163,8 +1175,7 @@ ${allUrls
     <loc>${escapeXml(u.loc)}</loc>
     <changefreq>${escapeXml(u.changefreq)}</changefreq>
     <priority>${escapeXml(u.priority)}</priority>
-    <lastmod>${escapeXml(u.lastmod)}</lastmod>
-  </url>`,
+${u.lastmod ? `    <lastmod>${escapeXml(u.lastmod)}</lastmod>\n` : ''}  </url>`,
   )
   .join('\n')}
 </urlset>`
@@ -1187,4 +1198,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   })
 }
 
-export { chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }
+export { restaurantLastmod, latestLastmod, chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }

@@ -263,6 +263,7 @@ export default function Menu({
           await fetchStatus(accessToken)
           setLoading(true)
           setError(null)
+          setRestaurantPoint(null)
           const raw = await apiGet(
             `/restaurants/${slug}/menu?city=${encodeURIComponent(city)}`,
             accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
@@ -271,6 +272,13 @@ export default function Menu({
           if (!aborted) {
             const normalizedMenu = normalizeMenu(data)
             setMenu(normalizedMenu)
+            // The menu response carries the restaurant's own map point, so the
+            // page no longer downloads the whole city's map to find it.
+            const pointLat = Number(raw?.mapPoint?.lat)
+            const pointLon = Number(raw?.mapPoint?.lon)
+            setRestaurantPoint(raw?.mapPoint && Number.isFinite(pointLat) && Number.isFinite(pointLon)
+              ? { lat: pointLat, lon: pointLon }
+              : null)
             analytics.track('restaurant_menu_open', { slug, name: normalizedMenu.name || slug })
             analytics.reachGoal('restaurant_view');
           }
@@ -303,32 +311,6 @@ export default function Menu({
       loadFavoriteRestaurants(accessToken)
     }
   }, [accessToken, loadFavoriteRestaurants, previewMode])
-
-  useEffect(() => {
-    let aborted = false
-    setRestaurantPoint(null)
-
-    ; (async () => {
-      try {
-        const mapData = await apiGet(`/restaurants/map?city=${encodeURIComponent(city)}`)
-        if (aborted) return
-        const targetSlug = String(slug || '').trim().toLowerCase()
-        const points = Array.isArray(mapData?.items) ? mapData.items : []
-        const found = points.find((item) => String(item?.slug || '').trim().toLowerCase() === targetSlug)
-        const lat = Number(found?.lat)
-        const lon = Number(found?.lon)
-        if (Number.isFinite(lat) && Number.isFinite(lon)) {
-          setRestaurantPoint({ lat, lon })
-        }
-      } catch (coordsError) {
-        if (!aborted) console.error('Failed to load restaurant coordinates', coordsError)
-      }
-    })()
-
-    return () => {
-      aborted = true
-    }
-  }, [city, slug])
 
   const dishes = useMemo(() => flattenMenuDishes(menu), [menu])
   const menuGroups = useMemo(() => flattenMenuGroups(menu), [menu])
