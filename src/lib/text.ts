@@ -163,6 +163,7 @@ function transliterateLatinToCyrillic(input: string): string {
     ["ts", "ц"],
     ["ch", "ч"],
     ["sh", "ш"],
+    ["h", "х"],
     ["yo", "е"],
     ["yu", "ю"],
     ["ya", "я"],
