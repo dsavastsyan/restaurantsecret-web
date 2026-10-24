@@ -12,7 +12,7 @@ import desktopDayBackground from "@/assets/login/Login bachround desctop day.png
 import ServiceUnavailable from "@/components/ServiceUnavailable.jsx";
 import { isServiceUnavailableError } from "@/lib/serviceUnavailable.js";
 
-const COMMUNICATION_CONSENT_VERSION = "restaurantsecret-communications-2026-10-24";
+const COMMUNICATION_CONSENT_VERSION = "restaurantsecret-communications-2026-09-16";
 const OTP_RATE_LIMIT_SECONDS = 10 * 60;
 const OTP_RATE_LIMIT_ERROR = "otp_rate_limit";
 
@@ -406,10 +406,10 @@ export default function LoginPage() {
               />
               <span>
                 Даю согласие на{" "}
-                <a href="https://restaurantsecret.ru/legal/versions/pdn-consent-2026-10-24.pdf" target="_blank" rel="noopener noreferrer">
+                <a href="https://restaurantsecret.ru/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">
                   обработку персональных данных
                 </a>
-                {" "}в целях продвижения RestaurantSecret и AnyEat по электронной почте.
+                , в том числе с целью получения рекламных предложений
               </span>
             </label>
 
@@ -420,7 +420,7 @@ export default function LoginPage() {
                 onChange={(event) => setMarketingCommunications(event.target.checked)}
                 disabled={loading}
               />
-              <span>Хочу получать по электронной почте персональные рекомендации, полезные материалы и рекламные предложения RestaurantSecret и AnyEat.</span>
+              <span>Хочу получать от RestaurantSecret персональные рекомендации, полезные материалы и рекламные предложения.</span>
             </label>
 
             <button className="login__submit login-consent__submit" onClick={saveCommunicationConsents} disabled={loading}>
