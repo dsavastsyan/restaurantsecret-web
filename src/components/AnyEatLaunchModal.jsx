@@ -8,7 +8,7 @@ import preview from '@/assets/anyeat-phone-left.png'
 import { Apple, BookText, Mail, Rocket, Utensils } from 'lucide-react'
 import './AnyEatLaunchModal.css'
 
-const CONSENT_VERSION = 'restaurantsecret-communications-2026-09-16'
+const CONSENT_VERSION = 'restaurantsecret-communications-2026-10-24'
 const YANDEX_METRIKA_COUNTER_ID = 108992733
 const RESEND_COOLDOWN = 60
 const MODAL_ID = 'anyeat_launch'
@@ -271,8 +271,8 @@ export default function AnyEatLaunchModal({ embedded = false }) {
                 <button className="rs-anyeat__submit" type="submit" onClick={() => trackModalEvent('anyeat_modal_cta_clicked', { segment, cta: 'submit_waitlist' })} disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
               </div>
               {(!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
-                {!knownConsents.personal_data_advertising && <label><input type="checkbox" checked={consents.personal_data_advertising} onChange={(event) => setConsents({ ...consents, personal_data_advertising: event.target.checked })} /><span>Даю согласие на <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> в целях отправки рекламных сообщений.</span></label>}
-                {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /><span>Соглашаюсь получать рассылку RestaurantSecret о запуске AnyEat и других предложениях.</span></label>}
+                {!knownConsents.personal_data_advertising && <label><input type="checkbox" checked={consents.personal_data_advertising} onChange={(event) => setConsents({ ...consents, personal_data_advertising: event.target.checked })} /><span>Даю согласие на <a href="/legal/versions/pdn-consent-2026-10-24.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> в целях отправки рекламных сообщений.</span></label>}
+                {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /><span>Соглашаюсь получать по электронной почте новости и рекламные предложения RestaurantSecret и AnyEat.</span></label>}
               </div>}
               {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
               <small className="rs-anyeat__fine">Обещаем писать только по важным поводам <span aria-hidden="true">♡</span></small>
