@@ -57,6 +57,7 @@ export default function Search() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [retryNonce, setRetryNonce] = useState(0)
+  const restaurants = results?.restaurants ?? []
   const [submittingSuggest, setSubmittingSuggest] = useState(false)
   const pageViewTracked = useRef(false)
 
@@ -231,7 +232,6 @@ export default function Search() {
 
   const hasQuery = queryParam.length > 0
   const dishes = results?.dishes ?? []
-  const restaurants = results?.restaurants ?? []
   const otherCities = results?.otherCities ?? []
   const dishRestaurantCount = new Set(dishes.map((dish) => dish.restaurantSlug)).size
   const otherDishCount = otherCities.reduce((total, group) => total + (group.dishes?.length || 0), 0)
