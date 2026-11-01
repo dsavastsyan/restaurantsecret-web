@@ -77,7 +77,7 @@ export default function DishTileV2({ dish, restaurantSlug, restaurantName, isFre
   const handleDiaryAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (readOnly) return;
-    openAnyEatLaunchModal();
+    openAnyEatLaunchModal('dish_tile');
   };
 
   const handleSubscribe = (e: React.MouseEvent) => {
