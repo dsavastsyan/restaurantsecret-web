@@ -14,6 +14,8 @@ import {
   sortCrawlNetworks,
 } from './adminProducts'
 
+const SCHEME_LABELS = { A: 'Всё в списке', B: 'Карточка на товар', own_site: 'Сайт сети' }
+
 const STATE_LABELS = {
   working: 'Идёт сбор',
   cooldown: 'Пауза после 429',
@@ -101,7 +103,7 @@ export default function AdminProductAutoUpdate() {
                     <tr key={network.key}>
                       <td>
                         <strong>{network.name}</strong>
-                        <small>{network.scheme === 'A' ? 'Всё в списке' : 'Карточка на товар'}</small>
+                        <small>{SCHEME_LABELS[network.scheme] || network.scheme}</small>
                       </td>
                       <td data-label="Статус">
                         <span className={`admin-parser__status admin-parser__status--${item.tone}`}>{item.label}</span>
@@ -132,7 +134,7 @@ export default function AdminProductAutoUpdate() {
             </table>
             {!visible.length && <div className="admin-menu__empty">По выбранным условиям сетей нет</div>}
           </div>
-          <p className="admin-crm__muted">Снимок от {formatDateTime(snapshot.generated_at)}. Метро обновляется отдельно с сайта METRO и показывается в разделе «Базы ритейлеров»</p>
+          <p className="admin-crm__muted">Снимок от {formatDateTime(snapshot.generated_at)}</p>
         </>
       )}
     </section>
