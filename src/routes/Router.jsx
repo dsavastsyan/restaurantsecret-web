@@ -53,6 +53,7 @@ const AdminKbjuFlags = lazy(() => import('../pages/admin/KbjuFlagReview.jsx'))
 const AdminProductRetailers = lazy(() => import('../pages/admin/AdminProductSources.jsx').then((module) => ({ default: module.AdminProductRetailers })))
 const AdminBarcodeSources = lazy(() => import('../pages/admin/AdminProductSources.jsx').then((module) => ({ default: module.AdminBarcodeSources })))
 const AdminBarcodeCandidates = lazy(() => import('../pages/admin/BarcodeCandidateReview.jsx'))
+const AdminProductAutoUpdate = lazy(() => import('../pages/admin/AdminProductAutoUpdate.jsx'))
 const AdminProductCompleteness = lazy(() => import('../pages/admin/AdminProductCompleteness.jsx'))
 const AdminRestaurantAttributeReviews = lazy(() => import('../pages/admin/AdminRestaurantAttributeReviews.jsx'))
 const AdminGooglePlaceReviews = lazy(() => import('../pages/admin/AdminGooglePlaceReviews.jsx'))
@@ -201,6 +202,7 @@ function AppRoutes({ onReady }) {
             </Route>
             <Route path="freshness">
               <Route index element={<Navigate to="/admin/products/freshness/duplicates" replace />} />
+              <Route path="auto" element={<AdminProductAutoUpdate />} />
               <Route path="duplicates" element={<AdminProductMatches />} />
               <Route path="barcodes" element={<AdminBarcodeCandidates />} />
             </Route>
