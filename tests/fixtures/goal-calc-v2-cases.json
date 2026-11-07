@@ -1,0 +1,1342 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "plan_woman35_lose",
+      "input": {
+        "gender": "female",
+        "age": 35,
+        "weight": 80,
+        "height": 165,
+        "activityLevel": "low",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1495,
+        "activityCoefficient": 1.4,
+        "expenditure": 2093,
+        "activityKcal": 598,
+        "calories": 1600,
+        "deficit": 500,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 128,
+        "fat": 44,
+        "carbs": 173,
+        "rangeLow": 1350,
+        "rangeHigh": 1850,
+        "paceLow": 0.3,
+        "paceHigh": 0.5,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": true,
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "plan_man35_lose",
+      "input": {
+        "gender": "male",
+        "age": 35,
+        "weight": 90,
+        "height": 180,
+        "activityLevel": "low",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1855,
+        "activityCoefficient": 1.4,
+        "expenditure": 2597,
+        "activityKcal": 742,
+        "calories": 2100,
+        "deficit": 500,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 144,
+        "fat": 58,
+        "carbs": 251,
+        "rangeLow": 1750,
+        "rangeHigh": 2450,
+        "paceLow": 0.3,
+        "paceHigh": 0.5,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": true,
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "plan_woman50_floor_hit",
+      "input": {
+        "gender": "female",
+        "age": 50,
+        "weight": 55,
+        "height": 155,
+        "activityLevel": "low",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1108,
+        "activityCoefficient": 1.4,
+        "expenditure": 1551,
+        "activityKcal": 443,
+        "calories": 1200,
+        "deficit": 351,
+        "floor": 1200,
+        "floorHit": true,
+        "loseAvailable": true,
+        "protein": 88,
+        "fat": 33,
+        "carbs": 138,
+        "rangeLow": 1200,
+        "rangeHigh": 1450,
+        "paceLow": 0.2,
+        "paceHigh": 0.4,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "weight_cap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "plan_woman40_130kg_protein_cap",
+      "input": {
+        "gender": "female",
+        "age": 40,
+        "weight": 130,
+        "height": 165,
+        "activityLevel": "low",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1970,
+        "activityCoefficient": 1.4,
+        "expenditure": 2758,
+        "activityKcal": 788,
+        "calories": 2250,
+        "deficit": 500,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 109,
+        "fat": 63,
+        "carbs": 312,
+        "rangeLow": 2000,
+        "rangeHigh": 2500,
+        "paceLow": 0.3,
+        "paceHigh": 0.5,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": true,
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "plan_woman28_lose",
+      "input": {
+        "gender": "female",
+        "age": 28,
+        "weight": 62,
+        "height": 168,
+        "activityLevel": "low",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1369,
+        "activityCoefficient": 1.4,
+        "expenditure": 1917,
+        "activityKcal": 548,
+        "calories": 1400,
+        "deficit": 500,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 99,
+        "fat": 39,
+        "carbs": 163,
+        "rangeLow": 1200,
+        "rangeHigh": 1650,
+        "paceLow": 0.3,
+        "paceHigh": 0.5,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "weight_cap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "plan_woman28_maintain_medium",
+      "input": {
+        "gender": "female",
+        "age": 28,
+        "weight": 62,
+        "height": 168,
+        "activityLevel": "medium",
+        "goal": "maintain_weight"
+      },
+      "expected": {
+        "bmr": 1369,
+        "activityCoefficient": 1.6,
+        "expenditure": 2190,
+        "activityKcal": 821,
+        "calories": 2200,
+        "deficit": 0,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 74,
+        "fat": 61,
+        "carbs": 339,
+        "rangeLow": 1950,
+        "rangeHigh": 2450,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "standard",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": []
+      }
+    },
+    {
+      "name": "plan_man25_gain_high",
+      "input": {
+        "gender": "male",
+        "age": 25,
+        "weight": 75,
+        "height": 180,
+        "activityLevel": "high",
+        "goal": "gain_weight"
+      },
+      "expected": {
+        "bmr": 1755,
+        "activityCoefficient": 1.9,
+        "expenditure": 3335,
+        "activityKcal": 1580,
+        "calories": 3650,
+        "deficit": 0,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 120,
+        "fat": 101,
+        "carbs": 565,
+        "rangeLow": 3300,
+        "rangeHigh": 4000,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "standard",
+        "effectiveGoal": "gain_weight",
+        "paceOptions": []
+      }
+    },
+    {
+      "name": "age65_always_1_7",
+      "input": {
+        "gender": "female",
+        "age": 65,
+        "weight": 70,
+        "height": 160,
+        "activityLevel": "very_high",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1214,
+        "activityCoefficient": 1.7,
+        "expenditure": 2064,
+        "activityKcal": 850,
+        "calories": 1750,
+        "deficit": 300,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 112,
+        "fat": 49,
+        "carbs": 215,
+        "rangeLow": 1500,
+        "rangeHigh": 2000,
+        "paceLow": 0.2,
+        "paceHigh": 0.3,
+        "planMode": "gentle",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "age70_man_maintain",
+      "input": {
+        "gender": "male",
+        "age": 70,
+        "weight": 82,
+        "height": 175,
+        "activityLevel": "high",
+        "goal": "maintain_weight"
+      },
+      "expected": {
+        "bmr": 1569,
+        "activityCoefficient": 1.7,
+        "expenditure": 2667,
+        "activityKcal": 1098,
+        "calories": 2650,
+        "deficit": 0,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 98,
+        "fat": 74,
+        "carbs": 398,
+        "rangeLow": 2300,
+        "rangeHigh": 3000,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "gentle",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": []
+      }
+    },
+    {
+      "name": "under18_maintenance_only",
+      "input": {
+        "gender": "female",
+        "age": 16,
+        "weight": 55,
+        "height": 165,
+        "activityLevel": "medium",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1340,
+        "activityCoefficient": 1.6,
+        "expenditure": 2144,
+        "activityKcal": 804,
+        "calories": 2150,
+        "deficit": 0,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 66,
+        "fat": 60,
+        "carbs": 337,
+        "rangeLow": 1900,
+        "rangeHigh": 2400,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "no_deficit",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.5,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "under18_gain_becomes_maintain",
+      "input": {
+        "gender": "male",
+        "age": 17,
+        "weight": 60,
+        "height": 175,
+        "activityLevel": "medium",
+        "goal": "gain_weight"
+      },
+      "expected": {
+        "bmr": 1614,
+        "activityCoefficient": 1.6,
+        "expenditure": 2582,
+        "activityKcal": 968,
+        "calories": 2600,
+        "deficit": 0,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 72,
+        "fat": 72,
+        "carbs": 416,
+        "rangeLow": 2250,
+        "rangeHigh": 2950,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "no_deficit",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": []
+      }
+    },
+    {
+      "name": "target_bmi_below_18_5",
+      "input": {
+        "gender": "female",
+        "age": 30,
+        "weight": 60,
+        "height": 170,
+        "activityLevel": "medium",
+        "goal": "lose_weight",
+        "targetWeight": 52
+      },
+      "expected": {
+        "bmr": 1352,
+        "activityCoefficient": 1.6,
+        "expenditure": 2162,
+        "activityKcal": 810,
+        "calories": 2150,
+        "deficit": 0,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 72,
+        "fat": 60,
+        "carbs": 331,
+        "rangeLow": 1900,
+        "rangeHigh": 2400,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "no_deficit",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.5,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bmi_below_18_5_gain_allowed",
+      "input": {
+        "gender": "female",
+        "age": 25,
+        "weight": 48,
+        "height": 170,
+        "activityLevel": "medium",
+        "goal": "gain_weight"
+      },
+      "expected": {
+        "bmr": 1257,
+        "activityCoefficient": 1.6,
+        "expenditure": 2010,
+        "activityKcal": 753,
+        "calories": 2200,
+        "deficit": 0,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 77,
+        "fat": 61,
+        "carbs": 336,
+        "rangeLow": 1950,
+        "rangeHigh": 2450,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "no_deficit",
+        "effectiveGoal": "gain_weight",
+        "paceOptions": []
+      }
+    },
+    {
+      "name": "weight_cap_10_kcal_per_kg",
+      "input": {
+        "gender": "female",
+        "age": 30,
+        "weight": 55,
+        "height": 160,
+        "activityLevel": "very_high",
+        "goal": "lose_weight",
+        "pace": 0.75
+      },
+      "expected": {
+        "bmr": 1239,
+        "activityCoefficient": 2.2,
+        "expenditure": 2726,
+        "activityKcal": 1487,
+        "calories": 2200,
+        "deficit": 550,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 88,
+        "fat": 61,
+        "carbs": 325,
+        "rangeLow": 1950,
+        "rangeHigh": 2450,
+        "paceLow": 0.3,
+        "paceHigh": 0.6,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "weight_cap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "floor_reason_pace_05",
+      "input": {
+        "gender": "female",
+        "age": 62,
+        "weight": 50,
+        "height": 160,
+        "activityLevel": "low",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1029,
+        "activityCoefficient": 1.4,
+        "expenditure": 1441,
+        "activityKcal": 412,
+        "calories": 1200,
+        "deficit": 241,
+        "floor": 1200,
+        "floorHit": true,
+        "loseAvailable": true,
+        "protein": 80,
+        "fat": 33,
+        "carbs": 146,
+        "rangeLow": 1200,
+        "rangeHigh": 1450,
+        "paceLow": 0.1,
+        "paceHigh": 0.2,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": false,
+            "reason": "floor"
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "weight_cap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "pace_025",
+      "input": {
+        "gender": "male",
+        "age": 40,
+        "weight": 100,
+        "height": 185,
+        "activityLevel": "medium",
+        "goal": "lose_weight",
+        "pace": 0.25
+      },
+      "expected": {
+        "bmr": 1961,
+        "activityCoefficient": 1.6,
+        "expenditure": 3138,
+        "activityKcal": 1177,
+        "calories": 2900,
+        "deficit": 250,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 160,
+        "fat": 81,
+        "carbs": 383,
+        "rangeLow": 2550,
+        "rangeHigh": 3250,
+        "paceLow": 0.2,
+        "paceHigh": 0.3,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": true,
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "pace_075_available",
+      "input": {
+        "gender": "male",
+        "age": 40,
+        "weight": 110,
+        "height": 185,
+        "activityLevel": "high",
+        "goal": "lose_weight",
+        "pace": 0.75
+      },
+      "expected": {
+        "bmr": 2061,
+        "activityCoefficient": 1.9,
+        "expenditure": 3916,
+        "activityKcal": 1855,
+        "calories": 3150,
+        "deficit": 750,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 137,
+        "fat": 88,
+        "carbs": 453,
+        "rangeLow": 2800,
+        "rangeHigh": 3500,
+        "paceLow": 0.5,
+        "paceHigh": 0.8,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": true,
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "expenditure_below_floor_synthetic",
+      "input": {
+        "gender": "female",
+        "age": 60,
+        "weight": 49,
+        "height": 160,
+        "activityLevel": "low",
+        "goal": "lose_weight",
+        "safety": [
+          "breastfeeding"
+        ]
+      },
+      "expected": {
+        "bmr": 1029,
+        "activityCoefficient": 1.4,
+        "expenditure": 1441,
+        "activityKcal": 412,
+        "calories": 1450,
+        "deficit": 0,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": false,
+        "protein": 78,
+        "fat": 40,
+        "carbs": 195,
+        "rangeLow": 1450,
+        "rangeHigh": 1700,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "gentle",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": false,
+            "reason": "floor"
+          },
+          {
+            "pace": 0.5,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "man_floor_1500",
+      "input": {
+        "gender": "male",
+        "age": 55,
+        "weight": 62,
+        "height": 168,
+        "activityLevel": "low",
+        "goal": "lose_weight"
+      },
+      "expected": {
+        "bmr": 1400,
+        "activityCoefficient": 1.4,
+        "expenditure": 1960,
+        "activityKcal": 560,
+        "calories": 1500,
+        "deficit": 460,
+        "floor": 1500,
+        "floorHit": true,
+        "loseAvailable": true,
+        "protein": 99,
+        "fat": 42,
+        "carbs": 182,
+        "rangeLow": 1500,
+        "rangeHigh": 1850,
+        "paceLow": 0.3,
+        "paceHigh": 0.5,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "weight_cap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "gain_cap_350",
+      "input": {
+        "gender": "male",
+        "age": 22,
+        "weight": 85,
+        "height": 185,
+        "activityLevel": "very_high",
+        "goal": "gain_weight"
+      },
+      "expected": {
+        "bmr": 1901,
+        "activityCoefficient": 2.2,
+        "expenditure": 4183,
+        "activityKcal": 2282,
+        "calories": 4550,
+        "deficit": 0,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 136,
+        "fat": 126,
+        "carbs": 718,
+        "rangeLow": 4200,
+        "rangeHigh": 4900,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "standard",
+        "effectiveGoal": "gain_weight",
+        "paceOptions": []
+      }
+    },
+    {
+      "name": "maintain_woman_protein_1_2",
+      "input": {
+        "gender": "female",
+        "age": 45,
+        "weight": 70,
+        "height": 165,
+        "activityLevel": "medium",
+        "goal": "maintain_weight"
+      },
+      "expected": {
+        "bmr": 1345,
+        "activityCoefficient": 1.6,
+        "expenditure": 2152,
+        "activityKcal": 807,
+        "calories": 2150,
+        "deficit": 0,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 84,
+        "fat": 60,
+        "carbs": 319,
+        "rangeLow": 1900,
+        "rangeHigh": 2400,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "standard",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": []
+      }
+    },
+    {
+      "name": "safety_pregnancy",
+      "input": {
+        "gender": "female",
+        "age": 30,
+        "weight": 70,
+        "height": 165,
+        "activityLevel": "medium",
+        "goal": "lose_weight",
+        "safety": [
+          "pregnancy"
+        ]
+      },
+      "expected": {
+        "bmr": 1420,
+        "activityCoefficient": 1.6,
+        "expenditure": 2272,
+        "activityKcal": 852,
+        "calories": 2250,
+        "deficit": 0,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 84,
+        "fat": 63,
+        "carbs": 337,
+        "rangeLow": 2000,
+        "rangeHigh": 2500,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "no_deficit",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.5,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "safety_breastfeeding",
+      "input": {
+        "gender": "female",
+        "age": 31,
+        "weight": 75,
+        "height": 168,
+        "activityLevel": "medium",
+        "goal": "lose_weight",
+        "safety": [
+          "breastfeeding"
+        ]
+      },
+      "expected": {
+        "bmr": 1484,
+        "activityCoefficient": 1.6,
+        "expenditure": 2374,
+        "activityKcal": 890,
+        "calories": 2050,
+        "deficit": 300,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 120,
+        "fat": 57,
+        "carbs": 264,
+        "rangeLow": 1800,
+        "rangeHigh": 2300,
+        "paceLow": 0.2,
+        "paceHigh": 0.3,
+        "planMode": "gentle",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "safety_eating_disorder",
+      "input": {
+        "gender": "female",
+        "age": 24,
+        "weight": 60,
+        "height": 168,
+        "activityLevel": "medium",
+        "goal": "lose_weight",
+        "safety": [
+          "eating_disorder"
+        ]
+      },
+      "expected": {
+        "bmr": 1369,
+        "activityCoefficient": 1.6,
+        "expenditure": 2190,
+        "activityKcal": 821,
+        "calories": 2200,
+        "deficit": 0,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 72,
+        "fat": 61,
+        "carbs": 341,
+        "rangeLow": 1950,
+        "rangeHigh": 2450,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "no_deficit",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.5,
+            "available": false,
+            "reason": "plan_mode"
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "safety_diabetes_meds",
+      "input": {
+        "gender": "male",
+        "age": 52,
+        "weight": 105,
+        "height": 178,
+        "activityLevel": "medium",
+        "goal": "lose_weight",
+        "pace": 0.75,
+        "safety": [
+          "diabetes_meds"
+        ]
+      },
+      "expected": {
+        "bmr": 1908,
+        "activityCoefficient": 1.6,
+        "expenditure": 3052,
+        "activityKcal": 1144,
+        "calories": 2550,
+        "deficit": 500,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 127,
+        "fat": 71,
+        "carbs": 351,
+        "rangeLow": 2200,
+        "rangeHigh": 2900,
+        "paceLow": 0.3,
+        "paceHigh": 0.5,
+        "planMode": "gentle",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "safety_glp1",
+      "input": {
+        "gender": "female",
+        "age": 45,
+        "weight": 92,
+        "height": 168,
+        "activityLevel": "medium",
+        "goal": "lose_weight",
+        "safety": [
+          "glp1"
+        ]
+      },
+      "expected": {
+        "bmr": 1584,
+        "activityCoefficient": 1.6,
+        "expenditure": 2534,
+        "activityKcal": 950,
+        "calories": 2050,
+        "deficit": 500,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 113,
+        "fat": 57,
+        "carbs": 271,
+        "rangeLow": 1800,
+        "rangeHigh": 2300,
+        "paceLow": 0.3,
+        "paceHigh": 0.5,
+        "planMode": "gentle",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": false,
+            "reason": "plan_mode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "safety_kidney",
+      "input": {
+        "gender": "male",
+        "age": 50,
+        "weight": 95,
+        "height": 178,
+        "activityLevel": "medium",
+        "goal": "lose_weight",
+        "safety": [
+          "kidney"
+        ]
+      },
+      "expected": {
+        "bmr": 1818,
+        "activityCoefficient": 1.6,
+        "expenditure": 2908,
+        "activityKcal": 1090,
+        "calories": 2400,
+        "deficit": 500,
+        "floor": 1500,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 76,
+        "fat": 67,
+        "carbs": 373,
+        "rangeLow": 2050,
+        "rangeHigh": 2750,
+        "paceLow": 0.3,
+        "paceHigh": 0.5,
+        "planMode": "standard",
+        "effectiveGoal": "lose_weight",
+        "paceOptions": [
+          {
+            "pace": 0.25,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.5,
+            "available": true,
+            "reason": null
+          },
+          {
+            "pace": 0.75,
+            "available": true,
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "safety_kidney_and_age65",
+      "input": {
+        "gender": "female",
+        "age": 68,
+        "weight": 75,
+        "height": 160,
+        "activityLevel": "high",
+        "goal": "maintain_weight",
+        "safety": [
+          "kidney"
+        ]
+      },
+      "expected": {
+        "bmr": 1249,
+        "activityCoefficient": 1.7,
+        "expenditure": 2123,
+        "activityKcal": 874,
+        "calories": 2100,
+        "deficit": 0,
+        "floor": 1200,
+        "floorHit": false,
+        "loseAvailable": true,
+        "protein": 60,
+        "fat": 58,
+        "carbs": 335,
+        "rangeLow": 1850,
+        "rangeHigh": 2350,
+        "paceLow": null,
+        "paceHigh": null,
+        "planMode": "gentle",
+        "effectiveGoal": "maintain_weight",
+        "paceOptions": []
+      }
+    }
+  ],
+  "activityTable": [
+    {
+      "work": "sitting",
+      "workouts": 0,
+      "level": "low"
+    },
+    {
+      "work": "sitting",
+      "workouts": 1,
+      "level": "low"
+    },
+    {
+      "work": "sitting",
+      "workouts": 2,
+      "level": "low"
+    },
+    {
+      "work": "sitting",
+      "workouts": 3,
+      "level": "low"
+    },
+    {
+      "work": "sitting",
+      "workouts": 4,
+      "level": "medium"
+    },
+    {
+      "work": "sitting",
+      "workouts": 7,
+      "level": "medium"
+    },
+    {
+      "work": "standing",
+      "workouts": 0,
+      "level": "medium"
+    },
+    {
+      "work": "standing",
+      "workouts": 1,
+      "level": "medium"
+    },
+    {
+      "work": "standing",
+      "workouts": 2,
+      "level": "medium"
+    },
+    {
+      "work": "standing",
+      "workouts": 3,
+      "level": "medium"
+    },
+    {
+      "work": "standing",
+      "workouts": 4,
+      "level": "high"
+    },
+    {
+      "work": "standing",
+      "workouts": 7,
+      "level": "high"
+    },
+    {
+      "work": "physical",
+      "workouts": 0,
+      "level": "high"
+    },
+    {
+      "work": "physical",
+      "workouts": 1,
+      "level": "high"
+    },
+    {
+      "work": "physical",
+      "workouts": 2,
+      "level": "high"
+    },
+    {
+      "work": "physical",
+      "workouts": 3,
+      "level": "high"
+    },
+    {
+      "work": "physical",
+      "workouts": 4,
+      "level": "very_high"
+    },
+    {
+      "work": "physical",
+      "workouts": 7,
+      "level": "very_high"
+    }
+  ]
+}

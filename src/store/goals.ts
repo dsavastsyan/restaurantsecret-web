@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { fetchUserGoals, updateUserGoals, UserGoalData } from '@/lib/api';
 import { calculateTargets, UserStats, Gender, ActivityLevel, GoalType } from '@/lib/calculator';
+import { isGoalCalcV2Enabled } from '@/lib/featureFlags';
 
 type GoalsState = {
     data: UserGoalData | null;
@@ -60,6 +61,7 @@ export const useGoalsStore = create<GoalsState>((set, get) => ({
             next.is_auto_calculated = true;
             // Check if we have all validation fields
             if (next.gender && next.age && next.weight && next.height && next.activity_level && next.goal_type) {
+                const goalCalcV2Enabled = await isGoalCalcV2Enabled();
                 const calculated = calculateTargets({
                     gender: next.gender as Gender,
                     age: next.age,
@@ -67,7 +69,7 @@ export const useGoalsStore = create<GoalsState>((set, get) => ({
                     height: next.height,
                     activity: next.activity_level as ActivityLevel,
                     goal: next.goal_type as GoalType
-                });
+                }, { v2: goalCalcV2Enabled });
 
                 next.target_calories = calculated.calories;
                 next.target_protein = calculated.protein;
@@ -108,6 +110,7 @@ export const useGoalsStore = create<GoalsState>((set, get) => ({
         if (!current) return; // Recalculate needs existing data to make sense (or at least valid fields)
 
         if (current.gender && current.age && current.weight && current.height && current.activity_level && current.goal_type) {
+            const goalCalcV2Enabled = await isGoalCalcV2Enabled();
             const calculated = calculateTargets({
                 gender: current.gender as Gender,
                 age: current.age,
@@ -115,7 +118,7 @@ export const useGoalsStore = create<GoalsState>((set, get) => ({
                 height: current.height,
                 activity: current.activity_level as ActivityLevel,
                 goal: current.goal_type as GoalType
-            });
+            }, { v2: goalCalcV2Enabled });
 
             const next = {
                 ...current,
