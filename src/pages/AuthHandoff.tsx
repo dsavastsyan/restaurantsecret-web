@@ -77,6 +77,11 @@ export default function AuthHandoff() {
         navigate(safeHandoffNext(data.next), { replace: true });
         return;
       }
+      // Сбой сервера (5xx): код не потрачен, можно повторить.
+      if (res.status >= 500) {
+        setView({ kind: "error", network: true });
+        return;
+      }
       // Сервер ответил отказом: код использован, повторять нельзя.
       codeRef.current = null;
       setView({ kind: "error", network: false });
