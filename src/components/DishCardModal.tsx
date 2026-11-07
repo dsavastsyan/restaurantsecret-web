@@ -158,7 +158,7 @@ export default function DishCardModal() {
     e.stopPropagation();
     if (isReadOnly || !data) return;
     close();
-    openAnyEatLaunchModal();
+    openAnyEatLaunchModal('dish_card_modal');
   };
 
   if (!isOpen || !root) return null;
