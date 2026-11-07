@@ -73,6 +73,7 @@ export const ADMIN_NAV = {
         to: '/admin/products/freshness/duplicates',
         match: '/admin/products/freshness',
         children: [
+          { key: 'auto', label: 'Автоматическое обновление', to: '/admin/products/freshness/auto' },
           { key: 'duplicates', label: 'Сведение дубликатов', to: '/admin/products/freshness/duplicates' },
           { key: 'barcodes', label: 'Сведение со штрихкодом', to: '/admin/products/freshness/barcodes' },
         ],
