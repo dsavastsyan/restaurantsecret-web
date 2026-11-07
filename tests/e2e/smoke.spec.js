@@ -157,7 +157,11 @@ test('@smoke subscribed user sees the full menu past the free preview', async ({
 
   // Find a restaurant with more dishes than the free-preview count (3) —
   // otherwise there'd be no dish for an anonymous caller to have trimmed.
-  const catalogRes = await page.request.get(`${publicApiBase}/restaurants?limit=1000`)
+  // The first restaurants of the catalog are enough: limit=1000 is the heaviest
+  // list query we have (11-22 s on staging, and D1 answers 500 "D1 DB is
+  // overloaded" when it does not fit into its 10 s window), which made this
+  // smoke test fail for reasons unrelated to the paywall.
+  const catalogRes = await page.request.get(`${publicApiBase}/restaurants?limit=50`)
   expect(catalogRes.ok()).toBeTruthy()
   const catalogPayload = await catalogRes.json()
   const candidates = catalogPayload?.items || []
