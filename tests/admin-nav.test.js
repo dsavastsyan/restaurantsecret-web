@@ -26,7 +26,7 @@ test('admin navigation contains only populated sections', () => {
   const productChildren = Object.fromEntries(ADMIN_NAV.products.sections.map(({ key, children }) => [key, children.map(({ label }) => label)]))
   assert.deepEqual(productChildren, {
     collection: ['Базы ритейлеров', 'Штрихкоды'],
-    freshness: ['Сведение дубликатов', 'Сведение со штрихкодом'],
+    freshness: ['Автоматическое обновление', 'Сведение дубликатов', 'Сведение со штрихкодом'],
     quality: ['Полнота', 'Точность'],
   })
   assert.deepEqual(ADMIN_NAV.costs.sections.map(({ label, to }) => ({ label, to })), [
