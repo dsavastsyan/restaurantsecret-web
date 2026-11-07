@@ -47,7 +47,7 @@ test('считает план похудения для женщины 35 лет
   assert.deepEqual(
     { bmr: result.bmr, expenditure: result.expenditure, calories: result.calories, deficit: result.deficit,
       rangeLow: result.rangeLow, rangeHigh: result.rangeHigh, protein: result.protein },
-    { bmr: 1495, expenditure: 2093, calories: 1600, deficit: 500, rangeLow: 1350, rangeHigh: 1850, protein: 128 },
+    { bmr: 1495, expenditure: 2093, calories: 1593, deficit: 500, rangeLow: 1343, rangeHigh: 1843, protein: 128 },
   )
 })
 
@@ -55,7 +55,7 @@ test('считает расход и норму для мужчины 35 лет'
   const result = calculateGoal({
     gender: 'male', age: 35, weight: 90, height: 180, activityLevel: 'low', goal: 'lose_weight',
   })
-  assert.deepEqual({ expenditure: result.expenditure, calories: result.calories }, { expenditure: 2597, calories: 2100 })
+  assert.deepEqual({ expenditure: result.expenditure, calories: result.calories }, { expenditure: 2597, calories: 2097 })
 })
 
 test('ограничивает норму нижней границей', () => {
@@ -105,9 +105,9 @@ test('с включённым флагом адаптирует новый ра�
   assert.deepEqual(result, {
     bmr: 1495,
     tdee: 2093,
-    calories: 1600,
+    calories: 1593,
     protein: 128,
     fat: 44,
-    carbs: 173,
+    carbs: 171,
   })
 })

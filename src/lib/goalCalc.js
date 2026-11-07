@@ -24,10 +24,6 @@ function halfUp(value) {
   return Math.floor(value + 0.5)
 }
 
-function round50(value) {
-  return halfUp(value / 50.0) * 50
-}
-
 // Единственное место выбора дефицита. Позже сюда добавятся две неподтверждённые правки:
 // 300 ккал при ИМТ до 25 и ограничение в 30% расхода.
 function selectDeficit(requested, maxDeficit, weight) {
@@ -125,11 +121,11 @@ export function calculateGoal(input) {
         deficit = expenditureValue - raw
       }
     }
-    calories = round50(raw)
+    calories = halfUp(raw)
   } else if (effectiveGoal === 'gain_weight') {
-    calories = round50(expenditureValue + Math.min(0.1 * expenditureValue, 350.0))
+    calories = halfUp(expenditureValue + Math.min(0.1 * expenditureValue, 350.0))
   } else {
-    calories = round50(expenditureValue)
+    calories = halfUp(expenditureValue)
   }
 
   const halfRange = gender === 'female' ? 250 : 350
