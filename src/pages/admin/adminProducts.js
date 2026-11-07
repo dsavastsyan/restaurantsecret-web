@@ -73,3 +73,57 @@ export function matchesSourceQuery(source, query) {
   if (!needle) return true
   return `${source.label} ${source.url || ''} ${source.group || ''} ${source.country || ''}`.toLocaleLowerCase('ru-RU').includes(needle)
 }
+
+// Автоматическое обновление: статусы сетей из снимка scripts/retail_crawl (version 1)
+export const CRAWL_STATUS = {
+  captcha: { label: 'Нужна капча', tone: 'error', rank: 0 },
+  slug_not_found: { label: 'Сеть не найдена', tone: 'error', rank: 1 },
+  blocked_health: { label: 'Запись заблокирована', tone: 'error', rank: 2 },
+  cooldown: { label: 'Пауза после 429', tone: 'waiting', rank: 3 },
+  queued: { label: 'Ждёт очереди', tone: 'waiting', rank: 4 },
+  ok: { label: 'Актуально', tone: 'current', rank: 5 },
+  disabled: { label: 'Выключена', tone: 'disabled', rank: 6 },
+}
+
+export const REJECT_REASONS = {
+  missing_complete_kbju: 'нет КБЖУ',
+  missing_package_weight_or_volume: 'нет веса',
+  card_not_found: 'карточка не найдена',
+}
+
+export function crawlStatus(status) {
+  return CRAWL_STATUS[status] || { label: status || '—', tone: 'disabled', rank: 9 }
+}
+
+export function sortCrawlNetworks(networks) {
+  return [...networks].sort((left, right) => (
+    (crawlStatus(left.status).rank - crawlStatus(right.status).rank)
+    || ((left.priority ?? 99) - (right.priority ?? 99))
+    || String(left.name).localeCompare(String(right.name), 'ru')
+  ))
+}
+
+export function rejectedSummary(rejected) {
+  const entries = Object.entries(rejected || {}).filter(([, count]) => count > 0)
+  if (!entries.length) return ''
+  return entries
+    .sort((left, right) => right[1] - left[1])
+    .map(([reason, count]) => `${REJECT_REASONS[reason] || reason || 'другое'} ${Number(count).toLocaleString('ru-RU')}`)
+    .join(' · ')
+}
+
+export function rejectedTotal(rejected) {
+  return Object.values(rejected || {}).reduce((sum, count) => sum + Number(count || 0), 0)
+}
+
+export function formatWeeks(value) {
+  if (value === null || value === undefined) return '—'
+  if (value === 0) return 'нет очереди'
+  return `${String(value).replace('.', ',')} нед.`
+}
+
+export function crawlStatusDetail(row) {
+  if (!row.status_detail) return ''
+  if (row.status === 'cooldown') return `до ${formatDateTime(row.status_detail)}`
+  return String(row.status_detail)
+}

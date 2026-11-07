@@ -138,6 +138,7 @@ export const adminMenuRevisionsApi = {
   kbjuFlaggedProducts: () => request('/api/admin/kbju-flagged-products'),
   productSources: () => request('/api/admin/product-sources'),
   barcodeSources: () => request('/api/admin/barcode-sources'),
+  retailCrawlStatus: () => request('/api/admin/retail-crawl-status'),
   barcodeCandidates: ({ kind = 'link', offset = 0 } = {}) => {
     const params = new URLSearchParams({ kind, offset: String(offset) })
     return request(`/api/admin/barcode-candidates?${params}`)
