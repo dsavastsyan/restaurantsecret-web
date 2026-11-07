@@ -3,6 +3,7 @@ Allow: /
 
 # Закрываем служебные маршруты
 Disallow: /account/
+Disallow: /auth/
 Disallow: /onboarding/
 Disallow: /pay/
 Disallow: /payments/
