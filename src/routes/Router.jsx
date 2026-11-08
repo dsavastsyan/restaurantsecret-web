@@ -18,6 +18,7 @@ const Search = lazy(() => import('../pages/Search.jsx'))
 const PaySuccess = lazy(() => import('../pages/PaySuccess.jsx'))
 const PaymentResult = lazy(() => import('../pages/PaymentResult.jsx'))
 const Login = lazy(() => import('../pages/Login.tsx'))
+const AuthHandoff = lazy(() => import('../pages/AuthHandoff.tsx'))
 const Contact = lazy(() => import('../pages/Contact.jsx'))
 const Legal = lazy(() => import('../pages/Legal.jsx'))
 const Privacy = lazy(() => import('../pages/Privacy.jsx'))
@@ -85,6 +86,9 @@ function AppRoutes({ onReady }) {
           path="legal/ios/terms"
           element={<IOSLegalDocument><IOSLegalTerms /></IOSLegalDocument>}
         />
+
+        {/* Передача входа из приложения: вне AppShell, чтобы до обмена кода не срабатывали проверки входа и аналитика */}
+        <Route path="auth/handoff" element={<AuthHandoff />} />
 
         <Route path="/" element={<AppShell />}>
           {/* Публичные страницы */}
