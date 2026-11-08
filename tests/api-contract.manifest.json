@@ -6,6 +6,7 @@
   { "backend": "pd", "method": "POST", "path": "/auth/request-otp", "live": true },
   { "backend": "pd", "method": "POST", "path": "/auth/verify-otp", "live": true },
   { "backend": "pd", "method": "POST", "path": "/auth/logout", "live": true },
+  { "backend": "pd", "method": "POST", "path": "/auth/handoff/redeem", "live": true },
   { "backend": "pd", "method": "POST", "path": "/api/onboarding/complete", "live": true },
   { "backend": "pd", "method": "POST", "path": "/onboarding/complete", "live": false, "optionalFallback": true },
   { "backend": "pd", "method": "POST", "path": "/api/onboarding/profile-name", "live": true },
