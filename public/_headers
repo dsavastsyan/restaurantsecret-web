@@ -7,3 +7,7 @@
 
 /qr/*
   Referrer-Policy: no-referrer
+
+/auth/handoff*
+  Referrer-Policy: no-referrer
+  Cache-Control: no-store
