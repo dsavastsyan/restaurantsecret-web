@@ -135,6 +135,17 @@ export const adminMenuRevisionsApi = {
       method: 'POST',
       body: { decision },
     }),
+  productPairs: ({ status = 'pending', grade = '', why = '' } = {}) => {
+    const params = new URLSearchParams({ status })
+    if (grade) params.set('grade', grade)
+    if (why) params.set('why', why)
+    return request(`/api/admin/product-pairs?${params}`)
+  },
+  decideProductPair: (pairId, decision, main) =>
+    request(`/api/admin/product-pairs/${encodeURIComponent(pairId)}/decision`, {
+      method: 'POST',
+      body: { decision, main },
+    }),
   kbjuFlaggedProducts: () => request('/api/admin/kbju-flagged-products'),
   productSources: () => request('/api/admin/product-sources'),
   barcodeSources: () => request('/api/admin/barcode-sources'),
