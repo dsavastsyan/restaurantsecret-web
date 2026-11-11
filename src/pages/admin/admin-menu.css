@@ -576,3 +576,24 @@
   .admin-kbju-leads__editor { grid-template-columns: 1fr; min-width: 0; }
   .admin-kbju-leads__editor-wide { grid-column: auto; }
 }
+
+/* Duplicate pair queue (product_pair_review) */
+.admin-product-match__views { display: flex; gap: 6px; margin: 0 0 18px; padding: 4px; width: fit-content; max-width: 100%; border: 1px solid #d8d4ca; border-radius: 12px; background: #f2f1ea; }
+.admin-product-match__views button { padding: 9px 14px; color: #66675f; border: 0; border-radius: 9px; background: transparent; font-weight: 800; }
+.admin-product-match__views button.active { color: #28301f; background: #fff; box-shadow: 0 1px 3px rgba(40, 48, 31, .18); }
+.admin-product-match__filters select { padding: 10px 13px; color: #46473f; border: 1px solid #d8d4ca; border-radius: 10px; background: #fff; font-weight: 700; }
+.admin-product-pair__total { margin: -6px 0 16px; color: #7c7b73; font-size: 14px; }
+.admin-product-pair__grade--medium { color: #76571c; background: #fff0c9; }
+.admin-product-pair__grade--low { color: #8d312b; background: #fce5e1; }
+.admin-product-pair__facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding: 12px 20px; list-style: none; border-bottom: 1px solid #ebe7dd; }
+.admin-product-pair__facts li { display: flex; gap: 7px; align-items: baseline; font-size: 13px; }
+.admin-product-pair__facts span { color: #85847b; }
+.admin-product-match__product.is-main { box-shadow: inset 0 0 0 2px #65734d; background: #f8faf3; }
+.admin-product-match__group { margin-top: 12px; color: #5f6059; }
+.admin-product-match__group ul { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.admin-product-match__group li { display: grid; gap: 1px; }
+.admin-product-match__group li a { color: #3f5a2a; overflow-wrap: anywhere; }
+.admin-product-match__group li small { color: #929087; }
+.admin-product-match__main { margin-top: 16px; padding: 9px 13px; color: #46473f; border: 1px solid #d8d4ca; border-radius: 10px; background: #fff; font-weight: 800; }
+.admin-product-match__main.is-selected { color: #fff; border-color: #65734d; background: #65734d; }
+.admin-product-match__main:disabled { cursor: default; opacity: .7; }
