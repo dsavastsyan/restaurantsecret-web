@@ -54,8 +54,21 @@ const RETIRED_RESTAURANT_SLUGS = {
   // preserve old URLs at the surviving menu or branch.
   'max_bakery': 'maxbakery',
   'kitchenpolly-frunzenskaya': 'kuhnya-polli-biryulevskaya',
+  // 2026-11-09: slugs that Google reports as 404 (GSC URL Inspection) while a
+  // renamed page with the same content is live. Targets are checked at build
+  // time, so a wrong entry just emits no stub.
+  'ikura': 'ikura-izakaya-nikkei-by-wrf',
+  'mamie': 'mamie-bistro',
+  'margarita-bistrot': 'margarita-bistro',
+  'sedelice': 'french-bakery-sedelice',
   'kukhnya_polli': 'kuhnya-polli-biryulevskaya',
   'kitchenpolly-biryulevskaya': 'kuhnya-polli-biryulevskaya',
+}
+// # Old restaurant slugs that were a single location of a chain and now live
+// # only under the chain hub (old slug -> chain slug). 2026-11-09: frank_by_basta/menu/
+// # had 348 clicks in 90 days and now 404s; its chain slug is spelled with hyphens.
+const RETIRED_SLUGS_TO_CHAIN_HUB = {
+  'frank_by_basta': 'frank-by-basta',
 }
 const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
@@ -807,6 +820,22 @@ function generateStaticRoutes(restaurants, menuBySlug, hubBySlug = new Map()) {
   // # above, so a stale/typo'd map entry degrades to "no stub" rather than
   // # ever overwriting real content.
   const restaurantSlugSet = new Set(restaurants.filter((r) => r.slug).map((r) => r.slug))
+  for (const [oldSlug, hubSlug] of Object.entries(RETIRED_SLUGS_TO_CHAIN_HUB)) {
+    // Only when the hub resolves and no live restaurant owns the old slug.
+    if (restaurantSlugSet.has(oldSlug) || !resolvableChainSlugs.has(hubSlug)) continue
+    const chainName = chains.get(hubSlug)?.chainName || hubSlug
+    for (const suffix of ['', '/menu']) {
+      writeRouteHtml(
+        `/restaurants/${oldSlug}${suffix}`,
+        createRedirectHtml({
+          from: `/restaurants/${oldSlug}${suffix}`,
+          to: `/restaurants/${hubSlug}/`,
+          title: `${chainName} — меню с КБЖУ | RestaurantSecret`,
+        }),
+      )
+      generatedCount += 1
+    }
+  }
   for (const [oldSlug, newSlug] of Object.entries(RETIRED_RESTAURANT_SLUGS)) {
     if (restaurantSlugSet.has(oldSlug) || !restaurantSlugSet.has(newSlug)) continue
     // # Already redirected straight to the hub above (one hop instead of
