@@ -1,62 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ExternalLink } from 'lucide-react'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
+import ProductCard from './ProductCard'
 
 const STATUS_LABELS = {
   pending: 'Ожидают решения',
   auto_matched: 'Совпали автоматически',
   approved: 'Подтверждены',
   rejected: 'Отклонены',
-}
-
-function formatNumber(value) {
-  return Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
-}
-
-function host(url) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '')
-  } catch {
-    return 'Источник'
-  }
-}
-
-function ProductCard({ product }) {
-  return (
-    <article className="admin-product-match__product">
-      <header>
-        <div>
-          <small>{host(product.source_url)}</small>
-          <h2>{product.name}</h2>
-        </div>
-        <a href={product.source_url} target="_blank" rel="noreferrer" aria-label="Открыть карточку магазина">
-          <ExternalLink size={18} />
-        </a>
-      </header>
-
-      <dl>
-        <div><dt>Бренд</dt><dd>{product.brand || '—'}</dd></div>
-        <div><dt>Производитель</dt><dd>{product.manufacturer || '—'}</dd></div>
-        <div><dt>Категория</dt><dd>{product.source_category || '—'}</dd></div>
-        <div><dt>Упаковка</dt><dd>{product.package_size}</dd></div>
-        <div><dt>GTIN</dt><dd>{product.gtin || '—'}</dd></div>
-        <div><dt>Базис</dt><dd>{product.nutrition_basis === '100_ml' ? '100 мл' : '100 г'}</dd></div>
-      </dl>
-
-      <div className="admin-product-match__nutrition" aria-label="КБЖУ">
-        <span><strong>{formatNumber(product.calories)}</strong><small>ккал</small></span>
-        <span><strong>{formatNumber(product.protein_g)}</strong><small>белки</small></span>
-        <span><strong>{formatNumber(product.fat_g)}</strong><small>жиры</small></span>
-        <span><strong>{formatNumber(product.carbohydrates_g)}</strong><small>углеводы</small></span>
-      </div>
-
-      <details>
-        <summary>Состав</summary>
-        <p>{product.ingredients || 'Состав не указан магазином.'}</p>
-      </details>
-      <footer>Спарсено {new Date(product.parsed_at).toLocaleString('ru-RU')}</footer>
-    </article>
-  )
 }
 
 export default function ProductMatchReview() {

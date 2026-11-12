@@ -49,7 +49,7 @@ const AdminMenuCatalogAuditReport = lazy(() => import('../pages/admin/AdminMenuC
 const AdminKbjuLeads = lazy(() => import('../pages/admin/AdminKbjuLeads.jsx'))
 const AdminMenuRevisions = lazy(() => import('../pages/admin/MenuRevisionList.jsx'))
 const AdminMenuRevisionDetail = lazy(() => import('../pages/admin/MenuRevisionDetail.jsx'))
-const AdminProductMatches = lazy(() => import('../pages/admin/ProductMatchReview.jsx'))
+const AdminProductMatches = lazy(() => import('../pages/admin/ProductDuplicates.jsx'))
 const AdminKbjuFlags = lazy(() => import('../pages/admin/KbjuFlagReview.jsx'))
 const AdminProductRetailers = lazy(() => import('../pages/admin/AdminProductSources.jsx').then((module) => ({ default: module.AdminProductRetailers })))
 const AdminBarcodeSources = lazy(() => import('../pages/admin/AdminProductSources.jsx').then((module) => ({ default: module.AdminBarcodeSources })))

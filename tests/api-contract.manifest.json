@@ -82,6 +82,8 @@
   { "backend": "restaurantPortal", "method": "PATCH", "path": "/api/admin/restaurants/by-id/{param}", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/product-matches", "live": false },
   { "backend": "restaurantPortal", "method": "POST", "path": "/api/admin/product-matches/{param}/decision", "live": false },
+  { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/product-pairs", "live": false },
+  { "backend": "restaurantPortal", "method": "POST", "path": "/api/admin/product-pairs/{param}/decision", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/kbju-flagged-products", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/product-sources", "live": false },
   { "backend": "restaurantPortal", "method": "GET", "path": "/api/admin/barcode-sources", "live": false },

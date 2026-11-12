@@ -19,6 +19,45 @@ export const VERDICTS = {
   accept: { label: 'Совпадают полностью', hint: 'Бренд, вид, вариант, жирность и вес совпадают — правило приняло бы пару' },
 }
 
+// Duplicate-pair queue (product_pair_review): confidence grades and the reason a pair did not match exactly
+export const PAIR_GRADES = {
+  medium: { label: 'Средняя', hint: 'Название не слабое, КБЖУ сходится, состав не расходится' },
+  low: { label: 'Низкая', hint: 'Слабое название, расходится КБЖУ или другое сомнение' },
+}
+
+export const PAIR_WHY = {
+  top_one: 'Единственный кандидат',
+  near_mutual: 'Названия почти одинаковые',
+  weight_unknown: 'Вес записан в разных единицах',
+  repack: 'Другая фасовка',
+  line_swap_mutual: 'Слова названия переставлены',
+  line_swap_ing_eq: 'Слова переставлены, состав совпал',
+  variant_unresolved_ing_eq: 'Вариант (вкус) не определился',
+  nutrition_conflict: 'КБЖУ расходится',
+  ing_diff_close_name: 'Состав разный, название близкое',
+  brand_differs: 'Бренд записан по-разному',
+}
+
+export const PAIR_STATE = {
+  eq: 'совпадает',
+  close: 'близко',
+  mid: 'похоже',
+  unk: 'нет данных',
+  diff: 'расходится',
+  conf: 'расходится',
+  unit_cross: 'г и мл',
+}
+
+export const PAIR_LINE = {
+  equal: 'совпадает',
+  same_words: 'те же слова',
+  contained_1: 'одно лишнее слово',
+  contained_n: 'несколько лишних слов',
+  different: 'разное',
+  one_empty: 'пусто у одной',
+  both_empty: 'пусто у обеих',
+}
+
 export const PAIR_KINDS = {
   link: 'Справочники и фото',
   off: 'Open Food Facts',
