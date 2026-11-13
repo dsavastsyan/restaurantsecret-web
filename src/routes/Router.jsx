@@ -66,9 +66,6 @@ const Feedback = lazy(() => import('../pages/Feedback.jsx'))
 const HowItWorks = lazy(() => import('../pages/HowItWorks.jsx'))
 const SubscriptionHistoryPage = lazy(() => import('../pages/account/SubscriptionHistoryPage.tsx'))
 const Favorites = lazy(() => import('../pages/account/Favorites.tsx'))
-// Friends pages are temporarily disabled until the mobile experience launches.
-// const Friends = lazy(() => import('../pages/account/Friends.tsx'))
-// const FriendFavorites = lazy(() => import('../pages/account/FriendFavorites.tsx'))
 const AnyEatComingSoon = lazy(() => import('../pages/account/AnyEatComingSoon.tsx'))
 const PaymentMethods = lazy(() => import('../pages/account/PaymentMethods.tsx'))
 
@@ -112,7 +109,7 @@ function AppRoutes({ onReady }) {
             <Route path="subscription/history" element={<SubscriptionHistoryPage />} />
             <Route path="payment-methods/*" element={<PaymentMethods />} />
             <Route path="favorites" element={<Favorites />} />
-            {/* Friends routes are temporarily unavailable; implementation files are kept. */}
+            {/* Раздел «Друзья» удалён; старые ссылки ведут в аккаунт. */}
             <Route path="friends/*" element={<Navigate to="/account" replace />} />
             <Route path="goals" element={<AnyEatComingSoon />} />
             <Route path="statistics" element={<AnyEatComingSoon />} />
