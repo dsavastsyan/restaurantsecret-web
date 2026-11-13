@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import HomeIcon from "@/components/HomeIcon";
 import { apiGet, apiPostAuth, isUnauthorizedError } from "@/lib/api";
@@ -36,7 +36,6 @@ export type AccountOutletContext = {
   token: string | null;
   isLoading: boolean;
   error: string | null;
-  incomingFriendRequestsCount: number;
 };
 
 export default function AccountLayout() {
@@ -49,7 +48,6 @@ export default function AccountLayout() {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState<boolean>(Boolean(accessToken));
   const [error, setError] = useState<string | null>(null);
-  const [incomingFriendRequestsCount, setIncomingFriendRequestsCount] = useState(0);
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -112,59 +110,6 @@ export default function AccountLayout() {
     }
   }, [accessToken, logout]);
 
-  /* Friends are temporarily disabled. Keep the loader for reactivation.
-  const loadIncomingFriendRequestsCount = useCallback(async () => {
-    if (!accessToken) {
-      setIncomingFriendRequestsCount(0);
-      return;
-    }
-
-    try {
-      const response = await apiGet<{ ok: boolean; incoming_requests?: unknown[] }>("/api/friends", accessToken);
-      if (!response?.ok) {
-        throw new Error("FRIENDS_NOT_OK");
-      }
-      const incoming = Array.isArray(response.incoming_requests) ? response.incoming_requests : [];
-      setIncomingFriendRequestsCount(incoming.length);
-    } catch (err) {
-      if (isUnauthorizedError(err)) {
-        logout();
-        setIncomingFriendRequestsCount(0);
-        return;
-      }
-      console.error("Failed to load incoming friend requests count", err);
-      setIncomingFriendRequestsCount(0);
-    }
-  }, [accessToken, logout]);
-
-  useEffect(() => {
-    if (accessToken) {
-      load();
-    }
-  }, [accessToken, load]);
-
-  useEffect(() => {
-    if (accessToken) {
-      loadIncomingFriendRequestsCount();
-    } else {
-      setIncomingFriendRequestsCount(0);
-    }
-  }, [accessToken, loadIncomingFriendRequestsCount, location.pathname]);
-
-  useEffect(() => {
-    const onIncomingRequestsCountUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<{ count?: number }>;
-      const count = Number(customEvent.detail?.count);
-      if (Number.isFinite(count) && count >= 0) {
-        setIncomingFriendRequestsCount(count);
-      }
-    };
-    window.addEventListener("rs:friends-incoming-count", onIncomingRequestsCountUpdate as EventListener);
-    return () => {
-      window.removeEventListener("rs:friends-incoming-count", onIncomingRequestsCountUpdate as EventListener);
-    };
-  }, []);
-  */
 
   const sub = me?.user?.subscription || null;
   const hasPremium = Boolean(sub && sub.status !== "none" && !sub.expired);
@@ -210,9 +155,8 @@ export default function AccountLayout() {
       token: accessToken || null,
       isLoading: loading,
       error,
-      incomingFriendRequestsCount,
     }),
-    [me, sub, daysLeft, load, accessToken, loading, error, incomingFriendRequestsCount]
+    [me, sub, daysLeft, load, accessToken, loading, error]
   );
 
   if (!accessToken) {
