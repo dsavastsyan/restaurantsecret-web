@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { Rocket } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
-import { openAnyEatLaunchModal } from '@/components/AnyEatLaunchModal'
+import { ANYEAT_SITE_URL } from '@/components/AnyEatLaunchModal'
 import './AnyEatLaunchBanner.css'
 
-const DISMISS_KEY = 'rs_anyeat_banner_dismissed_v1'
+// v2: the banner changed from "coming soon" to the beta announcement, so
+// visitors who closed the old one should see the new one.
+const DISMISS_KEY = 'rs_anyeat_banner_dismissed_v2'
 const DISMISS_DAYS = 10
 const DISMISS_MS = DISMISS_DAYS * 24 * 60 * 60 * 1000
 const YANDEX_METRIKA_COUNTER_ID = 108992733
@@ -24,12 +26,12 @@ function trackGoal(name) {
 
 const COPY = {
   active: {
-    text: 'Твоя подписка переходит в AnyEat автоматически — цена останется прежней.',
-    cta: 'Подробнее',
+    text: 'AnyEat вышел в бете — твоя подписка перейдёт в приложение автоматически, цена останется прежней.',
+    cta: 'Скачать',
   },
   default: {
-    text: 'Скоро AnyEat — рестораны, продукты и дневник питания в одном приложении.',
-    cta: 'Узнать первым',
+    text: 'AnyEat вышел в бете — рестораны, продукты и дневник питания в одном приложении.',
+    cta: 'Скачать',
   },
 }
 
@@ -78,7 +80,6 @@ export default function AnyEatLaunchBanner({ eligible = false }) {
 
   const handleCtaClick = () => {
     trackGoal(`anyeat_banner_cta_${segment}`)
-    openAnyEatLaunchModal()
   }
 
   return (
@@ -86,9 +87,15 @@ export default function AnyEatLaunchBanner({ eligible = false }) {
       <div className="rs-anyeat-banner__inner">
         <Rocket size={16} className="rs-anyeat-banner__icon" aria-hidden="true" />
         <span className="rs-anyeat-banner__text">{copy.text}</span>
-        <button type="button" className="rs-anyeat-banner__cta" onClick={handleCtaClick}>
+        <a
+          className="rs-anyeat-banner__cta"
+          href={ANYEAT_SITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handleCtaClick}
+        >
           {copy.cta}
-        </button>
+        </a>
         <button
           type="button"
           className="rs-anyeat-banner__close"

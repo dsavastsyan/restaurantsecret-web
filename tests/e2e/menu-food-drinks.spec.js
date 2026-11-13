@@ -443,26 +443,24 @@ test('keeps sorting beside the category title and inside the mobile viewport', a
   expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(390)
 })
 
-test('diary CTA opens the AnyEat waitlist modal instead of writing to the web diary', async ({ page }) => {
+test('diary CTA opens the AnyEat beta site instead of writing to the web diary', async ({ page, context }) => {
   let diaryRequests = 0
   page.on('request', (request) => {
     if (new URL(request.url()).pathname === '/api/diary') diaryRequests += 1
   })
+  await context.route('https://anyeat.ru/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<title>AnyEat</title>' }))
 
   await mockMenu(page, mixedMenu)
   await page.goto('/restaurants/test-menu/menu')
   await dismissMenuGuide(page)
 
+  const desktopPopup = page.waitForEvent('popup')
   await page.locator('.rsm2-desktop-only .rsm2-dbtn').first().click()
+  expect((await desktopPopup).url()).toBe('https://anyeat.ru/')
 
-  const modal = page.getByRole('dialog', { name: /Вся еда/ })
-  await expect(modal).toBeVisible()
-  await expect(modal.getByText('Скоро в приложении')).toBeVisible()
-  await expect(modal.getByRole('button', { name: /Получить код/ })).toBeVisible()
-
-  await modal.getByRole('button', { name: 'Закрыть' }).click()
   await page.setViewportSize({ width: 390, height: 844 })
+  const mobilePopup = page.waitForEvent('popup')
   await page.locator('.rsm2-mobile-only .rsm2-dbtn').first().click()
-  await expect(modal).toBeVisible()
+  expect((await mobilePopup).url()).toBe('https://anyeat.ru/')
   expect(diaryRequests).toBe(0)
 })
