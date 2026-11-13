@@ -27,9 +27,13 @@ export function trackAnyEatStoreClick(store) {
   trackModalEvent('anyeat_modal_store_clicked', { store })
 }
 
+// AnyEat is in beta: every "AnyEat" CTA on the site now leads to the beta page
+// (store links, APK, feedback form) instead of opening the waitlist modal.
+export const ANYEAT_SITE_URL = 'https://anyeat.ru/'
+
 export function openAnyEatLaunchModal() {
-  launchModalRequested = true
-  window.dispatchEvent(new CustomEvent('rs:anyeat-launch-open'))
+  trackModalEvent('anyeat_site_opened')
+  window.open(ANYEAT_SITE_URL, '_blank', 'noopener,noreferrer')
 }
 
 export default function AnyEatLaunchModal({ embedded = false }) {
