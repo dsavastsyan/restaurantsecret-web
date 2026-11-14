@@ -383,7 +383,7 @@ export default function Landing() {
 
   function addDishToDiary(event) {
     event.stopPropagation()
-    openAnyEatLaunchModal()
+    openAnyEatLaunchModal('landing_sample_card')
   }
 
   async function handleSuggestSubmit(event) {
