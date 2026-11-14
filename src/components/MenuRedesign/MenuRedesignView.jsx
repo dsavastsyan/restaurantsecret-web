@@ -495,6 +495,15 @@ export default function MenuRedesignView({
                 <button
                   type="button"
                   role="tab"
+                  aria-selected={selectedSection === 'all'}
+                  className={selectedSection === 'all' ? 'is-on' : ''}
+                  onClick={() => setSelectedSection('all')}
+                >
+                  Все
+                </button>
+                <button
+                  type="button"
+                  role="tab"
                   aria-selected={selectedSection === 'food'}
                   className={selectedSection === 'food' ? 'is-on' : ''}
                   onClick={() => setSelectedSection('food')}

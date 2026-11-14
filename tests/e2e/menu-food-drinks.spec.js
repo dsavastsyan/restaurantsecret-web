@@ -68,19 +68,23 @@ async function dismissMenuGuide(page) {
   await expect(page.locator('.rsm2-guide-scrim')).toHaveCount(0)
 }
 
-test('menu defaults to food, then expands into curated category order', async ({ page }) => {
+test('menu opens on all sections, then narrows to food or drinks in curated category order', async ({ page }) => {
   await mockMenu(page, mixedMenu)
   await page.goto('/restaurants/test-menu/menu')
   await dismissMenuGuide(page)
 
   const sectionTabs = page.getByRole('tablist', { name: 'Раздел меню' })
   await expect(sectionTabs).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'Еда' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Все' })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('heading', { name: 'Закуски' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Салаты' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Кофе' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Кофе' })).toBeVisible()
 
   const headings = page.locator('.rsm2-section__title')
+  // # "Все" keeps the order the API sends the categories in.
+  await expect(headings).toHaveText(['Кофе', 'Закуски', 'Салаты', 'Холодные напитки'])
+
+  await page.getByRole('tab', { name: 'Еда' }).click()
+  await expect(page.getByRole('heading', { name: 'Кофе' })).toHaveCount(0)
   await expect(headings).toHaveText(['Закуски', 'Салаты'])
   await expect(page.locator('.rsm2-grid.rsm2-desktop-only .rsm2-tile__cover-name')).toHaveText([
     'Брускетта',
