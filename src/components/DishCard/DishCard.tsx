@@ -79,7 +79,7 @@ export default function DishCard({ dish, restaurantSlug, restaurantName, showRes
     const handleDiaryAdd = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (readOnly) return;
-        openAnyEatLaunchModal();
+        openAnyEatLaunchModal('dish_card');
     };
 
     const handleSubscribe = (e: React.MouseEvent) => {

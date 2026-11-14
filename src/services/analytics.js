@@ -2,7 +2,7 @@ import { ANALYTICS_ENABLED, PD_API_BASE } from "@/config/api";
 import { tryRefresh } from "@/lib/api";
 
 export const COOKIE_POLICY_VERSION = "cookies_v1_2026-01-16";
-export const USER_AGREEMENT_VERSION = "agreement_v1_2026-02-12";
+export const LEGAL_ACCEPTANCE_VERSION = "legal_bundle_2026-11-14";
 const CONSENT_KEY = "rs_consent_v1";
 const ANON_ID_KEY = "rs_anon_id";
 const ATTRIBUTION_KEY = "rs_landing_attribution_v1";
@@ -471,7 +471,6 @@ class AnalyticsService {
      * Called upon login.
      */
     async recordPolicyAcceptance() {
-        if (!ANALYTICS_ENABLED) return;
         const sendPolicy = async (tokenOverride) => {
             const token = tokenOverride || this.getAccessToken();
             if (!token || typeof token !== "string" || token.split('.').length !== 3) return null;
@@ -485,7 +484,7 @@ class AnalyticsService {
                 method: "POST",
                 headers,
                 body: JSON.stringify({
-                    policy_version: USER_AGREEMENT_VERSION
+                    policy_version: LEGAL_ACCEPTANCE_VERSION
                 }),
             });
         };

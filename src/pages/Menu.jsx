@@ -323,8 +323,10 @@ export default function Menu({
   }, [menu?.categories])
 
   useEffect(() => {
-    const nextSection = sectionOptions.includes('food') ? 'food' : sectionOptions[0] || 'all'
-    setSelectedSection(nextSection)
+    // # A menu with both food and drinks opens on "Все": drinks must be visible
+    // # without hunting for a tab (Surf coffee is mostly drinks). A menu with a
+    // # single section has no switch, so it also stays on "all".
+    setSelectedSection('all')
     setSelectedCategory('all')
     setAllCategoriesExpanded(false)
   }, [sectionOptions])
