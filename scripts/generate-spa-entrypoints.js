@@ -11,6 +11,7 @@ const spaRoutes = [
   'privacy/versions/2026-09-16',
   'privacy/versions/2026-10-24',
   'privacy/versions/2026-11-14',
+  'privacy/versions/2026-11-16',
   'legal/ios/privacy',
   'legal/ios/terms',
   'partners',
