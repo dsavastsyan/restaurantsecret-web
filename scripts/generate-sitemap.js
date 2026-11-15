@@ -70,7 +70,10 @@ const RETIRED_RESTAURANT_SLUGS = {
 const RETIRED_SLUGS_TO_CHAIN_HUB = {
   'frank_by_basta': 'frank-by-basta',
 }
-const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 8))
+// # 8 parallel workers (~12 menu requests/s, each = ~8 D1 queries in the Worker)
+// # tripped D1's "Too many resources consumed within a 10 second window" on the
+// # 2026-11-14/15 builds; 4 keeps the build to a few minutes and well below it.
+const MENU_FETCH_CONCURRENCY = Math.max(1, Number(process.env.SITEMAP_MENU_FETCH_CONCURRENCY || 4))
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.SITEMAP_FETCH_TIMEOUT_MS || 10000))
 const STRICT_API_FETCH = process.env.SITEMAP_STRICT_API_FETCH === 'true'
 const API_KEY = process.env.SITEMAP_API_KEY || ''
@@ -115,12 +118,16 @@ async function fetchJson(url) {
       headers: API_KEY ? { 'X-RS-Sitemap-Key': API_KEY } : undefined,
     })
     if (!res.ok) {
-      throw new Error(`${res.status} ${res.statusText}`)
+      const httpError = new Error(`${res.status} ${res.statusText}`)
+      httpError.status = res.status
+      throw httpError
     }
     return await res.json()
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error(`timed out after ${FETCH_TIMEOUT_MS}ms`)
+      const timeoutError = new Error(`timed out after ${FETCH_TIMEOUT_MS}ms`)
+      timeoutError.timedOut = true
+      throw timeoutError
     }
     throw error
   } finally {
@@ -941,8 +948,15 @@ async function fetchAllRestaurants() {
   throw new Error(`All restaurant API endpoints failed: ${errors.join('; ')}`)
 }
 
+// # Overload / rate limit / timeout are worth retrying; a 404 (unknown slug) or a
+// # dead fallback host ("fetch failed") are not.
+function isRetryableMenuFailure(error) {
+  return Boolean(error?.timedOut) || error?.status === 429 || (error?.status >= 500 && error?.status < 600)
+}
+
 async function fetchRestaurantMenu(slug) {
   const errors = []
+  let retryable = false
 
   for (const apiUrl of API_URLS) {
     const url = `${apiUrl}/restaurants/${encodeURIComponent(slug)}/menu`
@@ -950,11 +964,14 @@ async function fetchRestaurantMenu(slug) {
     try {
       return await fetchJson(url)
     } catch (error) {
+      retryable = retryable || isRetryableMenuFailure(error)
       errors.push(`${url}: ${error?.message ?? String(error)}`)
     }
   }
 
-  throw new Error(errors.join('; '))
+  const failure = new Error(errors.join('; '))
+  failure.retryable = retryable
+  throw failure
 }
 
 async function fetchChainHub(slug) {
@@ -989,42 +1006,71 @@ async function fetchChainHubs(chainSlugs) {
   return result
 }
 
-async function fetchMenuWithRetry(slug) {
+const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function fetchMenuWithRetry(slug, { fetchMenu, sleep, retries, baseDelayMs }) {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return await fetchRestaurantMenu(slug)
+      return await fetchMenu(slug)
     } catch (error) {
-      const rateLimited = String(error?.message ?? '').includes('429')
-      if (!rateLimited || attempt >= MENU_RETRY_ATTEMPTS) throw error
-      await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** attempt))
+      if (!error?.retryable || attempt >= retries) throw error
+      // # Exponential backoff with jitter: D1 overload comes in short bursts, so
+      // # all workers must not come back at the same instant.
+      await sleep(baseDelayMs * 2 ** attempt * (1 + Math.random() * 0.5))
     }
   }
 }
 
-async function fetchRestaurantMenus(restaurants) {
+async function runPool(items, concurrency, task) {
+  let nextIndex = 0
+  async function worker() {
+    while (nextIndex < items.length) {
+      const item = items[nextIndex]
+      nextIndex += 1
+      await task(item)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker))
+}
+
+async function fetchRestaurantMenus(restaurants, options = {}) {
+  const {
+    fetchMenu = fetchRestaurantMenu,
+    sleep = defaultSleep,
+    concurrency = MENU_FETCH_CONCURRENCY,
+    retries = MENU_RETRY_ATTEMPTS,
+    baseDelayMs = 2000,
+    finalPassPauseMs = 10000,
+  } = options
   const targets = restaurants.filter((restaurant) => restaurant.slug)
   const menuBySlug = new Map()
-  let nextIndex = 0
-  let failedCount = 0
+  const lastError = new Map()
 
-  async function worker() {
-    while (nextIndex < targets.length) {
-      const restaurant = targets[nextIndex]
-      nextIndex += 1
-
-      try {
-        const menu = await fetchMenuWithRetry(restaurant.slug)
-        menuBySlug.set(restaurant.slug, menu)
-      } catch (error) {
-        failedCount += 1
-        console.warn(`⚠️  Failed to fetch menu for ${restaurant.slug}: ${error?.message ?? String(error)}`)
-      }
+  async function load(restaurant) {
+    try {
+      menuBySlug.set(restaurant.slug, await fetchMenuWithRetry(restaurant.slug, { fetchMenu, sleep, retries, baseDelayMs }))
+      lastError.delete(restaurant.slug)
+    } catch (error) {
+      lastError.set(restaurant.slug, error)
     }
   }
 
-  const workerCount = Math.min(MENU_FETCH_CONCURRENCY, targets.length)
-  await Promise.all(Array.from({ length: workerCount }, worker))
-  console.log(`   Menus fetched: ${menuBySlug.size}/${targets.length}${failedCount ? `, failed: ${failedCount}` : ''}`)
+  await runPool(targets, concurrency, load)
+
+  // # Second chance: whatever still failed is retried once after a pause and
+  // # with half the parallelism, so a burst that outlasted the per-request
+  // # backoff doesn't leave the page without its menu (SEO text, dish list).
+  const failedFirstPass = targets.filter((restaurant) => lastError.get(restaurant.slug)?.retryable)
+  if (failedFirstPass.length) {
+    console.warn(`⚠️  ${failedFirstPass.length} menus failed with a retryable error, retrying after a pause`)
+    await sleep(finalPassPauseMs)
+    await runPool(failedFirstPass, Math.max(1, Math.floor(concurrency / 2)), load)
+  }
+
+  for (const [slug, error] of lastError) {
+    console.warn(`⚠️  Failed to fetch menu for ${slug}: ${error?.message ?? String(error)}`)
+  }
+  console.log(`   Menus fetched: ${menuBySlug.size}/${targets.length}${lastError.size ? `, failed: ${lastError.size}` : ''}`)
   return menuBySlug
 }
 
@@ -1227,4 +1273,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   })
 }
 
-export { restaurantLastmod, latestLastmod, chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }
+export { fetchRestaurantMenus, restaurantLastmod, latestLastmod, chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }
