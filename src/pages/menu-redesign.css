@@ -2610,3 +2610,33 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
     max-width: none;
   }
 }
+
+/* Dish names kept on screen when the live menu request fails. */
+.rsm2-static-dishes {
+  max-width: 760px;
+  margin: 8px auto 24px;
+  padding: 0 16px;
+  color: var(--rsm2-text-3);
+  font: 500 14px/1.5 Inter, sans-serif;
+}
+
+.rsm2-static-dishes h2 {
+  margin: 0 0 8px;
+  font: 700 16px/1.3 Inter, sans-serif;
+}
+
+.rsm2-static-dishes h3 {
+  margin: 16px 0 4px;
+  font: 700 13px/1.3 Inter, sans-serif;
+  color: var(--rsm2-muted);
+}
+
+.rsm2-static-dishes ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.rsm2-static-dishes p {
+  margin: 16px 0 0;
+  color: var(--rsm2-muted);
+}
