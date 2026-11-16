@@ -93,12 +93,42 @@ export function percent(part, total) {
   return `${value < 10 ? value.toFixed(1).replace('.', ',') : Math.round(value)}%`
 }
 
-export function host(url) {
+// Яндекс Еда это витрина, а не магазин: товар лежит в магазине внутри сервиса (/retail/<slug>). Те же slug, что у склейки
+// дубликатов (`store_key` в scripts/lib/canonical_dedup.py), чтобы подпись совпадала с тем, что считается «магазином».
+const YANDEX_RETAILERS = {
+  perekrestok: 'Перекрёсток',
+  perekrestok_kafe: 'Перекрёсток Кафе',
+  azbuka_vkusa: 'Азбука Вкуса',
+  kafe_azbuka_vkusa: 'Азбука Вкуса Кафе',
+  okej_retail: 'О’КЕЙ',
+  lenta: 'Лента',
+  paterocka: 'Пятёрочка',
+  vkusvill_sgoraca: 'ВкусВилл',
+  metro_giper: 'Metro',
+  diksi_celevaa: 'Дикси',
+  globus_new: 'Глобус',
+  vernyj_obaij: 'Верный',
+  monetka_ritejl: 'Монетка',
+  kuulklever: 'Кооператив Ярче',
+  spar_middl_volga_shop: 'SPAR Средняя Волга',
+  zelenaa_linia: 'Зелёная Линия',
+}
+
+export function retailer(url) {
   try {
-    return new URL(url).hostname.replace(/^www\./, '')
+    const parsed = new URL(url)
+    if (parsed.hostname.includes('market-delivery.yandex')) {
+      const slug = parsed.pathname.match(/\/retail\/([^/]+)/)?.[1]
+      if (slug) return `${YANDEX_RETAILERS[slug] || slug} · Яндекс Еда`
+    }
+    return parsed.hostname.replace(/^www\./, '')
   } catch {
     return url || ''
   }
+}
+
+export function host(url) {
+  return retailer(url)
 }
 
 export function countVerdicts(pairs) {

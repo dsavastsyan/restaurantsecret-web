@@ -1,15 +1,12 @@
 import { ExternalLink } from 'lucide-react'
+import { retailer } from './adminProducts'
 
 function formatNumber(value) {
   return Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }
 
 function host(url) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '')
-  } catch {
-    return 'Источник'
-  }
+  return retailer(url) || 'Источник'
 }
 
 // Store card shown on both duplicate-review queues. The optional props are used by the pair queue:
