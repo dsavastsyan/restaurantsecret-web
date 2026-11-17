@@ -59,6 +59,7 @@ export const PAIR_LINE = {
 }
 
 export const PAIR_KINDS = {
+  pair: 'Конвейер штрихкодов',
   link: 'Справочники и фото',
   off: 'Open Food Facts',
 }
