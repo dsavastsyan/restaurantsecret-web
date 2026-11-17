@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script>
       // Страница промокода из письма (/promo/<token>) в стиле AnyEat: заставку RestaurantSecret не показываем.
-      if (location.pathname.indexOf('/promo/') === 0) document.documentElement.className += ' rs-no-splash';
+      // Путь бывает и в sessionStorage: SPA-fallback 404.html запоминает его и уводит на «/».
+      (function () {
+        var saved = '';
+        try { saved = sessionStorage.getItem('redirectPath') || ''; } catch (e) {}
+        if (location.pathname.indexOf('/promo/') === 0 || (location.pathname === '/' && saved.indexOf('/promo/') === 0)) {
+          document.documentElement.className += ' rs-no-splash';
+        }
+      })();
     </script>
     <style>.rs-no-splash #rs-splash { display: none !important; }</style>
     <script>
