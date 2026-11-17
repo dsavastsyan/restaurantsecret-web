@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script>
+      // Страницы из писем AnyEat (/promo/<token>, /unsubscribe/<token>): заставку RestaurantSecret не показываем.
+      // Путь бывает и в sessionStorage: SPA-fallback 404.html запоминает его и уводит на «/».
+      (function () {
+        var saved = '';
+        try { saved = sessionStorage.getItem('redirectPath') || ''; } catch (e) {}
+        var anyeat = /^\/(promo|unsubscribe)\//;
+        if (anyeat.test(location.pathname) || (location.pathname === '/' && anyeat.test(saved))) {
+          document.documentElement.className += ' rs-no-splash';
+        }
+      })();
+    </script>
+    <style>.rs-no-splash #rs-splash { display: none !important; }</style>
+    <script>
       // Передача входа из приложения (/auth/handoff#code=...): код стираем из адреса
       // раньше, чем загрузятся Метрика, Sentry и остальной код, и отдаём странице через window.
       (function () {

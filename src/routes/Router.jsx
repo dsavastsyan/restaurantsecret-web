@@ -68,6 +68,8 @@ const SubscriptionHistoryPage = lazy(() => import('../pages/account/Subscription
 const Favorites = lazy(() => import('../pages/account/Favorites.tsx'))
 const AnyEatComingSoon = lazy(() => import('../pages/account/AnyEatComingSoon.tsx'))
 const PaymentMethods = lazy(() => import('../pages/account/PaymentMethods.tsx'))
+const PromoLink = lazy(() => import('../pages/PromoLink.tsx'))
+const UnsubscribeLink = lazy(() => import('../pages/UnsubscribeLink.tsx'))
 
 // Defines the route tree shared between BrowserRouter and HashRouter. Keeping
 // this as a separate component makes it easier to unit test in isolation.
@@ -83,6 +85,10 @@ function AppRoutes({ onReady }) {
           path="legal/ios/terms"
           element={<IOSLegalDocument><IOSLegalTerms /></IOSLegalDocument>}
         />
+        {/* Персональная ссылка из письма: применить промокод без входа */}
+        <Route path="promo/:token" element={<PromoLink />} />
+        {/* Персональная ссылка отписки от рекламных писем */}
+        <Route path="unsubscribe/:token" element={<UnsubscribeLink />} />
 
         {/* Передача входа из приложения: вне AppShell, чтобы до обмена кода не срабатывали проверки входа и аналитика */}
         <Route path="auth/handoff" element={<AuthHandoff />} />

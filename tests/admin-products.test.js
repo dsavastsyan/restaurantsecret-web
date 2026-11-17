@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  retailer,
   COMPLETENESS_ISSUES,
   crawlStatus,
   formatWeeks,
@@ -85,4 +86,12 @@ test('backlog weeks format', () => {
   assert.equal(formatWeeks(null), '—')
   assert.equal(formatWeeks(0), 'нет очереди')
   assert.equal(formatWeeks(7.5), '7,5 нед.')
+})
+
+test('Yandex Eda is labelled by the retailer inside it, not by the aggregator domain', () => {
+  assert.equal(retailer('https://market-delivery.yandex.ru/retail/perekrestok?item=1'), 'Перекрёсток · Яндекс Еда')
+  assert.equal(retailer('https://market-delivery.yandex.ru/retail/perekrestok_kafe?item=1'), 'Перекрёсток Кафе · Яндекс Еда')
+  assert.equal(retailer('https://market-delivery.yandex.ru/retail/new_shop_slug?item=1'), 'new_shop_slug · Яндекс Еда')
+  assert.equal(retailer('https://www.magnit.ru/product/1'), 'magnit.ru')
+  assert.equal(retailer(''), '')
 })
