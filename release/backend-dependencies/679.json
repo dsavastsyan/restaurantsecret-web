@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "partial_services": true,
+  "services": {
+    "cloudflare": {
+      "repository": "dsavastsyan/RestaurantSecret",
+      "staging_pull_request": 1012,
+      "production_pull_request": 1013
+    }
+  }
+}

@@ -44,6 +44,7 @@ function Pair({ pair, working, onDecide }) {
             ['Бренд', product.brand],
             ['Вес', product.quantity_text],
             ['Штрихкод', product.barcode],
+            ...(product.canonical_name ? [['Канон', product.canonical_name]] : []),
           ]}
         />
         <div className="admin-product-match__versus">и</div>
@@ -54,6 +55,7 @@ function Pair({ pair, working, onDecide }) {
             ['Бренд', candidate.brand],
             ['Вес', candidate.quantity_text],
             ['Штрихкод', candidate.barcode],
+            ...(candidate.canonical_name ? [['Канон', candidate.canonical_name]] : []),
             ...(candidate.names_for_barcode > 1 ? [['Названий', `${candidate.names_for_barcode} в справочниках`]] : []),
           ]}
         />
@@ -80,7 +82,7 @@ function Pair({ pair, working, onDecide }) {
 }
 
 export default function BarcodeCandidateReview() {
-  const [kind, setKind] = useState('link')
+  const [kind, setKind] = useState('pair')
   const [verdict, setVerdict] = useState('review')
   const [data, setData] = useState(null)
   const [pairs, setPairs] = useState([])
@@ -148,7 +150,7 @@ export default function BarcodeCandidateReview() {
 
       <div className="admin-product-match__filters" aria-label="Откуда кандидат">
         {Object.entries(PAIR_KINDS).map(([value, label]) => {
-          const unavailable = data && value === 'off' && !data.available?.off
+          const unavailable = data && value !== 'link' && data.available?.[value] === false
           const total = data?.totals?.[value]?.pending
           return (
             <button key={value} type="button" className={kind === value ? 'active' : ''} disabled={unavailable} onClick={() => setKind(value)}>
