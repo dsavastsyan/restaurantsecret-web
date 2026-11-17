@@ -29,12 +29,15 @@ export function trackAnyEatStoreClick(store) {
   trackModalEvent('anyeat_modal_store_clicked', { store })
 }
 
-// `source` names the CTA that opened the modal (banner, dish_card, ...), so the
-// funnel in analytics_event can be split by entry point.
+// AnyEat is in beta: every "AnyEat" CTA on the site now leads to the beta page
+// (store links, APK, feedback form) instead of opening the waitlist modal.
+// `source` names the CTA (banner, dish_card, ...), so clicks stay splittable by
+// entry point in analytics_event.
+export const ANYEAT_SITE_URL = 'https://anyeat.ru/'
+
 export function openAnyEatLaunchModal(source = DEFAULT_OPEN_SOURCE) {
-  launchModalRequested = true
-  launchModalSource = source
-  window.dispatchEvent(new CustomEvent('rs:anyeat-launch-open', { detail: { source } }))
+  trackModalEvent('anyeat_site_opened', { source })
+  window.open(ANYEAT_SITE_URL, '_blank', 'noopener,noreferrer')
 }
 
 export default function AnyEatLaunchModal({ embedded = false }) {
