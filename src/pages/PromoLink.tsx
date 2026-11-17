@@ -7,8 +7,9 @@ import { PD_API_BASE } from "@/config/api";
 import "./PromoLink.css";
 
 const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
-const APP_STORE_URL = env.VITE_ANYEAT_APP_STORE_URL || "https://anyeat.ru";
-const ANDROID_APK_URL = env.VITE_ANYEAT_ANDROID_APK_URL || "https://anyeat.ru";
+// Те же ссылки, что на лендинге anyeat.ru (beta.js)
+const APP_STORE_URL = env.VITE_ANYEAT_APP_STORE_URL || "https://apps.apple.com/ru/app/id6799767816";
+const ANDROID_APK_URL = env.VITE_ANYEAT_ANDROID_APK_URL || "https://anyeat.ru/downloads/AnyEat-0.1.0.apk";
 const SUPPORT_URL = "/support";
 
 type LinkInfo = { email: string; code: string; days: number; available: boolean; reason: string | null };
