@@ -13,6 +13,8 @@
   { "backend": "pd", "method": "POST", "path": "/api/promo/quote", "live": true },
   { "backend": "pd", "method": "POST", "path": "/api/promo/redeem", "live": true },
   { "backend": "pd", "method": "POST", "path": "/api/promo/link/{param}/event", "live": true },
+  { "backend": "pd", "method": "GET", "path": "/api/email/unsubscribe/{param}", "live": true },
+  { "backend": "pd", "method": "POST", "path": "/api/email/unsubscribe/{param}", "live": true },
   { "backend": "pd", "method": "GET", "path": "/api/subscriptions/status", "live": true },
   { "backend": "pd", "method": "GET", "path": "/api/subscriptions/list", "live": true },
   { "backend": "pd", "method": "POST", "path": "/api/payment-methods/attach", "live": true },

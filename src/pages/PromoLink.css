@@ -316,6 +316,7 @@
   font-size: 34px;
   letter-spacing: -0.5px;
 }
+.pl-title--sm { font-size: 28px; line-height: 1.15; }
 .pl-text { margin: 10px 0 0; color: var(--pl-muted); font-size: 16px; line-height: 1.5; }
 .pl-email-chip {
   display: inline-block;
