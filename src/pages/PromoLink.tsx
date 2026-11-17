@@ -223,14 +223,22 @@ export default function PromoLink() {
         {(phase === "ready" || phase === "applying") && info && (
           <section className="pl-state pl-enter">
             <div className="pl-badge"><span aria-hidden>🎁</span>{TEXT.badge}</div>
-            <h1 className="pl-days">
-              <span className="pl-days__num">{days}</span>
-              <span className="pl-days__word">
-                {daysWord(days)}
-                <br />
-                {TEXT.free}
-              </span>
-            </h1>
+            <div className="pl-ticket">
+              <span className="pl-ticket__spark pl-ticket__spark--a" aria-hidden>✦</span>
+              <span className="pl-ticket__spark pl-ticket__spark--b" aria-hidden>✦</span>
+              <h1 className="pl-ticket__main">
+                <span className="pl-ticket__num">{days}</span>
+                <span className="pl-ticket__word">
+                  <span className="pl-ticket__days">{daysWord(days)}</span>
+                  <span className="pl-ticket__free">{TEXT.free}</span>
+                </span>
+              </h1>
+              <div className="pl-ticket__cut" aria-hidden />
+              <div className="pl-ticket__stub">
+                <span>Промокод</span>
+                <b>{info.code}</b>
+              </div>
+            </div>
             <p className="pl-sub">{TEXT.sub}</p>
             <div className="pl-account">
               <div className="pl-avatar" aria-hidden>
@@ -240,9 +248,6 @@ export default function PromoLink() {
                 <div className="pl-account__label">{TEXT.account}</div>
                 <div className="pl-account__email">{info.email}</div>
               </div>
-            </div>
-            <div className="pl-code">
-              Промокод <b>{info.code}</b>
             </div>
             <button type="button" className="pl-btn" onClick={apply} disabled={phase === "applying"}>
               {phase === "applying" ? <span className="pl-spinner" aria-label="Применяем" /> : TEXT.apply}
