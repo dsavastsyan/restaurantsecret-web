@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script>
+      // Страница промокода из письма (/promo/<token>) в стиле AnyEat: заставку RestaurantSecret не показываем.
+      if (location.pathname.indexOf('/promo/') === 0) document.documentElement.className += ' rs-no-splash';
+    </script>
+    <style>.rs-no-splash #rs-splash { display: none !important; }</style>
+    <script>
       // Передача входа из приложения (/auth/handoff#code=...): код стираем из адреса
       // раньше, чем загрузятся Метрика, Sentry и остальной код, и отдаём странице через window.
       (function () {
