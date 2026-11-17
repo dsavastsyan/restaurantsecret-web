@@ -74,7 +74,7 @@ export default function DishRowV2({ dish, restaurantSlug, restaurantName, isFree
   const handleDiaryAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (readOnly) return;
-    openAnyEatLaunchModal();
+    openAnyEatLaunchModal('dish_row');
   };
 
   const handleOpen = (e: React.MouseEvent) => {

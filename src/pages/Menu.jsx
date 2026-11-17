@@ -112,7 +112,7 @@ const buildMenuError = (err) => {
   }
 }
 
-// Reads the {name, dishCount} the prerender embedded in the static page
+// Reads the {name, dishCount, dishGroups} the prerender embedded in the static page
 // (see generate-sitemap.js's `seoHint`) so the very first paint — before our
 // own fetch below resolves — already shows the real name/count instead of a
 // blank loading state. Only present on a real page load of this exact
@@ -323,8 +323,10 @@ export default function Menu({
   }, [menu?.categories])
 
   useEffect(() => {
-    const nextSection = sectionOptions.includes('food') ? 'food' : sectionOptions[0] || 'all'
-    setSelectedSection(nextSection)
+    // # A menu with both food and drinks opens on "Все": drinks must be visible
+    // # without hunting for a tab (Surf coffee is mostly drinks). A menu with a
+    // # single section has no switch, so it also stays on "all".
+    setSelectedSection('all')
     setSelectedCategory('all')
     setAllCategoriesExpanded(false)
   }, [sectionOptions])
@@ -614,6 +616,7 @@ export default function Menu({
       seoRestaurantName={seoRestaurantName}
       seoIntroText={previewMode ? null : menu?.seo?.introText}
       heroDishCount={seoDishCount}
+      staticDishGroups={seoHint?.dishGroups}
       guideRestaurantCount={guideCatalogStats?.restaurantCount}
       guideCityCount={guideCatalogStats?.cityCount}
       dishes={dishes}

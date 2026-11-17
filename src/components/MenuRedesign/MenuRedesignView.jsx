@@ -46,10 +46,36 @@ function getInitialGuideStep(readOnly) {
   }
 }
 
+// When the live menu call fails (anti-bot gate, outage, a crawler that cannot
+// solve the captcha) the page must not collapse into a bare error: the
+// prerender already put the dish NAMES into the static page, so keep showing
+// them. Names only — КБЖУ stays behind the paywall (see generate-sitemap.js).
+function StaticDishList({ groups }) {
+  if (!Array.isArray(groups) || !groups.length) return null;
+  const single = groups.length === 1;
+  return (
+    <section className="rsm2-static-dishes" aria-label="Блюда в меню">
+      <h2>Блюда в меню</h2>
+      {groups.map((group) => (
+        <div key={group.category}>
+          {!single && <h3>{group.category}</h3>}
+          <ul>
+            {(group.names || []).map((name, i) => (
+              <li key={`${name}-${i}`}>{name}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      <p>Точные калории, белки, жиры и углеводы каждого блюда — по подписке, первые 7 дней бесплатно.</p>
+    </section>
+  );
+}
+
 export default function MenuRedesignView({
   seoRestaurantName,
   seoIntroText,
   heroDishCount,
+  staticDishGroups,
   guideRestaurantCount,
   guideCityCount,
   dishes,
@@ -495,6 +521,15 @@ export default function MenuRedesignView({
                 <button
                   type="button"
                   role="tab"
+                  aria-selected={selectedSection === 'all'}
+                  className={selectedSection === 'all' ? 'is-on' : ''}
+                  onClick={() => setSelectedSection('all')}
+                >
+                  Все
+                </button>
+                <button
+                  type="button"
+                  role="tab"
                   aria-selected={selectedSection === 'food'}
                   className={selectedSection === 'food' ? 'is-on' : ''}
                   onClick={() => setSelectedSection('food')}
@@ -546,6 +581,7 @@ export default function MenuRedesignView({
             <p className="rsm2-loading">{error.message}</p>
           )
         )}
+        {!!error && !loading && <StaticDishList groups={staticDishGroups} />}
 
         {!loading && !error && (
           isFilteredResultsLocked ? (

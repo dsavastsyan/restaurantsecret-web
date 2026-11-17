@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Rocket } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
+import { analytics } from '@/services/analytics'
 import { ANYEAT_SITE_URL } from '@/components/AnyEatLaunchModal'
 import './AnyEatLaunchBanner.css'
 
@@ -22,6 +23,13 @@ function writeDismissedAt() {
 
 function trackGoal(name) {
   try { window.ym?.(YANDEX_METRIKA_COUNTER_ID, 'reachGoal', name) } catch { /* ym not loaded */ }
+}
+
+// The counter has no goals matching the anyeat_banner_* names above, so
+// impressions and clicks never reach a report; analytics_event keeps them
+// queryable next to the anyeat_modal_* funnel.
+function trackBannerEvent(eventName, segment) {
+  analytics.track(eventName, { segment })
 }
 
 const COPY = {
@@ -54,6 +62,7 @@ export default function AnyEatLaunchBanner({ eligible = false }) {
     if (!visible || announcedSegment === segment) return
     setAnnouncedSegment(segment)
     trackGoal(`anyeat_banner_show_${segment}`)
+    trackBannerEvent('anyeat_banner_viewed', segment)
   }, [visible, announcedSegment, segment])
 
   // A successful submission from the modal (opened via this banner or any
@@ -76,10 +85,12 @@ export default function AnyEatLaunchBanner({ eligible = false }) {
     writeDismissedAt()
     setDismissedAt(Date.now())
     trackGoal(`anyeat_banner_dismiss_${segment}`)
+    trackBannerEvent('anyeat_banner_dismissed', segment)
   }
 
   const handleCtaClick = () => {
     trackGoal(`anyeat_banner_cta_${segment}`)
+    trackBannerEvent('anyeat_banner_cta_clicked', segment)
   }
 
   return (
