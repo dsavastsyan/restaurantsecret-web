@@ -132,13 +132,27 @@ function useConfetti() {
   return { ref, fire };
 }
 
-function Stores() {
+// Переход в стор: событие promo_store_clicked пишет pd-api (keepalive переживает уход со страницы)
+function trackStore(token: string, letter: number | null, store: "ios" | "android") {
+  try {
+    fetch(`${PD_API_BASE}/api/promo/link/${encodeURIComponent(token)}/event`, {
+      method: "POST",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "store_click", store, letter }),
+    }).catch(() => {});
+  } catch {
+    /* аналитика не мешает переходу */
+  }
+}
+
+function Stores({ onClick }: { onClick: (store: "ios" | "android") => void }) {
   return (
     <div className="pl-stores">
-      <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="pl-store">
+      <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="pl-store" onClick={() => onClick("ios")}>
         <img src="/assets/promo/badge_appstore.png" alt="Загрузите в App Store" width={172} height={52} />
       </a>
-      <a href={ANDROID_APK_URL} target="_blank" rel="noopener noreferrer" className="pl-store">
+      <a href={ANDROID_APK_URL} target="_blank" rel="noopener noreferrer" className="pl-store" onClick={() => onClick("android")}>
         <img src="/assets/promo/badge_android.png" alt="Скачать APK для Android" width={172} height={52} />
       </a>
     </div>
@@ -147,6 +161,12 @@ function Stores() {
 
 export default function PromoLink() {
   const { token = "" } = useParams();
+  // Номер письма из ссылки (?l=1): для разбивки воронки по письмам в аналитике
+  const letter = (() => {
+    const n = Number.parseInt(new URLSearchParams(window.location.search).get("l") || "", 10);
+    return Number.isInteger(n) && n > 0 && n < 100 ? n : null;
+  })();
+  const onStore = (store: "ios" | "android") => trackStore(token, letter, store);
   const [phase, setPhase] = useState<Phase>("loading");
   const [info, setInfo] = useState<LinkInfo | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -157,7 +177,7 @@ export default function PromoLink() {
     let cancelled = false;
     (async () => {
       try {
-        const r = await api(`/promo/link/${encodeURIComponent(token)}`);
+        const r = await api(`/promo/link/${encodeURIComponent(token)}${letter ? `?l=${letter}` : ""}`);
         if (cancelled) return;
         if (!r.ok) {
           setPhase("invalid");
@@ -175,13 +195,13 @@ export default function PromoLink() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, letter]);
 
   const apply = async () => {
     setPhase("applying");
     setErrorText(null);
     try {
-      const r = await api(`/promo/link/${encodeURIComponent(token)}/redeem`, { method: "POST", body: "{}" });
+      const r = await api(`/promo/link/${encodeURIComponent(token)}/redeem`, { method: "POST", body: JSON.stringify({ letter }) });
       if (r.ok && r.body.next_step === "done") {
         setPhase("done");
         requestAnimationFrame(() => fire());
@@ -269,7 +289,7 @@ export default function PromoLink() {
             <p className="pl-text">{TEXT.doneText}</p>
             {info?.email && <div className="pl-email-chip">{info.email}</div>}
             <div className="pl-stores-label">{TEXT.stores}</div>
-            <Stores />
+            <Stores onClick={onStore} />
           </section>
         )}
 
@@ -280,7 +300,7 @@ export default function PromoLink() {
             <p className="pl-text">{TEXT.usedText}</p>
             {info?.email && <div className="pl-email-chip">{info.email}</div>}
             <div className="pl-stores-label">{TEXT.stores}</div>
-            <Stores />
+            <Stores onClick={onStore} />
           </section>
         )}
 
