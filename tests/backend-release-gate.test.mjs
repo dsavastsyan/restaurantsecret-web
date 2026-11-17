@@ -40,6 +40,15 @@ test('each web PR manifest declares a valid dependency mode', async () => {
       assert.doesNotThrow(() => validateManifest(manifest), filename)
       continue
     }
+    if (manifest.partial_services === true) {
+      // explicit single-service manifest (e.g. a web change that depends on the Worker only)
+      assert.equal(Object.keys(manifest.services).length, 1, filename)
+      for (const [service, entry] of Object.entries(manifest.services)) {
+        assert.equal(entry.repository, SERVICE_CONFIG[service].repository, filename)
+      }
+      assert.doesNotThrow(() => validateManifest(manifest), filename)
+      continue
+    }
     assert.deepEqual(Object.keys(manifest.services).sort(), ['cloudflare', 'pd_api'])
     assert.equal(manifest.services.cloudflare.repository, SERVICE_CONFIG.cloudflare.repository)
     assert.equal(manifest.services.pd_api.repository, SERVICE_CONFIG.pd_api.repository)
