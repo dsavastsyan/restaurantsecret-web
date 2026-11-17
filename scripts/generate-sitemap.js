@@ -294,7 +294,7 @@ function applySeoTags(baseHtml, route) {
   if (route.seoHint) {
     html = injectBeforeHeadClose(
       html,
-      `<script id="rs-seo-hint" type="application/json">${JSON.stringify(route.seoHint)}</script>`,
+      `<script id="rs-seo-hint" type="application/json">${JSON.stringify(route.seoHint).replace(/</g, '\\u003c')}</script>`,
     )
   }
 
@@ -776,7 +776,7 @@ function generateStaticRoutes(restaurants, menuBySlug, hubBySlug = new Map()) {
         canonical: `${BASE_URL}${canonicalPath}`,
         schema: restaurantSchema(restaurant, dishes),
         fallbackHtml: restaurantFallback(restaurant, dishes, seo),
-        seoHint: { name, dishCount },
+        seoHint: { name, dishCount, dishGroups: dishNamesByCategory(dishes) },
       }),
     )
 
@@ -1273,4 +1273,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   })
 }
 
-export { fetchRestaurantMenus, restaurantLastmod, latestLastmod, chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }
+export { dishNamesByCategory, applySeoTags, fetchRestaurantMenus, restaurantLastmod, latestLastmod, chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }
