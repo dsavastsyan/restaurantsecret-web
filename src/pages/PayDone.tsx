@@ -3,6 +3,7 @@ import React, { useEffect } from "react";
 import "./PromoLink.css";
 
 export default function PayDone() {
+  const trial = new URLSearchParams(window.location.search).get("trial") === "1";
   useEffect(() => {
     document.title = "Спасибо за оплату";
   }, []);
@@ -17,7 +18,7 @@ export default function PayDone() {
             <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" /><path d="M15 27 l7.5 7.5 L37.5 19" /></svg>
           </div>
           <h1 className="pl-title">Спасибо!</h1>
-          <p className="pl-text">Подписка включится в течение минуты. Открой AnyEat и войди с той же почтой</p>
+          <p className="pl-text">{trial ? "7 дней бесплатно включатся в течение минуты. Открой AnyEat и войди с той же почтой" : "Подписка включится в течение минуты. Открой AnyEat и войди с той же почтой"}</p>
         </section>
       </main>
     </div>

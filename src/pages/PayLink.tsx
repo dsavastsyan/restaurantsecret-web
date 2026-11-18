@@ -7,9 +7,15 @@ import { PD_API_BASE } from "@/config/api";
 import "./PromoLink.css";
 import "./PayLink.css";
 
-type Info = { email: string; has_active_subscription: boolean; prices: { monthly: number; annual: number } };
+type Info = { email: string; has_active_subscription: boolean; trial_available?: boolean; trial_days?: number; prices: { monthly: number; annual: number } };
 type Phase = "loading" | "ready" | "paying" | "active" | "invalid" | "error";
 type Plan = "monthly" | "annual";
+
+function chargeDate(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+}
 
 const rub = (n: number) => `${n.toLocaleString("ru-RU").replace(/ /g, " ")} ₽`;
 
@@ -32,7 +38,7 @@ export default function PayLink() {
   const tokenRef = useRef<string>("");
   const [phase, setPhase] = useState<Phase>("loading");
   const [info, setInfo] = useState<Info | null>(null);
-  const [payingPlan, setPayingPlan] = useState<Plan | null>(null);
+  const [selected, setSelected] = useState<Plan>("annual");
   const [errorText, setErrorText] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,9 +74,9 @@ export default function PayLink() {
     };
   }, []);
 
-  const pay = async (plan: Plan) => {
+  const pay = async () => {
+    const plan = selected;
     setPhase("paying");
-    setPayingPlan(plan);
     setErrorText(null);
     try {
       const r = await api("/pay-link/create", { token: tokenRef.current, plan });
@@ -88,6 +94,9 @@ export default function PayLink() {
   };
 
   const prices = info?.prices ?? { monthly: 199, annual: 1490 };
+  const trial = Boolean(info?.trial_available);
+  const trialDays = info?.trial_days ?? 7;
+  const price = selected === "annual" ? prices.annual : prices.monthly;
   const perMonth = Math.round(prices.annual / 12);
 
   return (
@@ -107,7 +116,8 @@ export default function PayLink() {
 
         {(phase === "ready" || phase === "paying") && info && (
           <section className="pl-state pl-enter">
-            <h1 className="pl-title pl-title--sm">Выбери подписку</h1>
+            <h1 className="pl-title pl-title--sm">{trial ? `${trialDays} дней бесплатно` : "Выбери подписку"}</h1>
+            {trial && <p className="pl-sub" style={{ marginBottom: 0 }}>Выбери тариф. Сегодня платить ничего не нужно</p>}
             <div className="pl-account" style={{ marginTop: 16 }}>
               <div className="pl-avatar" aria-hidden>{info.email.slice(0, 1).toUpperCase()}</div>
               <div>
@@ -115,26 +125,57 @@ export default function PayLink() {
                 <div className="pl-account__email">{info.email}</div>
               </div>
             </div>
-            <div className="pay-plans">
-              <button type="button" className="pay-plan" disabled={phase === "paying"} onClick={() => pay("monthly")}>
-                <span>
-                  <div className="pay-plan__name">Месяц</div>
-                  <div className="pay-plan__note">Продлевается каждый месяц</div>
-                </span>
-                {phase === "paying" && payingPlan === "monthly" ? <span className="pl-spinner" aria-label="Открываем оплату" /> : <span className="pay-plan__price">{rub(prices.monthly)}</span>}
-              </button>
-              <button type="button" className="pay-plan pay-plan--best" disabled={phase === "paying"} onClick={() => pay("annual")}>
-                <span>
-                  <div className="pay-plan__name">Год<span className="pay-plan__tag">ВЫГОДНЕЕ</span></div>
-                  <div className="pay-plan__note">{rub(perMonth)} в месяц</div>
-                </span>
-                {phase === "paying" && payingPlan === "annual" ? <span className="pl-spinner" aria-label="Открываем оплату" /> : <span className="pay-plan__price">{rub(prices.annual)}</span>}
-              </button>
+            <div className="pay-plans" role="radiogroup" aria-label="Тариф">
+              {([
+                { key: "monthly" as Plan, name: "Месяц", price: prices.monthly, per: "в месяц", note: "" },
+                { key: "annual" as Plan, name: "Год", price: prices.annual, per: "в год", note: `${rub(perMonth)} в месяц` },
+              ]).map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected === p.key}
+                  className={`pay-plan${selected === p.key ? " pay-plan--on" : ""}`}
+                  disabled={phase === "paying"}
+                  onClick={() => setSelected(p.key)}
+                >
+                  <span className="pay-plan__radio" aria-hidden />
+                  <span className="pay-plan__body">
+                    <div className="pay-plan__name">
+                      {p.name}
+                      {p.key === "annual" && <span className="pay-plan__tag">ВЫГОДНЕЕ</span>}
+                    </div>
+                    {trial ? (
+                      <>
+                        <div className="pay-plan__free">{trialDays} дней бесплатно</div>
+                        <div className="pay-plan__note">потом {rub(p.price)} {p.per}{p.note ? `, ${p.note}` : ""}</div>
+                      </>
+                    ) : (
+                      <div className="pay-plan__note">{p.note || "Продлевается каждый месяц"}</div>
+                    )}
+                  </span>
+                  {!trial && <span className="pay-plan__price">{rub(p.price)}</span>}
+                </button>
+              ))}
             </div>
+            <button type="button" className="pl-btn" onClick={pay} disabled={phase === "paying"}>
+              {phase === "paying" ? <span className="pl-spinner" aria-label="Открываем оплату" /> : trial ? `Попробовать ${trialDays} дней бесплатно` : `Оплатить ${rub(price)}`}
+            </button>
             {errorText && <p className="pl-error">{errorText}</p>}
+            <p className="pay-terms">
+              {trial ? (
+                <>
+                  <b>Сегодня 0 ₽.</b> Карта нужна только для привязки: мы спишем 1 ₽ и сразу вернём его.
+                  Первое списание {rub(price)} будет {chargeDate(trialDays)}, дальше подписка продлевается автоматически.
+                  Отменить можно в любой момент до списания, мы напомним заранее.
+                </>
+              ) : (
+                <>Подписка продлевается автоматически. Отменить можно в любой момент.</>
+              )}
+            </p>
             <p className="pay-consent">
-              Нажимая на тариф, ты соглашаешься с <a href="/legal">условиями</a> и автоматическим продлением подписки.
-              Отменить можно в любой момент. Оплата картой или СБП через ЮKassa.
+              Нажимая кнопку, ты соглашаешься с <a href="/legal">условиями</a> и автоматическим продлением подписки.
+              Оплата картой через ЮKassa.
             </p>
           </section>
         )}
