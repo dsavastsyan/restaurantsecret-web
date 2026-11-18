@@ -1,15 +1,16 @@
-import PrivacyVersion20261116 from './legal-versions/privacy-2026-11-16.jsx'
+import PrivacyVersion20261119 from './legal-versions/privacy-2026-11-19.jsx'
 
 // The canonical URL always renders the current published privacy policy.
 // Previous policies remain available under /privacy/versions/YYYY-MM-DD.
 export default function Privacy() {
   return (
     <div className="privacy-current-version">
-      <PrivacyVersion20261116 />
+      <PrivacyVersion20261119 />
       <section id="legal-archive" className="container legal-container" aria-labelledby="legal-archive-title">
         <h2 id="legal-archive-title">Архив документов</h2>
         <p>Предыдущие редакции политики конфиденциальности:</p>
         <ul className="legal-list">
+          <li><a href="/privacy/versions/2026-11-16">16 ноября 2026 года</a></li>
           <li><a href="/privacy/versions/2026-11-14">14 ноября 2026 года</a></li>
           <li><a href="/privacy/versions/2026-10-24">24 октября 2026 года</a></li>
           <li><a href="/privacy/versions/2026-09-16">16 сентября 2026 года</a></li>
