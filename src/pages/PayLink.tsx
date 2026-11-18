@@ -11,12 +11,6 @@ type Info = { email: string; has_active_subscription: boolean; trial_available?:
 type Phase = "loading" | "ready" | "paying" | "active" | "invalid" | "error";
 type Plan = "monthly" | "annual";
 
-function chargeDate(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
-}
-
 const rub = (n: number) => `${n.toLocaleString("ru-RU").replace(/\s/g, "\u00a0")}\u00a0₽`;
 
 async function api(path: string, body: Record<string, unknown>) {
@@ -166,7 +160,7 @@ export default function PayLink() {
               {trial ? (
                 <>
                   <b>Сегодня 0 ₽.</b> Карта нужна только для привязки: мы спишем 1 ₽ и сразу вернём его.
-                  Первое списание {rub(price)} будет {chargeDate(trialDays)}, дальше подписка продлевается автоматически.
+                  После бесплатного периода подписка продлевается автоматически.
                   Отменить можно в любой момент до списания, мы напомним заранее.
                 </>
               ) : (
