@@ -26,6 +26,7 @@ const IOSLegalDocument = lazy(() => import('../pages/IOSLegalDocument.jsx'))
 const IOSLegalTerms = lazy(() => import('../pages/IOSLegalTerms.jsx'))
 const LegalVersionRoute = lazy(() => import('../pages/LegalVersionRoute.jsx'))
 const PrivacyVersionRoute = lazy(() => import('../pages/PrivacyVersionRoute.jsx'))
+const AppAnalyticsConsent = lazy(() => import('../pages/AppAnalyticsConsent.jsx'))
 const Tariffs = lazy(() => import('../pages/Tariffs.jsx'))
 const Licenses = lazy(() => import('../pages/Licenses.jsx'))
 const PartnerShell = lazy(() => import('../pages/partners/PartnerShell.jsx'))
@@ -99,6 +100,7 @@ function AppRoutes({ onReady }) {
           <Route path="login" element={<Login />} />
           <Route path="legal" element={<Legal />} />
           <Route path="legal/versions/:date" element={<LegalVersionRoute />} />
+          <Route path="legal/app-analytics-consent" element={<AppAnalyticsConsent />} />
           <Route path="tariffs" element={<Tariffs />} />
           <Route path="privacy" element={<Privacy />} />
           <Route path="privacy/versions/:date" element={<PrivacyVersionRoute />} />

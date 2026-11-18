@@ -5,6 +5,7 @@ import PrivacyVersion20260916 from './privacy-2026-09-16.jsx'
 import PrivacyVersion20261024 from './privacy-2026-10-24.jsx'
 import PrivacyVersion20261114 from './privacy-2026-11-14.jsx'
 import PrivacyVersion20261116 from './privacy-2026-11-16.jsx'
+import PrivacyVersion20261119 from './privacy-2026-11-19.jsx'
 
 // Maps a YYYY-MM-DD version date (as it appears in /legal/versions/:date and
 // /privacy/versions/:date) to the frozen snapshot component for that date.
@@ -21,4 +22,5 @@ export const privacyVersions = {
   '2026-10-24': PrivacyVersion20261024,
   '2026-11-14': PrivacyVersion20261114,
   '2026-11-16': PrivacyVersion20261116,
+  '2026-11-19': PrivacyVersion20261119,
 }
