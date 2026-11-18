@@ -460,31 +460,5 @@
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-      // Баннер «Скачать в App Store» для iPhone вне Safari (в Safari работает Smart App Banner)
-      (function () {
-        try {
-          var ua = navigator.userAgent || '';
-          if (!/iPhone|iPod/.test(ua)) return;
-          var isSafari = /Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|YaBrowser|GSA|Instagram|FBAN|FBAV|Telegram|Line\//.test(ua);
-          if (isSafari) return;
-          var KEY = 'anyeat_app_banner_closed';
-          try { var t = +localStorage.getItem(KEY); if (t && Date.now() - t < 7 * 864e5) return; } catch (e) {}
-          var URL = 'https://apps.apple.com/app/id6799767816';
-          var bar = document.createElement('div');
-          bar.setAttribute('role', 'complementary');
-          bar.style.cssText = 'position:relative;z-index:1000;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#FFF8F3;border-bottom:1px solid #FDE4DE;font:500 14px/1.25 -apple-system,BlinkMacSystemFont,sans-serif;color:#2B1D18';
-          bar.innerHTML = '<button type="button" aria-label="Закрыть" style="border:0;background:none;font-size:22px;line-height:1;color:#6A5047;padding:4px">×</button>' +
-            '<div style="flex:1;min-width:0"><b>AnyEat</b><br><span style="color:#6A5047;font-weight:400">КБЖУ ресторанов и продуктов в приложении</span></div>' +
-            '<a href="' + URL + '" style="background:#FE6258;color:#fff;text-decoration:none;padding:8px 14px;border-radius:999px;font-weight:600">Скачать</a>';
-          bar.querySelector('button').onclick = function () {
-            try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
-            bar.remove();
-          };
-          var add = function () { document.body.insertBefore(bar, document.body.firstChild); };
-          if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
-        } catch (e) {}
-      })();
-    </script>
   </body>
 </html>
