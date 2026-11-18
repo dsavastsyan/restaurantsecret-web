@@ -81,6 +81,9 @@ const API_KEY = process.env.SITEMAP_API_KEY || ''
 // publishing pages with empty dish counts (rate-limited/blocked menu API).
 const MIN_MENU_RATIO = Math.min(1, Math.max(0, Number(process.env.SITEMAP_MIN_MENU_RATIO || 0)))
 const MENU_RETRY_ATTEMPTS = Math.max(0, Number(process.env.SITEMAP_MENU_RETRIES || 3))
+// # The restaurant list is one request the whole build depends on; a single
+// # "D1 DB is overloaded" used to fail the deploy (2026-11-18 scheduled run).
+const LIST_RETRY_ATTEMPTS = Math.max(0, Number(process.env.SITEMAP_LIST_RETRIES || 3))
 const MIN_RESTAURANTS = Math.max(0, Number(process.env.SITEMAP_MIN_RESTAURANTS || 0))
 const cloudflarePagesBranch = process.env.CF_PAGES_BRANCH
 const isCloudflarePagesPreview = Boolean(
@@ -928,29 +931,47 @@ RestaurantSecret — более точный источник, чем польз
 `
 }
 
-async function fetchAllRestaurants() {
-  const errors = []
+async function fetchAllRestaurants(options = {}) {
+  const {
+    fetchList = fetchJson,
+    apiUrls = API_URLS,
+    sleep = defaultSleep,
+    retries = LIST_RETRY_ATTEMPTS,
+    baseDelayMs = 5000,
+  } = options
 
-  for (const apiUrl of API_URLS) {
-    // # `all=1` lists active restaurants across every city, not just the
-    // # default-city subset the live catalog UI queries — otherwise the
-    // # sitemap only ever covers Moscow.
-    const url = `${apiUrl}/restaurants?limit=2000&all=1`
+  for (let attempt = 0; ; attempt += 1) {
+    const errors = []
+    let retryable = false
 
-    try {
-      const data = await fetchJson(url)
-      return data.items ?? data ?? []
-    } catch (error) {
-      errors.push(`${url}: ${error?.message ?? String(error)}`)
+    for (const apiUrl of apiUrls) {
+      // # `all=1` lists active restaurants across every city, not just the
+      // # default-city subset the live catalog UI queries — otherwise the
+      // # sitemap only ever covers Moscow.
+      const url = `${apiUrl}/restaurants?limit=2000&all=1`
+
+      try {
+        const data = await fetchList(url)
+        return data.items ?? data ?? []
+      } catch (error) {
+        retryable = retryable || isRetryableApiFailure(error)
+        errors.push(`${url}: ${error?.message ?? String(error)}`)
+      }
     }
-  }
 
-  throw new Error(`All restaurant API endpoints failed: ${errors.join('; ')}`)
+    const message = `All restaurant API endpoints failed: ${errors.join('; ')}`
+    if (!retryable || attempt >= retries) throw new Error(message)
+    // # D1 overload is measured over a 10 s window: wait it out (5 s, 10 s, 20 s)
+    // # instead of failing the whole build on one burst.
+    const delayMs = baseDelayMs * 2 ** attempt
+    console.warn(`⚠️  ${message}; retrying in ${Math.round(delayMs / 1000)}s (${attempt + 1}/${retries})`)
+    await sleep(delayMs)
+  }
 }
 
 // # Overload / rate limit / timeout are worth retrying; a 404 (unknown slug) or a
 // # dead fallback host ("fetch failed") are not.
-function isRetryableMenuFailure(error) {
+function isRetryableApiFailure(error) {
   return Boolean(error?.timedOut) || error?.status === 429 || (error?.status >= 500 && error?.status < 600)
 }
 
@@ -964,7 +985,7 @@ async function fetchRestaurantMenu(slug) {
     try {
       return await fetchJson(url)
     } catch (error) {
-      retryable = retryable || isRetryableMenuFailure(error)
+      retryable = retryable || isRetryableApiFailure(error)
       errors.push(`${url}: ${error?.message ?? String(error)}`)
     }
   }
@@ -1273,4 +1294,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   })
 }
 
-export { dishNamesByCategory, applySeoTags, fetchRestaurantMenus, restaurantLastmod, latestLastmod, chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }
+export { dishNamesByCategory, applySeoTags, fetchAllRestaurants, fetchRestaurantMenus, restaurantLastmod, latestLastmod, chainHubDescription, chainHubFallback, chainHubSchema, chainHubTitle, generateStaticRoutes }
