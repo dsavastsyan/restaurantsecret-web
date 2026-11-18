@@ -597,3 +597,6 @@
 .admin-product-match__main { margin-top: 16px; padding: 9px 13px; color: #46473f; border: 1px solid #d8d4ca; border-radius: 10px; background: #fff; font-weight: 800; }
 .admin-product-match__main.is-selected { color: #fff; border-color: #65734d; background: #65734d; }
 .admin-product-match__main:disabled { cursor: default; opacity: .7; }
+
+.admin-product-source { display: inline-block; padding: 2px 9px; border-radius: 999px; color: #5b633f; background: #edf0df; font-size: 12px; font-weight: 700; }
+.admin-product-source--curator { color: #7a4b12; background: #fbecd2; }
