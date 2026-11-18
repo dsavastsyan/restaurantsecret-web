@@ -17,7 +17,7 @@ function chargeDate(days: number) {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 }
 
-const rub = (n: number) => `${n.toLocaleString("ru-RU").replace(/ /g, " ")} ₽`;
+const rub = (n: number) => `${n.toLocaleString("ru-RU").replace(/\s/g, "\u00a0")}\u00a0₽`;
 
 async function api(path: string, body: Record<string, unknown>) {
   const res = await fetch(`${PD_API_BASE}/api${path}`, {
