@@ -32,10 +32,21 @@ function trackBannerEvent(eventName, segment) {
   analytics.track(eventName, { segment })
 }
 
-// On iPhone the CTA goes straight to the App Store page instead of the
-// anyeat.ru beta page, one tap fewer. Other devices keep the beta page.
-const APP_STORE_URL = 'https://apps.apple.com/app/id6799767816'
-const IS_IPHONE = typeof navigator !== 'undefined' && /iPhone|iPod/.test(navigator.userAgent || '')
+// The CTA goes straight to the store build for the visitor's OS: App Store on
+// iOS (iPadOS Safari reports itself as a touch Mac), the APK on Android, and
+// the anyeat.ru page with both buttons everywhere else (desktop).
+const APP_STORE_URL = 'https://apps.apple.com/ru/app/id6799767816'
+const APK_URL = 'https://anyeat.ru/downloads/AnyEat-0.1.0.apk'
+
+function getCtaUrl() {
+  if (typeof navigator === 'undefined') return ANYEAT_SITE_URL
+  const ua = navigator.userAgent || ''
+  const isIos = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+  if (isIos) return APP_STORE_URL
+  if (/Android/.test(ua)) return APK_URL
+  return ANYEAT_SITE_URL
+}
+const CTA_URL = getCtaUrl()
 
 const COPY = {
   active: {
@@ -105,7 +116,7 @@ export default function AnyEatLaunchBanner({ eligible = false }) {
         <span className="rs-anyeat-banner__text">{copy.text}</span>
         <a
           className="rs-anyeat-banner__cta"
-          href={IS_IPHONE ? APP_STORE_URL : ANYEAT_SITE_URL}
+          href={CTA_URL}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleCtaClick}
