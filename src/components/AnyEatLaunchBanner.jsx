@@ -3,7 +3,7 @@ import { Rocket } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { analytics } from '@/services/analytics'
-import { ANYEAT_SITE_URL } from '@/components/AnyEatLaunchModal'
+import { ANYEAT_SITE_URL, APP_STORE_URL, APK_URL } from '@/components/AnyEatLaunchModal'
 import './AnyEatLaunchBanner.css'
 
 // v2: the banner changed from "coming soon" to the beta announcement, so
@@ -32,13 +32,39 @@ function trackBannerEvent(eventName, segment) {
   analytics.track(eventName, { segment })
 }
 
+// The CTA goes straight to the store build for the visitor's OS: App Store on
+// iOS (iPadOS Safari reports itself as a touch Mac), the APK on Android, and
+// the anyeat.ru page with both buttons everywhere else (desktop).
+
+function detectIos() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+}
+
+function getCtaUrl(isIos) {
+  if (isIos) return APP_STORE_URL
+  if (typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent || '')) return APK_URL
+  return ANYEAT_SITE_URL
+}
+
+const IS_IOS = detectIos()
+const CTA_URL = getCtaUrl(IS_IOS)
+
+// Text depends on the platform and on whether the visitor has an active
+// subscription (their subscription is moving to the app). Desktop gets the
+// non-iOS wording.
 const COPY = {
   active: {
-    text: 'AnyEat вышел в бете — твоя подписка перейдёт в приложение автоматически, цена останется прежней.',
+    text: IS_IOS
+      ? 'Твоя подписка переезжает в приложение. Уже в App Store.'
+      : 'Твоя подписка переезжает в приложение. Установи первым.',
     cta: 'Скачать',
   },
   default: {
-    text: 'AnyEat вышел в бете — рестораны, продукты и дневник питания в одном приложении.',
+    text: IS_IOS
+      ? 'Приложение уже доступно в App Store'
+      : 'Приложение уже доступно к установке',
     cta: 'Скачать',
   },
 }
@@ -96,11 +122,11 @@ export default function AnyEatLaunchBanner({ eligible = false }) {
   return (
     <div className="rs-anyeat-banner" role="note">
       <div className="rs-anyeat-banner__inner">
-        <Rocket size={16} className="rs-anyeat-banner__icon" aria-hidden="true" />
+        <Rocket size={22} className="rs-anyeat-banner__icon" aria-hidden="true" />
         <span className="rs-anyeat-banner__text">{copy.text}</span>
         <a
           className="rs-anyeat-banner__cta"
-          href={ANYEAT_SITE_URL}
+          href={CTA_URL}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleCtaClick}

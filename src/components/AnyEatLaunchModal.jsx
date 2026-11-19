@@ -1,16 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { apiGet, apiPost } from '@/lib/api'
-import { useAuth, selectSetToken } from '@/store/auth'
+import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { analytics } from '@/services/analytics'
 import preview from '@/assets/anyeat-phone-left.png'
-import { Apple, BookText, Mail, Rocket, Utensils } from 'lucide-react'
+import { Apple, BookText, Rocket, Utensils } from 'lucide-react'
 import './AnyEatLaunchModal.css'
 
-const CONSENT_VERSION = 'restaurantsecret-communications-2026-09-16'
 const YANDEX_METRIKA_COUNTER_ID = 108992733
-const RESEND_COOLDOWN = 60
 const MODAL_ID = 'anyeat_launch'
 const DEFAULT_OPEN_SOURCE = 'unknown'
 let launchModalRequested = false
@@ -29,22 +26,22 @@ export function trackAnyEatStoreClick(store) {
   trackModalEvent('anyeat_modal_store_clicked', { store })
 }
 
-// AnyEat is in beta: every "AnyEat" CTA on the site now leads to the beta page
-// (store links, APK, feedback form) instead of opening the waitlist modal.
+// AnyEat is in beta: every "AnyEat" CTA on the site opens this window with the
+// store buttons (App Store, APK) instead of the old waitlist form.
 // `source` names the CTA (banner, dish_card, ...), so clicks stay splittable by
 // entry point in analytics_event.
 export const ANYEAT_SITE_URL = 'https://anyeat.ru/'
+export const APP_STORE_URL = 'https://apps.apple.com/ru/app/id6799767816'
+export const APK_URL = 'https://anyeat.ru/downloads/AnyEat-0.1.0.apk'
 
 export function openAnyEatLaunchModal(source = DEFAULT_OPEN_SOURCE) {
-  trackModalEvent('anyeat_site_opened', { source })
-  window.open(ANYEAT_SITE_URL, '_blank', 'noopener,noreferrer')
+  window.dispatchEvent(new CustomEvent('rs:anyeat-launch-open', { detail: { source } }))
 }
 
 export default function AnyEatLaunchModal({ embedded = false }) {
   const previewMode = import.meta.env.DEV && new URLSearchParams(window.location.search).get('anyeatPreview') === '1'
   const previewOpened = useRef(false)
   const token = useAuth((state) => state.accessToken)
-  const setToken = useAuth(selectSetToken)
   const hasActiveSub = useSubscriptionStore((state) => state.hasActiveSub)
   const [openSource, setOpenSource] = useState(launchModalSource)
   const [open, setOpen] = useState(() => {
@@ -52,19 +49,6 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     launchModalRequested = false
     return embedded || (previewMode && requested)
   })
-  const [email, setEmail] = useState('')
-  const [consents, setConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
-  const [knownConsents, setKnownConsents] = useState({ personal_data_advertising: false, marketing_communications: false })
-  const [accountEmail, setAccountEmail] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState('')
-  // Guests go through the same email → OTP code flow as regular registration
-  // (/login). An authenticated visitor uses the email already attached to
-  // their account for the consent submission.
-  const [otpStep, setOtpStep] = useState('email') // 'email' | 'code'
-  const [code, setCode] = useState('')
-  const [resendTimer, setResendTimer] = useState(0)
 
   const segment = token && hasActiveSub ? 'active' : 'default'
   const closeModal = (reason) => {
@@ -90,42 +74,11 @@ export default function AnyEatLaunchModal({ embedded = false }) {
     return () => window.removeEventListener('rs:anyeat-launch-open', show)
   }, [embedded])
 
-  // Load the account email and known consent for authenticated visitors so
-  // the email cannot drift away from the identity represented by the token.
-  useEffect(() => {
-    if (!open || !token) return
-    let active = true
-
-    Promise.all([
-      apiGet('/api/v1/me', token),
-      apiGet('/api/consent/communications', token),
-    ]).then(([me, consent]) => {
-      if (!active) return
-      const value = me?.user?.email || ''
-      setAccountEmail(value)
-      setEmail(value)
-      const known = {
-        personal_data_advertising: consent?.personal_data_advertising === true,
-        marketing_communications: consent?.marketing_communications === true,
-      }
-      setKnownConsents(known)
-      setConsents(known)
-    }).catch(() => { /* account details are a nice-to-have, not required */ })
-
-    return () => { active = false }
-  }, [open, token])
-
   useEffect(() => {
     if (!open || embedded) return
     trackModalEvent('anyeat_modal_viewed', { segment, source: openSource })
     trackGoal(`anyeat_modal_open_${segment}`)
   }, [embedded, open, segment])
-
-  useEffect(() => {
-    if (resendTimer <= 0) return
-    const id = setInterval(() => setResendTimer((value) => value - 1), 1000)
-    return () => clearInterval(id)
-  }, [resendTimer])
 
   useEffect(() => {
     if (!open || embedded) return
@@ -138,159 +91,40 @@ export default function AnyEatLaunchModal({ embedded = false }) {
 
   if (!open) return null
 
-  const doRequestOtp = async () => {
-    if (!/^\S+@\S+\.\S+$/.test(email.trim()) || submitting) return
-    setSubmitting(true)
-    setError('')
-    try {
-      const res = await apiPost('/auth/request-otp', { email: email.trim() })
-      if (!res?.ok) throw new Error('request_otp_failed')
-      setOtpStep('code')
-      setResendTimer(RESEND_COOLDOWN)
-      trackModalEvent('anyeat_modal_otp_requested', { segment, source: openSource })
-      trackGoal(`anyeat_modal_otp_requested_${segment}`)
-    } catch {
-      setError('Не удалось отправить код. Попробуйте ещё раз.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const requestOtp = (event) => {
-    event.preventDefault()
-    doRequestOtp()
-  }
-
-  const verifyOtp = async (event) => {
-    event.preventDefault()
-    if (code.trim().length < 4 || submitting) return
-    setSubmitting(true)
-    setError('')
-    try {
-      const res = await apiPost('/auth/verify-otp', { email: email.trim(), code: code.trim() })
-      if (!res?.ok || !res?.access_token) throw new Error('verify_otp_failed')
-      setToken(res.access_token)
-    } catch {
-      setError('Неверный или истёкший код. Попробуйте ещё раз.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const resendOtp = () => {
-    if (resendTimer > 0 || submitting) return
-    doRequestOtp()
-  }
-
-  const backToEmailStep = () => {
-    if (submitting) return
-    setOtpStep('email')
-    setCode('')
-    setError('')
-    setResendTimer(0)
-  }
-
-  const canSubmit = /^\S+@\S+\.\S+$/.test(email.trim()) &&
-    Boolean(token) && Boolean(accountEmail) &&
-    consents.personal_data_advertising && consents.marketing_communications && !submitting
-
-  const submit = async (event) => {
-    event.preventDefault()
-    if (!canSubmit) return
-    setSubmitting(true)
-    setError('')
-    try {
-      await apiPost('/api/consent/communications', {
-        personal_data_advertising: true,
-        marketing_communications: true,
-        consent_version: CONSENT_VERSION,
-      }, token)
-      setSuccess(true)
-      trackModalEvent('anyeat_modal_submitted', { segment, source: openSource })
-      trackGoal(`anyeat_modal_submit_${segment}`)
-      window.dispatchEvent(new CustomEvent('rs:anyeat-launch-submitted'))
-    } catch {
-      setError('Не удалось сохранить заявку. Попробуйте ещё раз.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const headline = segment === 'active'
-    ? <h2 id="rs-anyeat-title"><span>Твоя цена</span><br />останется с тобой</h2>
+    ? <h2 id="rs-anyeat-title"><span>Твоя подписка</span><br />уже в приложении</h2>
     : <h2 id="rs-anyeat-title"><span>Вся еда</span><br />в одном месте</h2>
-
-  const lead = segment === 'active'
-    ? 'Подписка перейдёт в AnyEat автоматически, тем же аккаунтом — платить по текущей цене навсегда.'
-    : null
 
   const content = (
     <div className={`rs-anyeat${embedded ? ' rs-anyeat--embedded' : ''}`} onMouseDown={(event) => { if (!embedded && event.target === event.currentTarget) closeModal('backdrop') }}>
       <section className="rs-anyeat__panel" role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : 'true'} aria-labelledby="rs-anyeat-title">
         {!embedded && <button className="rs-anyeat__close" type="button" onClick={() => closeModal('button')} aria-label="Закрыть">×</button>}
-        {success ? (
-          <div className="rs-anyeat__success" role="status"><span>✓</span><h2>Сообщим вам о выпуске приложения первым</h2><p>Обещаем писать только по важным поводам ♡</p></div>
-        ) : <>
-          <div className="rs-anyeat__content">
-            <span className="rs-anyeat__badge"><Rocket size={17} />Скоро в приложении</span>
-            {headline}
-            {lead && <p className="rs-anyeat__lead">{lead}</p>}
-          </div>
-          <div className="rs-anyeat__visual" aria-hidden="true">
-            <div className="rs-anyeat__orb rs-anyeat__orb--one" /><div className="rs-anyeat__orb rs-anyeat__orb--two" />
-            <img src={preview} alt="" />
-            <span className="rs-anyeat__note rs-anyeat__note--top">Больше возможностей<br />для вашего рациона</span>
-            <span className="rs-anyeat__note rs-anyeat__note--bottom">Здоровые привычки<br />всегда под рукой ♡</span>
-          </div>
-          <div className="rs-anyeat__features" aria-label="Возможности приложения">
-            <div><span className="rs-anyeat__icon"><Utensils size={19} /></span><strong>Рестораны</strong><small>Блюда и калории</small></div>
-            <div><span className="rs-anyeat__icon"><Apple size={19} /></span><strong>Продукты</strong><small>Сканируйте и ищите</small></div>
-            <div><span className="rs-anyeat__icon"><BookText size={19} /></span><strong>Дневник</strong><small>Всё в одном месте</small></div>
-          </div>
-
-          {!token && otpStep === 'email' && (
-            <form className="rs-anyeat__form" onSubmit={requestOtp}>
-              <div className="rs-anyeat__formrow">
-                <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="email" placeholder="Ваша почта" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-                <button className="rs-anyeat__submit" type="submit" onClick={() => trackModalEvent('anyeat_modal_cta_clicked', { segment, source: openSource, cta: 'request_otp' })} disabled={submitting || !/^\S+@\S+\.\S+$/.test(email.trim())}>{submitting ? 'Отправляем…' : 'Получить код →'}</button>
-              </div>
-              {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
-              <small className="rs-anyeat__fine">Пришлём код на почту, как при входе в аккаунт <span aria-hidden="true">♡</span></small>
-            </form>
-          )}
-
-          {!token && otpStep === 'code' && (
-            <form className="rs-anyeat__form" onSubmit={verifyOtp}>
-              <div className="rs-anyeat__formrow">
-                <label className="rs-anyeat__field" htmlFor="rs-anyeat-code"><Mail size={20} /><input id="rs-anyeat-code" type="text" inputMode="numeric" maxLength={6} placeholder="Код из письма" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').trim())} required /></label>
-                <button className="rs-anyeat__submit" type="submit" disabled={submitting || code.trim().length < 4}>{submitting ? 'Проверяем…' : 'Подтвердить'}</button>
-              </div>
-              {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
-              <div className="rs-anyeat__otp-actions">
-                <button type="button" className="rs-anyeat__link" onClick={backToEmailStep} disabled={submitting}>Назад к почте</button>
-                <button type="button" className="rs-anyeat__link" onClick={resendOtp} disabled={submitting || resendTimer > 0}>
-                  {resendTimer > 0 ? `Отправить код ещё раз — через ${resendTimer} сек` : 'Отправить код ещё раз'}
-                </button>
-              </div>
-              <small className="rs-anyeat__fine">Код пришёл с noreply@restaurantsecret.ru — проверьте папку «Спам» <span aria-hidden="true">♡</span></small>
-            </form>
-          )}
-
-          {token && (
-            <form className="rs-anyeat__form" onSubmit={submit}>
-              <div className="rs-anyeat__formrow">
-                <label className="rs-anyeat__field" htmlFor="rs-anyeat-email"><Mail size={20} /><input id="rs-anyeat-email" type="email" autoComplete="off" placeholder="Ваша почта" value={email} readOnly aria-readonly="true" required /></label>
-                <button className="rs-anyeat__submit" type="submit" onClick={() => trackModalEvent('anyeat_modal_cta_clicked', { segment, source: openSource, cta: 'submit_waitlist' })} disabled={!canSubmit}>{submitting ? 'Отправляем…' : 'Сообщить мне о запуске →'}</button>
-              </div>
-              {(!knownConsents.personal_data_advertising || !knownConsents.marketing_communications) && <div className="rs-anyeat__consents">
-                {!knownConsents.personal_data_advertising && <label><input type="checkbox" checked={consents.personal_data_advertising} onChange={(event) => setConsents({ ...consents, personal_data_advertising: event.target.checked })} /><span>Даю согласие на <a href="/legal/pdn-consent.pdf" target="_blank" rel="noopener noreferrer">обработку персональных данных</a> в целях отправки рекламных сообщений.</span></label>}
-                {!knownConsents.marketing_communications && <label><input type="checkbox" checked={consents.marketing_communications} onChange={(event) => setConsents({ ...consents, marketing_communications: event.target.checked })} /><span>Соглашаюсь получать рассылку RestaurantSecret о запуске AnyEat и других предложениях.</span></label>}
-              </div>}
-              {error && <p className="rs-anyeat__error" role="alert">{error}</p>}
-              <small className="rs-anyeat__fine">Обещаем писать только по важным поводам <span aria-hidden="true">♡</span></small>
-            </form>
-          )}
-        </>}
+        <div className="rs-anyeat__content">
+          <span className="rs-anyeat__badge"><Rocket size={17} />Бета-версия · ранний доступ</span>
+          {headline}
+        </div>
+        <div className="rs-anyeat__visual" aria-hidden="true">
+          <div className="rs-anyeat__orb rs-anyeat__orb--one" /><div className="rs-anyeat__orb rs-anyeat__orb--two" />
+          <img src={preview} alt="" />
+          <span className="rs-anyeat__note rs-anyeat__note--top">Больше возможностей<br />для вашего рациона</span>
+          <span className="rs-anyeat__note rs-anyeat__note--bottom">Здоровые привычки<br />всегда под рукой ♡</span>
+        </div>
+        <div className="rs-anyeat__features" aria-label="Возможности приложения">
+          <div><span className="rs-anyeat__icon"><Utensils size={19} /></span><strong>Рестораны</strong></div>
+          <div><span className="rs-anyeat__icon"><Apple size={19} /></span><strong>Продукты</strong></div>
+          <div><span className="rs-anyeat__icon"><BookText size={19} /></span><strong>Дневник</strong></div>
+        </div>
+        <div className="rs-anyeat__stores">
+          <a className="rs-anyeat__store rs-anyeat__store--dark" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackAnyEatStoreClick('appstore')}>
+            <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.8-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3.1.7c1.3 0 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.6-1-2.6-3.7zM14.1 5.8c.6-.8 1.1-1.9.9-3-1 0-2.1.6-2.8 1.4-.6.7-1.1 1.8-1 2.9 1.1.1 2.2-.5 2.9-1.3z" /></svg>
+            <span><small>Загрузить в</small>App Store</span>
+          </a>
+          <a className="rs-anyeat__store rs-anyeat__store--light" href={APK_URL} download onClick={() => trackAnyEatStoreClick('apk')}>
+            <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6.9 15.5c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm10.2 0c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zM17.3 9.8l1.7-3c.1-.2 0-.4-.2-.5-.2-.1-.4 0-.5.2l-1.7 3.1c-1.3-.6-2.8-.9-4.4-.9-1.6 0-3.1.3-4.4.9L5.1 6.5c-.1-.2-.3-.3-.5-.2-.2.1-.3.3-.2.5l1.7 3C3.2 11.5 1.3 14.1 1 17.2h22c-.3-3.1-2.2-5.7-5.7-7.4z" /></svg>
+            <span><small>Для Android</small>Скачать APK</span>
+          </a>
+          <small className="rs-anyeat__fine">Вместе создаём твой идеальный трекер</small>
+        </div>
       </section>
     </div>
   )
