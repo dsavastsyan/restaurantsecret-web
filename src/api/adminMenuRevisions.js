@@ -159,8 +159,9 @@ export const adminMenuRevisionsApi = {
       method: 'POST',
       body: { decision },
     }),
-  productCompleteness: ({ issue = 'no_kbju', query = '', offset = 0 } = {}) => {
+  productCompleteness: ({ issue = 'no_kbju', source = '', query = '', offset = 0 } = {}) => {
     const params = new URLSearchParams({ issue, offset: String(offset) })
+    if (source) params.set('source', source)
     if (query) params.set('query', query)
     return request(`/api/admin/product-completeness?${params}`)
   },

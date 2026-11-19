@@ -69,6 +69,20 @@ export const COMPLETENESS_ISSUES = {
   no_barcode: { label: 'Нет штрихкода', hint: 'Ни в карточке, ни среди кандидатов' },
   no_weight: { label: 'Нет веса', hint: 'Не указан вес или объём упаковки' },
   no_manufacturer: { label: 'Нет производителя', hint: 'Нет ни производителя, ни бренда. Если бренд есть, он показывается как производитель' },
+  all: { label: 'Все товары', hint: 'Весь каталог без условий. Вместе с фильтром источника показывает, например, только пары обходчика' },
+}
+
+// Откуда карточка: product.record_kind. У магазинных подписи нет, там хост магазина из source_url
+export const PRODUCT_SOURCES = {
+  retail: 'Магазины',
+  curator: 'Обходчик (скан этикетки)',
+  reference: 'Справочник',
+}
+
+export function formatDate(value) {
+  const time = toTime(value)
+  if (Number.isNaN(time)) return '—'
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(time))
 }
 
 export function toTime(value) {

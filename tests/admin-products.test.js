@@ -3,6 +3,8 @@ import test from 'node:test'
 import {
   retailer,
   COMPLETENESS_ISSUES,
+  PRODUCT_SOURCES,
+  formatDate,
   crawlStatus,
   formatWeeks,
   rejectedSummary,
@@ -48,8 +50,16 @@ test('coverage percent and D1 timestamps', () => {
   assert.ok(Number.isNaN(toTime(null)))
 })
 
+test('curator cards get their own source label and the all-products view exists', () => {
+  assert.equal(PRODUCT_SOURCES.curator, 'Обходчик (скан этикетки)')
+  assert.ok(COMPLETENESS_ISSUES.all)
+  assert.match(formatDate('2026-11-18 17:30:15'), /18 ноября 2026/)
+  assert.equal(formatDate(null), '—')
+})
+
 test('UI copy has no trailing period', () => {
   const copy = [
+    ...Object.values(PRODUCT_SOURCES),
     ...Object.values(VERDICTS).flatMap(({ label, hint }) => [label, hint]),
     ...Object.values(COMPLETENESS_ISSUES).flatMap(({ label, hint }) => [label, hint]),
   ]
