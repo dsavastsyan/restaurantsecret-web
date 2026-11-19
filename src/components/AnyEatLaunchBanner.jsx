@@ -38,25 +38,29 @@ function trackBannerEvent(eventName, segment) {
 const APP_STORE_URL = 'https://apps.apple.com/ru/app/id6799767816'
 const APK_URL = 'https://anyeat.ru/downloads/AnyEat-0.1.0.apk'
 
-function getCtaUrl() {
-  if (typeof navigator === 'undefined') return ANYEAT_SITE_URL
+function detectIos() {
+  if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent || ''
-  const isIos = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+}
+
+function getCtaUrl(isIos) {
   if (isIos) return APP_STORE_URL
-  if (/Android/.test(ua)) return APK_URL
+  if (typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent || '')) return APK_URL
   return ANYEAT_SITE_URL
 }
-const CTA_URL = getCtaUrl()
 
+const IS_IOS = detectIos()
+const CTA_URL = getCtaUrl(IS_IOS)
+
+// The app is out, so the text is the same for every segment and only depends on
+// the platform; the segment still drives the analytics events.
+const BANNER_TEXT = IS_IOS
+  ? 'Приложение уже доступно в App Store'
+  : 'Приложение уже доступно к установке'
 const COPY = {
-  active: {
-    text: 'AnyEat вышел в бете — твоя подписка перейдёт в приложение автоматически, цена останется прежней.',
-    cta: 'Скачать',
-  },
-  default: {
-    text: 'AnyEat вышел в бете — рестораны, продукты и дневник питания в одном приложении.',
-    cta: 'Скачать',
-  },
+  active: { text: BANNER_TEXT, cta: 'Скачать' },
+  default: { text: BANNER_TEXT, cta: 'Скачать' },
 }
 
 export default function AnyEatLaunchBanner({ eligible = false }) {
