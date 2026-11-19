@@ -69,6 +69,9 @@ const RETIRED_RESTAURANT_SLUGS = {
 // # had 348 clicks in 90 days and now 404s; its chain slug is spelled with hyphens.
 const RETIRED_SLUGS_TO_CHAIN_HUB = {
   'frank_by_basta': 'frank-by-basta',
+  // 2026-11-12: the single "Mátes" row (coffee shops) was split into one row per
+  // location under "Mátes кофейня" (8 coffee shops), so the old page now lives at the hub.
+  'mates': 'mates-kofeinya',
 }
 // # 8 parallel workers (~12 menu requests/s, each = ~8 D1 queries in the Worker)
 // # tripped D1's "Too many resources consumed within a 10 second window" on the
