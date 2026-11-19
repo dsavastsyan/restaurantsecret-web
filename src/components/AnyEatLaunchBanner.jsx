@@ -53,14 +53,22 @@ function getCtaUrl(isIos) {
 const IS_IOS = detectIos()
 const CTA_URL = getCtaUrl(IS_IOS)
 
-// The app is out, so the text is the same for every segment and only depends on
-// the platform; the segment still drives the analytics events.
-const BANNER_TEXT = IS_IOS
-  ? 'Приложение уже доступно в App Store'
-  : 'Приложение уже доступно к установке'
+// Text depends on the platform and on whether the visitor has an active
+// subscription (their subscription is moving to the app). Desktop gets the
+// non-iOS wording.
 const COPY = {
-  active: { text: BANNER_TEXT, cta: 'Скачать' },
-  default: { text: BANNER_TEXT, cta: 'Скачать' },
+  active: {
+    text: IS_IOS
+      ? 'Твоя подписка переезжает в приложение. Уже в App Store.'
+      : 'Твоя подписка переезжает в приложение. Установи первым.',
+    cta: 'Скачать',
+  },
+  default: {
+    text: IS_IOS
+      ? 'Приложение уже доступно в App Store'
+      : 'Приложение уже доступно к установке',
+    cta: 'Скачать',
+  },
 }
 
 export default function AnyEatLaunchBanner({ eligible = false }) {
