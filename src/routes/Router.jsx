@@ -23,7 +23,6 @@ const Contact = lazy(() => import('../pages/Contact.jsx'))
 const Legal = lazy(() => import('../pages/Legal.jsx'))
 const Privacy = lazy(() => import('../pages/Privacy.jsx'))
 const IOSLegalDocument = lazy(() => import('../pages/IOSLegalDocument.jsx'))
-const IOSLegalTerms = lazy(() => import('../pages/IOSLegalTerms.jsx'))
 const LegalVersionRoute = lazy(() => import('../pages/LegalVersionRoute.jsx'))
 const PrivacyVersionRoute = lazy(() => import('../pages/PrivacyVersionRoute.jsx'))
 const AppAnalyticsConsent = lazy(() => import('../pages/AppAnalyticsConsent.jsx'))
@@ -81,10 +80,6 @@ function AppRoutes({ onReady }) {
         <Route
           path="legal/ios/privacy"
           element={<IOSLegalDocument><Privacy /></IOSLegalDocument>}
-        />
-        <Route
-          path="legal/ios/terms"
-          element={<IOSLegalDocument><IOSLegalTerms /></IOSLegalDocument>}
         />
         {/* Персональная ссылка из письма: применить промокод без входа */}
         <Route path="promo/:token" element={<PromoLink />} />
