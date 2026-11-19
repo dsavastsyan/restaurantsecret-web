@@ -92,12 +92,8 @@ export default function AnyEatLaunchModal({ embedded = false }) {
   if (!open) return null
 
   const headline = segment === 'active'
-    ? <h2 id="rs-anyeat-title"><span>Твоя цена</span><br />останется с тобой</h2>
+    ? <h2 id="rs-anyeat-title"><span>Твоя подписка</span><br />уже в приложении</h2>
     : <h2 id="rs-anyeat-title"><span>Вся еда</span><br />в одном месте</h2>
-
-  const lead = segment === 'active'
-    ? 'Подписка перейдёт в AnyEat автоматически, тем же аккаунтом — платить по текущей цене навсегда.'
-    : null
 
   const content = (
     <div className={`rs-anyeat${embedded ? ' rs-anyeat--embedded' : ''}`} onMouseDown={(event) => { if (!embedded && event.target === event.currentTarget) closeModal('backdrop') }}>
@@ -106,7 +102,6 @@ export default function AnyEatLaunchModal({ embedded = false }) {
         <div className="rs-anyeat__content">
           <span className="rs-anyeat__badge"><Rocket size={17} />Бета-версия · ранний доступ</span>
           {headline}
-          {lead && <p className="rs-anyeat__lead">{lead}</p>}
         </div>
         <div className="rs-anyeat__visual" aria-hidden="true">
           <div className="rs-anyeat__orb rs-anyeat__orb--one" /><div className="rs-anyeat__orb rs-anyeat__orb--two" />
@@ -115,9 +110,9 @@ export default function AnyEatLaunchModal({ embedded = false }) {
           <span className="rs-anyeat__note rs-anyeat__note--bottom">Здоровые привычки<br />всегда под рукой ♡</span>
         </div>
         <div className="rs-anyeat__features" aria-label="Возможности приложения">
-          <div><span className="rs-anyeat__icon"><Utensils size={19} /></span><strong>Рестораны</strong><small>Блюда и калории</small></div>
-          <div><span className="rs-anyeat__icon"><Apple size={19} /></span><strong>Продукты</strong><small>Сканируйте и ищите</small></div>
-          <div><span className="rs-anyeat__icon"><BookText size={19} /></span><strong>Дневник</strong><small>Всё в одном месте</small></div>
+          <div><span className="rs-anyeat__icon"><Utensils size={19} /></span><strong>Рестораны</strong></div>
+          <div><span className="rs-anyeat__icon"><Apple size={19} /></span><strong>Продукты</strong></div>
+          <div><span className="rs-anyeat__icon"><BookText size={19} /></span><strong>Дневник</strong></div>
         </div>
         <div className="rs-anyeat__stores">
           <a className="rs-anyeat__store rs-anyeat__store--dark" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackAnyEatStoreClick('appstore')}>
