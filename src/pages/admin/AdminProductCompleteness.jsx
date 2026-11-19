@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ExternalLink, Search } from 'lucide-react'
 import { adminMenuRevisionsApi } from '@/api/adminMenuRevisions'
-import { COMPLETENESS_ISSUES, formatCount, host } from './adminProducts'
+import { COMPLETENESS_ISSUES, PRODUCT_SOURCES, formatCount, formatDate, host } from './adminProducts'
 
 function formatNutrition(nutrition) {
   const unit = nutrition.basis === '100ml' ? '100 мл' : '100 г'
@@ -13,6 +13,7 @@ function formatNutrition(nutrition) {
 export default function AdminProductCompleteness() {
   const [searchParams, setSearchParams] = useSearchParams()
   const issue = COMPLETENESS_ISSUES[searchParams.get('issue')] ? searchParams.get('issue') : 'no_kbju'
+  const source = PRODUCT_SOURCES[searchParams.get('source')] ? searchParams.get('source') : ''
   const [draft, setDraft] = useState('')
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
@@ -25,20 +26,28 @@ export default function AdminProductCompleteness() {
     return () => clearTimeout(timer)
   }, [draft])
 
-  useEffect(() => { setOffset(0) }, [issue, query])
+  useEffect(() => { setOffset(0) }, [issue, source, query])
 
   useEffect(() => {
     let active = true
     setLoading(true)
     setError('')
-    adminMenuRevisionsApi.productCompleteness({ issue, query, offset })
+    adminMenuRevisionsApi.productCompleteness({ issue, source, query, offset })
       .then((payload) => active && setData(payload))
       .catch((requestError) => active && setError(requestError.message || 'Не удалось загрузить товары'))
       .finally(() => active && setLoading(false))
     return () => { active = false }
-  }, [issue, query, offset])
+  }, [issue, source, query, offset])
 
-  const selectIssue = (value) => setSearchParams(value === 'no_kbju' ? {} : { issue: value })
+  const updateParams = (nextIssue, nextSource) => {
+    const params = {}
+    if (nextIssue !== 'no_kbju') params.issue = nextIssue
+    if (nextSource) params.source = nextSource
+    setSearchParams(params)
+  }
+  const selectIssue = (value) => updateParams(value, source)
+  const selectSource = (value) => updateParams(issue, value)
+  const issueCount = (value) => (value === 'all' ? data?.total_products : data?.issues[value])
   const items = data?.items || []
   const matched = data?.matched ?? 0
   const pageSize = data?.page_size || 100
@@ -51,13 +60,13 @@ export default function AdminProductCompleteness() {
           <h1>Полнота</h1>
           <p>Каких данных не хватает товарам каталога{data ? ` · всего ${formatCount(data.total_products)}` : ''}</p>
         </div>
-        <div><strong>{data ? formatCount(data.issues[issue]) : '…'}</strong></div>
+        <div><strong>{data ? formatCount(issueCount(issue)) : '…'}</strong></div>
       </div>
 
       <div className="admin-restaurant-review__stats" aria-label="Чего не хватает">
         {Object.entries(COMPLETENESS_ISSUES).map(([value, item]) => (
           <button key={value} type="button" className={issue === value ? 'active' : ''} onClick={() => selectIssue(value)}>
-            {item.label}<strong>{data ? formatCount(data.issues[value]) : '…'}</strong>
+            {item.label}<strong>{data ? formatCount(issueCount(value)) : '…'}</strong>
           </button>
         ))}
       </div>
@@ -65,6 +74,12 @@ export default function AdminProductCompleteness() {
 
       <div className="admin-crm__filters">
         <label className="admin-crm__search"><Search size={18} /><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Название, бренд или штрихкод" /></label>
+        <select aria-label="Источник карточки" value={source} onChange={(event) => selectSource(event.target.value)}>
+          <option value="">Все источники</option>
+          {Object.entries(PRODUCT_SOURCES).map(([value, label]) => (
+            <option key={value} value={value}>{label}{data?.sources ? ` · ${formatCount(data.sources[value])}` : ''}</option>
+          ))}
+        </select>
       </div>
 
       {error && <p className="admin-menu__error" role="alert">{error}</p>}
@@ -87,9 +102,16 @@ export default function AdminProductCompleteness() {
                 <td data-label="Штрихкод">{item.barcode || <span className="admin-crm__muted">Нет</span>}</td>
                 <td data-label="КБЖУ">{formatNutrition(item.nutrition)}</td>
                 <td data-label="Источник">
-                  {item.source_url
-                    ? <a href={item.source_url} target="_blank" rel="noreferrer">{host(item.source_url)} <ExternalLink size={13} /></a>
-                    : <span className="admin-crm__muted">Не магазин</span>}
+                  {item.source_label
+                    ? (
+                      <>
+                        <span className={`admin-product-source admin-product-source--${item.source_kind}`}>{item.source_label}</span>
+                        {item.created_at && <small>Сохранено {formatDate(item.created_at)}</small>}
+                      </>
+                    )
+                    : item.source_url
+                      ? <a href={item.source_url} target="_blank" rel="noreferrer">{host(item.source_url)} <ExternalLink size={13} /></a>
+                      : <span className="admin-crm__muted">Не магазин</span>}
                 </td>
               </tr>
             ))}</tbody>

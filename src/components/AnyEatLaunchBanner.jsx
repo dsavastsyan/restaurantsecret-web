@@ -32,6 +32,11 @@ function trackBannerEvent(eventName, segment) {
   analytics.track(eventName, { segment })
 }
 
+// On iPhone the CTA goes straight to the App Store page instead of the
+// anyeat.ru beta page, one tap fewer. Other devices keep the beta page.
+const APP_STORE_URL = 'https://apps.apple.com/app/id6799767816'
+const IS_IPHONE = typeof navigator !== 'undefined' && /iPhone|iPod/.test(navigator.userAgent || '')
+
 const COPY = {
   active: {
     text: 'AnyEat вышел в бете — твоя подписка перейдёт в приложение автоматически, цена останется прежней.',
@@ -100,7 +105,7 @@ export default function AnyEatLaunchBanner({ eligible = false }) {
         <span className="rs-anyeat-banner__text">{copy.text}</span>
         <a
           className="rs-anyeat-banner__cta"
-          href={ANYEAT_SITE_URL}
+          href={IS_IPHONE ? APP_STORE_URL : ANYEAT_SITE_URL}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleCtaClick}
