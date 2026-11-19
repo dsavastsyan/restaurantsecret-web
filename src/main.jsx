@@ -31,7 +31,7 @@ initSentry()
 const SPLASH_MAX_WAIT_MS = 5000
 const SPLASH_IDLE_MS = 350
 const MAINTENANCE_MAX_WAIT_MS = 3500
-const isStandaloneIOSLegalPage = /^\/legal\/ios\/(?:privacy|terms)\/?$/.test(window.location.pathname)
+const isStandaloneIOSLegalPage = /^\/legal\/ios\/privacy\/?$/.test(window.location.pathname)
 let splashGeneration = 0
 let splashFailsafeTimer = 0
 
