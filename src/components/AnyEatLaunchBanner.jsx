@@ -3,7 +3,7 @@ import { Rocket } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
 import { analytics } from '@/services/analytics'
-import { ANYEAT_SITE_URL } from '@/components/AnyEatLaunchModal'
+import { ANYEAT_SITE_URL, APP_STORE_URL, APK_URL } from '@/components/AnyEatLaunchModal'
 import './AnyEatLaunchBanner.css'
 
 // v2: the banner changed from "coming soon" to the beta announcement, so
@@ -35,8 +35,6 @@ function trackBannerEvent(eventName, segment) {
 // The CTA goes straight to the store build for the visitor's OS: App Store on
 // iOS (iPadOS Safari reports itself as a touch Mac), the APK on Android, and
 // the anyeat.ru page with both buttons everywhere else (desktop).
-const APP_STORE_URL = 'https://apps.apple.com/ru/app/id6799767816'
-const APK_URL = 'https://anyeat.ru/downloads/AnyEat-0.1.0.apk'
 
 function detectIos() {
   if (typeof navigator === 'undefined') return false
