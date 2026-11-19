@@ -17,7 +17,6 @@ const spaRoutes = [
   'legal/versions/2025-11-20',
   'legal/app-analytics-consent',
   'legal/ios/privacy',
-  'legal/ios/terms',
   'partners',
   'partners/login',
   'partners/dashboard',
