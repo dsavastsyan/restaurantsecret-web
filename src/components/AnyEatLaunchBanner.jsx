@@ -124,7 +124,7 @@ export default function AnyEatLaunchBanner({ eligible = false }) {
   return (
     <div className="rs-anyeat-banner" role="note">
       <div className="rs-anyeat-banner__inner">
-        <Rocket size={16} className="rs-anyeat-banner__icon" aria-hidden="true" />
+        <Rocket size={22} className="rs-anyeat-banner__icon" aria-hidden="true" />
         <span className="rs-anyeat-banner__text">{copy.text}</span>
         <a
           className="rs-anyeat-banner__cta"
