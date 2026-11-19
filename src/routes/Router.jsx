@@ -70,6 +70,8 @@ const Favorites = lazy(() => import('../pages/account/Favorites.tsx'))
 const AnyEatComingSoon = lazy(() => import('../pages/account/AnyEatComingSoon.tsx'))
 const PaymentMethods = lazy(() => import('../pages/account/PaymentMethods.tsx'))
 const PromoLink = lazy(() => import('../pages/PromoLink.tsx'))
+const PayLink = lazy(() => import('../pages/PayLink.tsx'))
+const PayDone = lazy(() => import('../pages/PayDone.tsx'))
 const UnsubscribeLink = lazy(() => import('../pages/UnsubscribeLink.tsx'))
 
 // Defines the route tree shared between BrowserRouter and HashRouter. Keeping
@@ -88,6 +90,9 @@ function AppRoutes({ onReady }) {
         />
         {/* Персональная ссылка из письма: применить промокод без входа */}
         <Route path="promo/:token" element={<PromoLink />} />
+        {/* Оплата по персональной ссылке из письма: только выбор тарифа и ЮKassa, без входа */}
+        <Route path="pay" element={<PayLink />} />
+        <Route path="pay/done" element={<PayDone />} />
         {/* Персональная ссылка отписки от рекламных писем */}
         <Route path="unsubscribe/:token" element={<UnsubscribeLink />} />
 
