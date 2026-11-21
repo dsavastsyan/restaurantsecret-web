@@ -1,7 +1,7 @@
 // Restaurant menu page with filters for macros and calories.
 // Rendering lives in components/MenuRedesign/*; this module owns data loading,
 // filtering and the mutation handlers those views call.
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiGet } from '@/lib/requests'
 import { flattenMenuDishes, flattenMenuGroups } from '@/lib/nutrition'
@@ -23,6 +23,8 @@ import { analytics } from '@/services/analytics'
 import { toast } from '@/lib/toast'
 import { useMeta } from '@/lib/useMeta'
 import { hasQrMenuAccess } from '@/lib/qrMenuAccess'
+import { useMenuPass } from '@/lib/useMenuPass'
+import MenuOfferNotice from '@/components/MenuOfferNotice'
 import MenuRedesignView from '@/components/MenuRedesign/MenuRedesignView'
 import { isServiceUnavailableError } from '@/lib/serviceUnavailable.js'
 
@@ -184,6 +186,22 @@ export default function Menu({
   const [loading, setLoading] = useState(!previewMode)
   const [error, setError] = useState(null)
   const [retryNonce, setRetryNonce] = useState(0)
+
+  // Разовый доступ к этому меню на 24 часа (письмо с предложением): пропуск привязан к аккаунту.
+  // Когда он включился после оплаты, меню перечитывается: сервер отдаёт полные данные.
+  const [offerOutcome] = useState(() => (previewMode ? null : routeSearchParams.get('offer')))
+  const menuPass = useMenuPass({
+    slug,
+    token: accessToken,
+    enabled: !previewMode && Boolean(accessToken) && !hasActiveSub,
+    onActivated: () => setRetryNonce((value) => value + 1),
+  })
+  const clearOfferParam = useCallback(() => {
+    const next = new URLSearchParams(window.location.search)
+    next.delete('offer')
+    const query = next.toString()
+    navigate(`${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`, { replace: true })
+  }, [navigate])
   const [isOutdatedOpen, setIsOutdatedOpen] = useState(false)
   const [restaurantPoint, setRestaurantPoint] = useState(null)
 
@@ -338,9 +356,9 @@ export default function Menu({
   }
   const freeDishKeys = useMemo(() => {
     const isQrAccess = !previewMode && hasQrMenuAccess(slug)
-    const visibleGroups = (previewMode || isQrAccess) ? menuGroups : menuGroups.slice(0, 3)
+    const visibleGroups = (previewMode || isQrAccess || menuPass.active) ? menuGroups : menuGroups.slice(0, 3)
     return new Set(visibleGroups.map((group) => buildDishAccessKey(group)))
-  }, [menuGroups, previewMode, slug])
+  }, [menuGroups, menuPass.active, previewMode, slug])
   const capturedAt = useMemo(() => formatMenuCapturedAt(menu?.menuCapturedAt), [menu?.menuCapturedAt])
 
   // Apply search and macro filters to atomic variants, then keep only the
@@ -382,7 +400,7 @@ export default function Menu({
       || ingredientFilter.selected.length,
     )
   }, [ingredientFilter.selected.length, presets, query, range, selectedCategory])
-  const hasFullDishAccess = previewMode || hasActiveSub || hasQrMenuAccess(slug)
+  const hasFullDishAccess = previewMode || hasActiveSub || hasQrMenuAccess(slug) || menuPass.active
   const isFilteredResultsLocked = hasRestrictedMenuFilters && !hasFullDishAccess
 
   // The ingredient control only makes sense when the restaurant actually filled
@@ -612,6 +630,7 @@ export default function Menu({
   }
 
   return (
+    <>
     <MenuRedesignView
       seoRestaurantName={seoRestaurantName}
       seoIntroText={previewMode ? null : menu?.seo?.introText}
@@ -674,6 +693,15 @@ export default function Menu({
       openPreviewDishCard={openPreview}
       readOnly={previewMode}
     />
+    <MenuOfferNotice
+      offer={offerOutcome}
+      slug={slug}
+      accessToken={accessToken}
+      hasActiveSub={hasActiveSub}
+      pass={menuPass}
+      onDone={clearOfferParam}
+    />
+    </>
   )
 }
 
