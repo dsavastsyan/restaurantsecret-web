@@ -7,12 +7,16 @@ export type ToastAction = {
 
 export type ToastIcon = "party" | "spinner" | "error";
 
+// "premium": оливково-стеклянный вид как у кнопок меню, сообщение можно закрыть
+export type ToastTone = "premium";
+
 export type ToastOptions = {
   duration?: number;
   action?: ToastAction;
   actions?: ToastAction[];
   title?: string;
   icon?: ToastIcon;
+  tone?: ToastTone;
 };
 
 export type ToastMessage = {
@@ -24,6 +28,7 @@ export type ToastMessage = {
   actions?: ToastAction[];
   title?: string;
   icon?: ToastIcon;
+  tone?: ToastTone;
 };
 
 type ToastListener = (toast: ToastMessage) => void;
@@ -44,6 +49,7 @@ const emit = (variant: ToastVariant, message: string, options?: ToastOptions) =>
     actions: options?.actions,
     title: options?.title,
     icon: options?.icon,
+    tone: options?.tone,
   };
   listeners.forEach((listener) => listener(toast));
 };

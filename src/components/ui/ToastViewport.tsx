@@ -64,7 +64,7 @@ export default function ToastViewport() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`toast toast--${toast.variant}${toast.title ? " toast--subscription" : ""}`}
+          className={`toast toast--${toast.variant}${toast.title ? " toast--subscription" : ""}${toast.tone === "premium" ? " toast--premium" : ""}`}
           role={toast.variant === "error" ? "alert" : "status"}
         >
           {toast.title ? (
@@ -108,6 +108,16 @@ export default function ToastViewport() {
           ) : (
             <>
               <span className="toast__message">{toast.message}</span>
+              {toast.tone === "premium" ? (
+                <button
+                  type="button"
+                  className="toast__dismiss"
+                  aria-label="Закрыть"
+                  onClick={() => dismissToast(toast.id)}
+                >
+                  ×
+                </button>
+              ) : null}
               {toast.action ? (
                 <button
                   type="button"

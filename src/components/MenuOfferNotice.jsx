@@ -8,9 +8,12 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 
+import { PD_API_BASE } from '@/config/api'
 import { formatPassUntil } from '@/lib/menuPass'
 import { getSubscriptionCheckoutLink } from '@/lib/subscriptionCta'
 import { toast } from '@/lib/toast'
+
+const TOAST = { tone: 'premium', duration: 9000 }
 
 const root = typeof document !== 'undefined' ? document.body : null
 
@@ -20,8 +23,8 @@ const COPY = {
     text: 'Разовый доступ к этому меню больше недоступен. Смотреть КБЖУ во всех ресторанах можно по подписке',
   },
   error: {
-    title: 'Не получилось открыть оплату',
-    text: 'Попробуйте нажать кнопку из письма ещё раз. Если не выйдет, оформите подписку',
+    title: 'Ошибка. Оплата не прошла',
+    text: '',
   },
   login: {
     title: 'Оплата прошла успешно',
@@ -29,7 +32,7 @@ const COPY = {
   },
 }
 
-export default function MenuOfferNotice({ offer, slug, accessToken, hasActiveSub, pass, onDone }) {
+export default function MenuOfferNotice({ offer, retryToken, slug, accessToken, hasActiveSub, pass, onDone }) {
   const navigate = useNavigate()
   const [modal, setModal] = useState(null)
   const handledRef = useRef(false)
@@ -44,10 +47,10 @@ export default function MenuOfferNotice({ offer, slug, accessToken, hasActiveSub
     }
     if (offer === 'paid') {
       if (!accessToken) { setModal('login'); return }
-      toast.info('Оплата прошла, открываем меню')
+      toast.info('Оплата прошла, открываем меню', TOAST)
       pass.waitForActivation().then((status) => {
-        if (status) toast.success(`Меню открыто до ${formatPassUntil(status.expiresAt)}`)
-        else toast.warning('Оплата прошла, но меню ещё не открылось. Обновите страницу через минуту')
+        if (status) toast.success(`Доступ к меню открыт до ${formatPassUntil(status.expiresAt)}`, TOAST)
+        else toast.warning('Оплата прошла, но меню ещё не открылось. Обновите страницу через минуту', TOAST)
       })
       onDone?.()
       return
@@ -62,7 +65,7 @@ export default function MenuOfferNotice({ offer, slug, accessToken, hasActiveSub
   useEffect(() => {
     if (handledRef.current === 'active' && pass.active) {
       handledRef.current = true
-      toast.success(`Доступ к меню открыт до ${formatPassUntil(pass.expiresAt)}`)
+      toast.success(`Доступ к меню открыт до ${formatPassUntil(pass.expiresAt)}`, TOAST)
     }
   }, [pass.active, pass.expiresAt])
 
@@ -71,18 +74,24 @@ export default function MenuOfferNotice({ offer, slug, accessToken, hasActiveSub
   const menuPath = `/restaurants/${encodeURIComponent(slug)}/menu/`
   const close = () => setModal(null)
 
+  // Ошибка оплаты: «Попробовать еще раз» открывает ту же ссылку из письма, сервер создаст новый платёж
   const primary = modal === 'login'
     ? {
       label: 'Ввести код',
       go: () => navigate(`/login?next=${encodeURIComponent(`${menuPath}?offer=paid`)}`),
     }
-    : {
-      label: 'Выбрать подписку',
-      go: () => {
-        const link = getSubscriptionCheckoutLink(accessToken, menuPath)
-        navigate(link.to, { state: link.state })
-      },
-    }
+    : modal === 'error' && retryToken
+      ? {
+        label: 'Попробовать еще раз',
+        go: () => window.location.assign(`${PD_API_BASE}/api/offer/${encodeURIComponent(retryToken)}`),
+      }
+      : {
+        label: 'Выбрать подписку',
+        go: () => {
+          const link = getSubscriptionCheckoutLink(accessToken, menuPath)
+          navigate(link.to, { state: link.state })
+        },
+      }
 
   return createPortal(
     <div
@@ -99,12 +108,12 @@ export default function MenuOfferNotice({ offer, slug, accessToken, hasActiveSub
             ×
           </button>
         </div>
-        <p className="menu-offer-notice__text">{copy.text}</p>
+        {copy.text ? <p className="menu-offer-notice__text">{copy.text}</p> : <div className="menu-offer-notice__gap" />}
         <div className="feedback-modal__actions">
-          <button type="button" className="btn btn--ghost" onClick={close}>
-            Закрыть
+          <button type="button" className="menu-offer-notice__btn menu-offer-notice__btn--ghost" onClick={close}>
+            {modal === 'error' ? 'Отменить' : 'Закрыть'}
           </button>
-          <button type="button" className="btn btn--primary" onClick={primary.go}>
+          <button type="button" className="menu-offer-notice__btn menu-offer-notice__btn--primary" onClick={primary.go}>
             {primary.label}
           </button>
         </div>
