@@ -86,7 +86,7 @@ export default function MenuOfferNotice({ offer, slug, accessToken, hasActiveSub
 
   return createPortal(
     <div
-      className="feedback-modal__backdrop"
+      className="feedback-modal__backdrop menu-offer-notice__backdrop"
       role="dialog"
       aria-modal="true"
       aria-label={copy.title}

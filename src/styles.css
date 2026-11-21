@@ -28279,6 +28279,11 @@ html[data-rs-theme="night"] .account-benefit span:not(.account-benefit__icon) {
 }
 
 /* Окно ссылки из письма с разовым доступом к меню */
+/* выше плашек фильтров и подсказок страницы меню (у них слои до 1003) */
+.menu-offer-notice__backdrop {
+  z-index: 3000;
+}
+
 .menu-offer-notice__text {
   margin: 12px 0 18px;
   color: #334155;
