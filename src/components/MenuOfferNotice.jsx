@@ -24,8 +24,8 @@ const COPY = {
     text: 'Попробуйте нажать кнопку из письма ещё раз. Если не выйдет, оформите подписку',
   },
   login: {
-    title: 'Оплата прошла',
-    text: 'Доступ привязан к вашему аккаунту. Войдите по коду из письма, и меню откроется',
+    title: 'Оплата прошла успешно',
+    text: 'Для доступа введите код из письма',
   },
 }
 
@@ -73,7 +73,7 @@ export default function MenuOfferNotice({ offer, slug, accessToken, hasActiveSub
 
   const primary = modal === 'login'
     ? {
-      label: 'Войти',
+      label: 'Ввести код',
       go: () => navigate(`/login?next=${encodeURIComponent(`${menuPath}?offer=paid`)}`),
     }
     : {
