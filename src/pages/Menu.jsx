@@ -190,6 +190,7 @@ export default function Menu({
   // Разовый доступ к этому меню на 24 часа (письмо с предложением): пропуск привязан к аккаунту.
   // Когда он включился после оплаты, меню перечитывается: сервер отдаёт полные данные.
   const [offerOutcome] = useState(() => (previewMode ? null : routeSearchParams.get('offer')))
+  const [offerRetry] = useState(() => (previewMode ? null : routeSearchParams.get('retry')))
   const menuPass = useMenuPass({
     slug,
     token: accessToken,
@@ -199,6 +200,7 @@ export default function Menu({
   const clearOfferParam = useCallback(() => {
     const next = new URLSearchParams(window.location.search)
     next.delete('offer')
+    next.delete('retry')
     const query = next.toString()
     navigate(`${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`, { replace: true })
   }, [navigate])
@@ -695,6 +697,7 @@ export default function Menu({
     />
     <MenuOfferNotice
       offer={offerOutcome}
+      retryToken={offerRetry}
       slug={slug}
       accessToken={accessToken}
       hasActiveSub={hasActiveSub}
