@@ -496,17 +496,13 @@ function menuListHtml(dishes) {
 function restaurantFallback(restaurant, dishes) {
   const slug = restaurant.slug
   const name = getRestaurantName(restaurant)
-  // Same count feeds the description and the "Блюд в меню" bullet below so
-  // they can't disagree (regression: the description previously always got
-  // called with no count at all, so it silently said "0 блюд" on every page).
-  const dishCount = dishes.length || (Number.isFinite(Number(restaurant.dishesCount)) ? Number(restaurant.dishesCount) : 0)
-  const description = getRestaurantDescription(restaurant, dishCount)
+  const description = getRestaurantDescription(restaurant)
   const cuisine = stripEmpty(restaurant.cuisine)
   const metro = stripEmpty(restaurant.metro || restaurant.metroName || restaurant.metro_name)
   const details = [
     cuisine ? `Кухня: ${cuisine}` : '',
     metro ? `Метро: ${metro}` : '',
-    dishCount ? `Блюд в меню: ${dishCount}` : '',
+    dishes.length ? `Блюд в меню: ${dishes.length}` : Number.isFinite(Number(restaurant.dishesCount)) ? `Блюд в меню: ${Number(restaurant.dishesCount)}` : '',
   ].filter(Boolean)
 
   return `<main style="font-family:Inter,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:48px 20px;line-height:1.5">

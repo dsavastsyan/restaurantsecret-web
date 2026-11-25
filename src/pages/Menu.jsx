@@ -19,7 +19,8 @@ import { useFavoriteRestaurantsStore } from '@/store/favoriteRestaurants'
 import { analytics } from '@/services/analytics'
 import { toast } from '@/lib/toast'
 import { useMeta } from '@/lib/useMeta'
-import { hasQrMenuAccess } from '@/lib/qrMenuAccess'
+// QR menu access is frozen (disabled, not removed) — see freeDishKeys below.
+// import { hasQrMenuAccess } from '@/lib/qrMenuAccess'
 import MenuRedesignView from '@/components/MenuRedesign/MenuRedesignView'
 
 const createDefaultPresets = () => ({ highProtein: false, lowFat: false, lowKcal: false })
@@ -41,6 +42,42 @@ const pluralizeRu = (n, [one, few, many]) => {
   if (mod10 === 1 && mod100 !== 11) return one
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
   return many
+}
+
+const formatRetryAfter = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) return null
+  if (seconds >= 60) {
+    const minutes = Math.ceil(seconds / 60)
+    return `${minutes} ${pluralizeRu(minutes, ['минуту', 'минуты', 'минут'])}`
+  }
+  return `${seconds} ${pluralizeRu(seconds, ['секунду', 'секунды', 'секунд'])}`
+}
+
+// Maps a load failure to the message a visitor should actually see. The API
+// distinguishes real anti-bot gates (rate-limited/temporarily blocked, or an
+// unsolved Turnstile challenge) from generic network errors via `err.code`
+// (set in `@/lib/requests`) — before this, every one of these looked like a
+// plain "site is broken" error (incident 2026-09-29).
+const buildMenuError = (err) => {
+  if (err?.code === 'temporarily_blocked' || err?.code === 'rate_limited') {
+    const retryAfter = formatRetryAfter(Number(err?.body?.retry_after))
+    return {
+      kind: 'blocked',
+      message: retryAfter
+        ? `Слишком много запросов подряд — это защита от ботов, не ошибка сайта. Попробуйте снова примерно через ${retryAfter}.`
+        : 'Слишком много запросов подряд — это защита от ботов, не ошибка сайта. Подождите немного и обновите страницу.',
+    }
+  }
+  if (err?.code === 'captcha_cancelled' || err?.code === 'captcha_error' || err?.code === 'captcha_required') {
+    return {
+      kind: 'blocked',
+      message: 'Не удалось подтвердить, что вы не робот. Обновите страницу, чтобы попробовать снова.',
+    }
+  }
+  return {
+    kind: 'network',
+    message: 'Не удалось загрузить меню. Попробуйте обновить страницу позже.',
+  }
 }
 
 // Reads the {name, dishCount} the prerender embedded in the static page
@@ -106,7 +143,7 @@ export default function Menu({
   const [menu, setMenu] = useState(() => previewMode ? normalizeMenu(previewMenu) : null)
   const [seoHint] = useState(() => (previewMode ? null : readSeoHint()))
   const [loading, setLoading] = useState(!previewMode)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(null)
   const [isOutdatedOpen, setIsOutdatedOpen] = useState(false)
   const [restaurantPoint, setRestaurantPoint] = useState(null)
 
@@ -136,7 +173,7 @@ export default function Menu({
     if (previewMode) {
       setMenu(normalizeMenu(previewMenu))
       setLoading(false)
-      setError('')
+      setError(null)
       return undefined
     }
 
@@ -146,7 +183,7 @@ export default function Menu({
         try {
           await fetchStatus(accessToken)
           setLoading(true)
-          setError('')
+          setError(null)
           const raw = await apiGet(
             `/restaurants/${slug}/menu?city=${encodeURIComponent(city)}`,
             accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
@@ -168,7 +205,7 @@ export default function Menu({
               return
             }
             console.error('Failed to load menu', err)
-            setError('Не удалось загрузить меню. Попробуйте обновить страницу позже.')
+            setError(buildMenuError(err))
           }
         } finally {
           if (!aborted) setLoading(false)
@@ -214,8 +251,9 @@ export default function Menu({
 
   const dishes = useMemo(() => flattenMenuDishes(menu), [menu])
   const freeDishKeys = useMemo(() => {
-    const isQrAccess = !previewMode && hasQrMenuAccess(slug)
-    const visibleDishes = (previewMode || isQrAccess) ? dishes : dishes.slice(0, 3)
+    // QR menu access is frozen (disabled, not removed) — was: full menu free
+    // via `!previewMode && hasQrMenuAccess(slug)`.
+    const visibleDishes = previewMode ? dishes : dishes.slice(0, 3)
     return new Set(visibleDishes.map((dish) => buildDishAccessKey(dish)))
   }, [dishes, previewMode, slug])
   const capturedAt = useMemo(() => formatMenuCapturedAt(menu?.menuCapturedAt), [menu?.menuCapturedAt])

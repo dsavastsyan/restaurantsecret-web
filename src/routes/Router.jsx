@@ -10,7 +10,9 @@ import { analytics } from '../services/analytics'
 import { PARTNER_ADMIN_ENABLED } from '../pages/admin/adminFeatures'
 
 const Landing = lazy(() => import('../pages/Landing.jsx'))
-const QrMenuAccess = lazy(() => import('../pages/QrMenuAccess.jsx'))
+// QR menu access is frozen (disabled, not removed) — see src/pages/Menu.jsx
+// and the matching route below.
+// const QrMenuAccess = lazy(() => import('../pages/QrMenuAccess.jsx'))
 const Catalog = lazy(() => import('../pages/Catalog.jsx'))
 const Menu = lazy(() => import('../pages/Menu.jsx'))
 const ChainHub = lazy(() => import('../pages/ChainHub.jsx'))
@@ -110,7 +112,8 @@ function AppRoutes({ onReady }) {
           <Route path="search" element={<Search />} />
           <Route path="restaurants/:slug" element={<ChainHub />} />
           <Route path="restaurants/:slug/menu" element={<Menu />} />
-          <Route path="qr/:token" element={<QrMenuAccess />} />
+          {/* QR menu access frozen (disabled, not removed) — see src/pages/Menu.jsx */}
+          {/* <Route path="qr/:token" element={<QrMenuAccess />} /> */}
           <Route path="r/:slug" element={<ShortRestaurantRedirect />} />
           <Route path="r/:slug/menu" element={<ShortMenuRedirect />} />
           <Route path="pay/success" element={<PaySuccess />} />

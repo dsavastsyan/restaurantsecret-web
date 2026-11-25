@@ -8,7 +8,8 @@ import { loadTelegramWebApp } from '@/lib/telegram'
 import { toast } from '@/lib/toast'
 import { useAuth } from '@/store/auth'
 import { useSubscriptionStore } from '@/store/subscription'
-import { clearQrMenuSession, expiredQrMenuSlug, touchQrMenuActivity } from '@/lib/qrMenuAccess'
+// QR menu access is frozen (disabled, not removed) — see the idle-guard effect below.
+// import { clearQrMenuSession, expiredQrMenuSlug, touchQrMenuActivity } from '@/lib/qrMenuAccess'
 
 const NavBar = lazy(() => import('@/components/NavBar'))
 const SearchInput = lazy(() => import('@/components/SearchInput'))
@@ -279,32 +280,33 @@ export default function AppShell() {
   const isChainHubPage = /^\/restaurants\/[^/]+\/?$/.test(normalizedPath)
   const isSearchPage = normalizedPath === '/search' || normalizedPath === '/app/search'
 
-  // Idle guard for QR-scanned menu access: any interaction resets the clock,
-  // and 15 minutes of inactivity revokes the temporary pass and, if the user
-  // is still looking at that menu, sends them back to the catalog.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const onActivity = () => touchQrMenuActivity()
-    const activityEvents = ['click', 'keydown', 'scroll', 'touchstart', 'pointerdown']
-    activityEvents.forEach((event) => window.addEventListener(event, onActivity, { passive: true }))
-
-    const checkExpiry = () => {
-      const expiredSlug = expiredQrMenuSlug()
-      if (!expiredSlug) return
-      clearQrMenuSession()
-      const currentSlugMatch = /^\/(?:restaurants|r)\/([^/]+)\/menu\/?$/.exec(window.location.pathname)
-      if (currentSlugMatch && currentSlugMatch[1] === expiredSlug) {
-        navigate('/catalog', { replace: true })
-      }
-    }
-    const interval = window.setInterval(checkExpiry, 30 * 1000)
-
-    return () => {
-      activityEvents.forEach((event) => window.removeEventListener(event, onActivity))
-      window.clearInterval(interval)
-    }
-  }, [navigate])
+  // Idle guard for QR-scanned menu access — frozen (disabled, not removed)
+  // along with the rest of QR menu access. Was: any interaction reset the
+  // clock, and 15 minutes of inactivity revoked the temporary pass and, if
+  // the user was still looking at that menu, sent them back to the catalog.
+  // useEffect(() => {
+  //   if (typeof window === 'undefined') return
+  //
+  //   const onActivity = () => touchQrMenuActivity()
+  //   const activityEvents = ['click', 'keydown', 'scroll', 'touchstart', 'pointerdown']
+  //   activityEvents.forEach((event) => window.addEventListener(event, onActivity, { passive: true }))
+  //
+  //   const checkExpiry = () => {
+  //     const expiredSlug = expiredQrMenuSlug()
+  //     if (!expiredSlug) return
+  //     clearQrMenuSession()
+  //     const currentSlugMatch = /^\/(?:restaurants|r)\/([^/]+)\/menu\/?$/.exec(window.location.pathname)
+  //     if (currentSlugMatch && currentSlugMatch[1] === expiredSlug) {
+  //       navigate('/catalog', { replace: true })
+  //     }
+  //   }
+  //   const interval = window.setInterval(checkExpiry, 30 * 1000)
+  //
+  //   return () => {
+  //     activityEvents.forEach((event) => window.removeEventListener(event, onActivity))
+  //     window.clearInterval(interval)
+  //   }
+  // }, [navigate])
 
   useEffect(() => {
     if (!accessToken || isOnboardingPage || isLoginPage) return
