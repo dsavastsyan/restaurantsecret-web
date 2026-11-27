@@ -1,6 +1,8 @@
 import { PD_API_BASE } from '../config/api.js'
 
 const GOAL_CALC_V2 = 'goal_calc_v2'
+// Обычные меню с нашей оценкой КБЖУ по составу (`?plain=1`), pd-api lib/plain-menus-flags.js.
+const PLAIN_MENUS = 'plain_menus'
 const REQUEST_TIMEOUT_MS = 1500
 
 let featureFlagsPromise
@@ -39,4 +41,12 @@ export function fetchFeatureFlags() {
 
 export async function isGoalCalcV2Enabled() {
   return isGoalCalcV2EnabledForFlags(await fetchFeatureFlags())
+}
+
+export function isPlainMenusEnabledForFlags(flags) {
+  return flags?.[PLAIN_MENUS] === true
+}
+
+export async function isPlainMenusEnabled() {
+  return isPlainMenusEnabledForFlags(await fetchFeatureFlags())
 }
