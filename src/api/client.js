@@ -3,6 +3,7 @@
 import { API_BASE, IS_PREVIEW } from '@/config/api';
 import { solveCaptcha } from '@/lib/captchaChallenge';
 import { expandRestaurantMapPayload } from '@/lib/restaurantMapPayload';
+import { isPlainMenusEnabled } from '@/lib/featureFlags.js';
 
 const BASE = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
 const URL_BASE = new URL(BASE, globalThis.location?.origin ?? 'http://localhost');
@@ -113,6 +114,12 @@ async function get(path, params = {}) {
   return request(path, { method: 'GET', params });
 }
 
+// Флаг plain_menus: список, карта и поиск каталога просят и рестораны с обычным
+// меню и нашей оценкой КБЖУ (`plain=1`). Без флага запросы прежние.
+async function withPlain(params = {}) {
+  return (await isPlainMenusEnabled()) ? { ...params, plain: 1 } : params;
+}
+
 async function post(path, body, options = {}) {
   const { headers, timeout, params } = options;
   return request(path, { method: 'POST', body, headers, timeout, params });
@@ -125,12 +132,12 @@ export const api = {
   filters: (city = 'Москва') => get('filters', { city }),
   metro: () => get('metro'),
   geocode: (query, city) => get('geocode', { query, city }),
-  restaurants: (opts) => get('restaurants', opts),
+  restaurants: async (opts) => get('restaurants', await withPlain(opts)),
   restaurantMap: async (opts) => expandRestaurantMapPayload(
-    await get('restaurants/map', { format: 'compact', ...opts }),
+    await get('restaurants/map', await withPlain({ format: 'compact', ...opts })),
   ),
   restaurant: (slug, city = 'Москва') => get(`restaurants/${encodeURIComponent(slug)}`, { city }),
   menu: (slug, city = 'Москва') => get(`restaurants/${encodeURIComponent(slug)}/menu`, { city }),
-  search: (query, opts) => get('search', { query, ...opts }),
+  search: async (query, opts) => get('search', await withPlain({ query, ...opts })),
   post
 };
