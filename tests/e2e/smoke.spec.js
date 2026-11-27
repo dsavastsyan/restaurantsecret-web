@@ -9,6 +9,7 @@ const waitForSuccessfulResponse = (page, predicate) =>
   })
 
 test('@smoke landing suggests restaurants with estimated KBJU', async ({ page }) => {
+  test.skip(!process.env.PLAYWRIGHT_BASE_URL, 'Requires the deployed staging preview with plain menus enabled')
   await page.goto('/')
   const search = page.getByPlaceholder('Найти ресторан или блюдо')
   await search.fill('mouf')
