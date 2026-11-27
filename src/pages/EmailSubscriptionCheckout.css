@@ -1,0 +1,59 @@
+.email-checkout {
+  min-height: 100vh;
+  padding: 28px 16px;
+  background: #fff0ea;
+  color: #2b1d18;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.email-checkout * { box-sizing: border-box; }
+
+.email-checkout__surface {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 34px 38px 26px;
+  background: #fff;
+  border-radius: 26px;
+  box-shadow: 0 16px 50px rgba(85, 46, 35, .07);
+}
+
+.email-checkout__logo { display: block; width: 141px; height: 44px; object-fit: contain; }
+
+.email-checkout__account { margin-top: 42px; display: flex; flex-direction: column; gap: 9px; font-size: 15px; color: #6a5047; }
+.email-checkout__account strong { align-self: flex-start; max-width: 100%; padding: 9px 14px; border-radius: 12px; background: #fff0ea; color: #2b1d18; font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
+.email-checkout__heading, .email-checkout__state h1 { margin: 36px 0 0; font: 400 clamp(30px, 6vw, 42px)/1.16 Georgia, 'Times New Roman', serif; letter-spacing: -.03em; }
+.email-checkout__trial { margin: 13px 0 22px; color: #b2433a; font-weight: 700; }
+.email-checkout__plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 23px; }
+.email-checkout__plan { appearance: none; width: 100%; min-height: 196px; border: 2px solid #f6dcd5; border-radius: 18px; padding: 20px; background: #fff9f6; color: #2b1d18; text-align: left; cursor: pointer; display: flex; flex-direction: column; transition: border-color .15s ease, background-color .15s ease; }
+.email-checkout__plan:hover { border-color: #fe6258; background: #fff4ee; }
+.email-checkout__plan:focus-visible, .email-checkout__footer a:focus-visible, .email-checkout__state a:focus-visible { outline: 3px solid #b2433a; outline-offset: 3px; }
+.email-checkout__plan:disabled { opacity: .72; cursor: wait; }
+.email-checkout__plan-name { font: 400 26px/1.2 Georgia, 'Times New Roman', serif; }
+.email-checkout__plan-price { display: block; margin-top: 12px; font-size: 27px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.email-checkout__plan-price small { display: block; margin-top: 4px; font-size: 14px; font-weight: 500; color: #6a5047; }
+.email-checkout__plan-action { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; padding-top: 22px; color: #bc3e35; font-size: 14px; font-weight: 700; }
+.email-checkout__plan-action span { font-size: 20px; line-height: 1; }
+.email-checkout__terms { margin: 23px 0 0; font-size: 14px; line-height: 1.55; color: #59443d; }
+.email-checkout__terms a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.email-checkout__footnote { margin: 15px 0 0; font-size: 13px; line-height: 1.5; color: #6a5047; }
+.email-checkout__error { margin: 16px 0 0; padding: 12px 14px; border-radius: 10px; background: #fff0ea; color: #a1231e; font-size: 14px; }
+.email-checkout__state { margin: 36px 0 12px; line-height: 1.55; }
+.email-checkout__state h1 { margin-top: 0; }
+.email-checkout__state p { margin: 14px 0; }
+.email-checkout__state a, .email-checkout__footer a { color: #a7352d; text-decoration: underline; text-underline-offset: 3px; }
+.email-checkout__footer { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 40px; padding-top: 20px; border-top: 1px solid #f4e3dc; font-size: 13px; }
+
+@media (max-width: 540px) {
+  .email-checkout { padding: 0; background: #fff; }
+  .email-checkout__surface { min-height: 100vh; border-radius: 0; padding: 26px 22px 28px; box-shadow: none; }
+  .email-checkout__account { margin-top: 34px; }
+  .email-checkout__plans { grid-template-columns: 1fr; gap: 12px; }
+  .email-checkout__plan { min-height: 143px; padding: 17px 19px; }
+  .email-checkout__plan-price { font-size: 24px; }
+  .email-checkout__plan-price small { display: inline; font-size: 14px; }
+  .email-checkout__plan-action { padding-top: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .email-checkout__plan { transition: none; }
+}
