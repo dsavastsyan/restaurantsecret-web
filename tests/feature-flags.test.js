@@ -16,9 +16,16 @@ test('разбирает флаги из ответа mobile-config', () => {
 })
 
 test('читает plain_menus из data в текущем ответе mobile-config', async () => {
-  const flags = await loadFeatureFlags(async () => ({
-    ok: true,
-    json: async () => ({ ok: true, data: { feature_flags: { plain_menus: true } } }),
+  const flags = await loadFeatureFlags((_url, { signal }) => new Promise((resolve, reject) => {
+    // Staging mobile-config takes about 1.7 seconds from the Pages preview.
+    const timer = setTimeout(() => resolve({
+      ok: true,
+      json: async () => ({ ok: true, data: { feature_flags: { plain_menus: true } } }),
+    }), 1700)
+    signal.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(new Error('request aborted'))
+    }, { once: true })
   }))
 
   assert.equal(isPlainMenusEnabledForFlags(flags), true)
