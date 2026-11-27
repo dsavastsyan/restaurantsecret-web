@@ -1625,6 +1625,9 @@ export default function Catalog() {
                             <ScrollingRestaurantName name={r.name} />
                             {googleRating && <span className="catalog-card__rating" aria-label={`Рейтинг Google ${googleRating}`}>★ {googleRating}</span>}
                             {r?.autoUpdated && <AutoUpdatedBadge className="catalog-card__auto-updated" />}
+                            {r?.kbjuKind === 'estimated' && (
+                              <span className="catalog-card__estimated" title="Ресторан не поделился КБЖУ, мы посчитали его по составу">≈ КБЖУ примерно</span>
+                            )}
                           </h3>
                           <div className="catalog-card__meta">
                             {r?.cuisine && (

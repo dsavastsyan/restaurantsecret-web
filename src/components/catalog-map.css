@@ -128,6 +128,23 @@
   stroke: #27231f;
 }
 
+.catalog-map-pin.is-estimated .catalog-map-pin__body {
+  fill: #f1ece2;
+  stroke: #6f6454;
+  stroke-width: 1.6px;
+  stroke-dasharray: 3.5 2.5;
+}
+
+.catalog-map-pin.is-estimated.is-selected .catalog-map-pin__body {
+  fill: #ece7de;
+  stroke-width: 2.2px;
+}
+
+.catalog-map-pin__approx {
+  fill: #6f6454;
+  font: 700 15px/1 Inter, system-ui, sans-serif;
+}
+
 .catalog-map-pin-wrapper:hover .catalog-map-pin {
   transform: translateY(-2px);
 }

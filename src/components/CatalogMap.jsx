@@ -25,14 +25,18 @@ const getRestaurantPoint = (restaurant) => {
   return Number.isFinite(lat) && Number.isFinite(lon) ? [lat, lon] : null
 }
 
-const createPinIcon = (selected = false) => L.divIcon({
+// Ресторан только с обычным меню и нашей оценкой КБЖУ: светлый пин с пунктиром и «≈»
+// вместо точки (решение 27.11, развилка 3).
+const createPinIcon = (selected = false, estimated = false) => L.divIcon({
   className: 'catalog-map-pin-wrapper',
   iconSize: selected ? [40, 48] : [34, 42],
   iconAnchor: selected ? [20, 47] : [17, 41],
   html: `
-    <svg class="catalog-map-pin${selected ? ' is-selected' : ''}" viewBox="0 0 34 42" aria-hidden="true">
+    <svg class="catalog-map-pin${selected ? ' is-selected' : ''}${estimated ? ' is-estimated' : ''}" viewBox="0 0 34 42" aria-hidden="true">
       <path class="catalog-map-pin__body" d="M17 1.5C8.7 1.5 2 8 2 16c0 10.5 11.4 22.2 14.1 24.8a1.3 1.3 0 0 0 1.8 0C20.6 38.2 32 26.5 32 16 32 8 25.3 1.5 17 1.5Z" />
-      <circle class="catalog-map-pin__center" cx="17" cy="16" r="5.25" />
+      ${estimated
+        ? '<text class="catalog-map-pin__approx" x="17" y="21" text-anchor="middle">≈</text>'
+        : '<circle class="catalog-map-pin__center" cx="17" cy="16" r="5.25" />'}
     </svg>
   `,
 })
@@ -60,7 +64,7 @@ function CatalogMapMarkers({ restaurants, selectedKey, onSelectRestaurant }) {
 
       const key = getCatalogMapPointKey(restaurant)
       const marker = L.marker(point, {
-        icon: createPinIcon(Boolean(selectedKey && key === selectedKey)),
+        icon: createPinIcon(Boolean(selectedKey && key === selectedKey), restaurant?.kbjuKind === 'estimated'),
         keyboard: true,
         riseOnHover: true,
         title: restaurant?.name || 'Ресторан',

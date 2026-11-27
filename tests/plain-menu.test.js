@@ -103,3 +103,18 @@ test('какое меню показывать', () => {
   assert.equal(withTab.tabs.estimatedCount, 4)
   assert.equal(resolvePlainView({ kbjuKind: 'restaurant', estimatedTab: plainMenu }, 'estimated').mode, 'estimated')
 })
+
+test('compact map keeps the KBJU kind for plain-menu restaurants', async () => {
+  const { expandRestaurantMapPayload } = await import('../src/lib/restaurantMapPayload.js')
+  const map = expandRestaurantMapPayload({
+    format: 'compact',
+    pointFields: ['locationId', 'restaurant', 'lat', 'lon'],
+    restaurants: [
+      { id: 1, slug: 'mouflon', name: 'Mouflon', kbjuKind: 'estimated' },
+      { id: 2, slug: 'bruno', name: 'Bruno' },
+    ],
+    points: [[10, 0, 55.75, 37.6], [20, 1, 55.76, 37.61]],
+  })
+  assert.equal(map.items[0].kbjuKind, 'estimated')
+  assert.equal('kbjuKind' in map.items[1], false)
+})
