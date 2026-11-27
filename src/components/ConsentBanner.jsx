@@ -3,10 +3,12 @@ import { Link, useLocation } from "react-router-dom";
 import { analytics } from "../services/analytics";
 
 const PARTNER_AREA = /^\/partners(\/|$)/;
+const EMAIL_CHECKOUT_AREA = /^\/(subscription\/checkout|pay\/done)\/?$/;
 
 export function ConsentBanner() {
     const { pathname } = useLocation();
     const isPartnerArea = PARTNER_AREA.test(pathname);
+    const isEmailCheckoutArea = EMAIL_CHECKOUT_AREA.test(pathname);
     const [visible, setVisible] = useState(false);
 
     // Кабинет ресторана — рабочий инструмент партнёра, его поведение мы не
@@ -53,7 +55,7 @@ export function ConsentBanner() {
         analytics.setConsent("denied");
     };
 
-    if (isPartnerArea || !visible) return null;
+    if (isPartnerArea || isEmailCheckoutArea || !visible) return null;
 
     return (
         <div className="rs-banner">

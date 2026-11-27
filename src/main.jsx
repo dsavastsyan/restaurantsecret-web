@@ -32,6 +32,7 @@ const SPLASH_MAX_WAIT_MS = 5000
 const SPLASH_IDLE_MS = 350
 const MAINTENANCE_MAX_WAIT_MS = 3500
 const isStandaloneIOSLegalPage = /^\/legal\/ios\/privacy\/?$/.test(window.location.pathname)
+const isEmailCheckoutPage = /^\/(subscription\/checkout|pay\/done)\/?$/.test(window.location.pathname)
 let splashGeneration = 0
 let splashFailsafeTimer = 0
 
@@ -284,8 +285,10 @@ function Root() {
     }
 
     // Analytics: Session Start
-    analytics.trackSessionStart().catch(() => { })
-    analytics.trackLandingAttribution().catch(() => { })
+    if (!isEmailCheckoutPage) {
+      analytics.trackSessionStart().catch(() => { })
+      analytics.trackLandingAttribution().catch(() => { })
+    }
 
     // Analytics: Session End / Duration (Simplified)
     const handleUnload = () => {
@@ -324,7 +327,9 @@ function Root() {
     // Pull in a previously saved city preference (by account, or by this
     // browser's visitor id) before any page reads `catalog_city` from
     // localStorage, so it isn't shadowed by a fresh IP-based guess.
-    const cityReady = hydrateCityPreference(getAuthState().accessToken).catch(() => { })
+    const cityReady = isEmailCheckoutPage
+      ? Promise.resolve()
+      : hydrateCityPreference(getAuthState().accessToken).catch(() => { })
 
     Promise.all([maintenanceReady, cityReady]).finally(() => setReady(true))
 
