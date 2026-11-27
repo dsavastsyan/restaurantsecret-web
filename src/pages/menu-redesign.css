@@ -2680,11 +2680,15 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 }
 
 .rsm2-est-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
   border: 1px dashed var(--rsm2-on-ink-muted);
   color: #e7dfcf;
   background: rgba(255, 253, 248, 0.06);
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 0 14px;
   font: 600 13px/1 Inter, sans-serif;
   white-space: nowrap;
 }
@@ -2767,6 +2771,22 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
 .rsm2-ring--est strong {
   font-style: italic;
   color: #4a4034;
+}
+
+/* Keep the approximate sign and four-digit calories inside the small list ring. */
+.rsm2-row__ring--tall.rsm2-ring--est {
+  width: 68px;
+}
+
+.rsm2-row__ring--tall.rsm2-ring--est .rsm2-row__ring-core {
+  width: 78%;
+}
+
+.rsm2-row__ring--tall.rsm2-ring--est .rsm2-row__ring-core strong {
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
 }
 
 .rsm2-macrobar--est .rsm2-macrobar__seg {
