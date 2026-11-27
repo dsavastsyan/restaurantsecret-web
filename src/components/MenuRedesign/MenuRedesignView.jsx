@@ -424,7 +424,7 @@ export default function MenuRedesignView({
             )}
           </div>
           <div className="rsm2-hero__actions">
-            {isPlainOnly && <span className="rsm2-est-hero-chip">≈ КБЖУ примерно</span>}
+            {isPlainOnly && <span className="rsm2-est-hero-chip">КБЖУ по составу</span>}
             {!readOnly && (
               <button
                 type="button"
