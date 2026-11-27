@@ -130,6 +130,15 @@ export default function EmailSubscriptionCheckout() {
             ) : (
               <>
                 <h1 className="email-checkout__heading">Выбери подписку</h1>
+                <section className="email-checkout__benefits" aria-label="Что даёт подписка">
+                  <h2>Что входит в подписку</h2>
+                  <ul>
+                    <li>Все рестораны и блюда</li>
+                    <li>Дневник питания и цели по КБЖУ</li>
+                    <li>Избранные рестораны и блюда</li>
+                    <li>Полный поиск по меню без ограничений</li>
+                  </ul>
+                </section>
                 {trial && <p className="email-checkout__trial">Первые 7 дней бесплатно</p>}
                 <div className="email-checkout__plans" aria-label="Варианты подписки">
                   {plans.map((plan) => (
@@ -138,36 +147,36 @@ export default function EmailSubscriptionCheckout() {
                       type="button"
                       key={plan.id}
                       disabled={Boolean(pendingPlan)}
+                      aria-busy={pendingPlan === plan.id}
                       onClick={() => choosePlan(plan.id)}
                     >
                       <span className="email-checkout__plan-name">{plan.name}</span>
+                      {plan.id === 'annual' && <span className="email-checkout__plan-badge">Выгодно</span>}
                       <span className="email-checkout__plan-price">
                         {Number(info.prices[plan.id]).toLocaleString('ru-RU')} ₽ <small>{plan.cadence}</small>
                       </span>
-                      <span className="email-checkout__plan-action">
-                        {pendingPlan === plan.id ? 'Открываем ЮKassa…' : 'Продолжить в ЮKassa'}
-                        <span aria-hidden="true">↗</span>
+                      <span className="email-checkout__plan-note">
+                        {plan.id === 'monthly'
+                          ? 'Дешевле, чем стакан кофе'
+                          : `≈ ${Math.round(Number(info.prices.annual) / 12).toLocaleString('ru-RU')} ₽ в месяц`}
                       </span>
+                      <span className="email-checkout__plan-arrow" aria-hidden="true">{pendingPlan === plan.id ? '…' : '↗'}</span>
                     </button>
                   ))}
                 </div>
                 {paymentError && <p className="email-checkout__error" role="alert">{paymentError}</p>}
+                {trial && <p className="email-checkout__check">Для проверки списания ЮKassa спишет 1 ₽ и вернёт его.</p>}
                 <p className="email-checkout__terms">
-                  Оформляя подписку, вы соглашаетесь на автоматические списания по выбранному тарифу.{' '}
-                  {trial
-                    ? 'Первые 7 дней бесплатны. Для проверки карты ЮKassa спишет 1 ₽ и вернёт его. Первое списание по тарифу — после пробного периода.'
-                    : 'Первое списание по тарифу — сейчас.'}{' '}
-                  Подписку можно отменить в личном кабинете на сайте.{' '}
-                  <a href="/legal" target="_blank" rel="noopener noreferrer">Условия подписки</a>.
+                  Оформляя подписку, вы соглашаетесь на автоматические списания в соответствии с{' '}
+                  <a href="/legal" target="_blank" rel="noopener noreferrer">Пользовательским соглашением</a>{' '}
+                  и{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer">Политикой конфиденциальности</a>.
+                  {' '}Подписку можно отменить в любое время на сайте.
                 </p>
-                <p className="email-checkout__footnote">Подписка будет работать и на сайте, и в приложении AnyEat на iPhone.</p>
               </>
             )}
           </>
         )}
-        <footer className="email-checkout__footer">
-          <a href="mailto:support@restaurantsecret.ru">Поддержка</a>
-        </footer>
       </main>
     </div>
   )
