@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "partial_services": true,
+  "services": {
+    "pd_api": {
+      "repository": "dsavastsyan/RestaurantSecret-pd-api",
+      "staging_pull_request": 381,
+      "production_pull_request": 431
+    }
+  }
+}
