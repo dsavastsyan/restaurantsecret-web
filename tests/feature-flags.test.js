@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   isGoalCalcV2EnabledForFlags,
+  isPlainMenusEnabledForFlags,
   loadFeatureFlags,
   parseFeatureFlags,
 } from '../src/lib/featureFlags.js'
@@ -12,6 +13,15 @@ test('разбирает флаги из ответа mobile-config', () => {
     goal_calc_v2: true,
     another: false,
   })
+})
+
+test('читает plain_menus из data в текущем ответе mobile-config', async () => {
+  const flags = await loadFeatureFlags(async () => ({
+    ok: true,
+    json: async () => ({ ok: true, data: { feature_flags: { plain_menus: true } } }),
+  }))
+
+  assert.equal(isPlainMenusEnabledForFlags(flags), true)
 })
 
 test('по умолчанию goal_calc_v2 выключен', () => {

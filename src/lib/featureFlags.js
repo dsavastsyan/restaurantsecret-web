@@ -8,7 +8,7 @@ const REQUEST_TIMEOUT_MS = 1500
 let featureFlagsPromise
 
 export function parseFeatureFlags(data) {
-  const flags = data?.feature_flags
+  const flags = data?.data?.feature_flags ?? data?.feature_flags
   if (!flags || typeof flags !== 'object' || Array.isArray(flags)) return {}
   return flags
 }
