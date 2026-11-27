@@ -3,12 +3,13 @@ import { PD_API_BASE } from '../config/api.js'
 const GOAL_CALC_V2 = 'goal_calc_v2'
 // Обычные меню с нашей оценкой КБЖУ по составу (`?plain=1`), pd-api lib/plain-menus-flags.js.
 const PLAIN_MENUS = 'plain_menus'
-const REQUEST_TIMEOUT_MS = 1500
+// A timeout caches empty flags for the whole session; staging often takes over 1.5s.
+const REQUEST_TIMEOUT_MS = 5000
 
 let featureFlagsPromise
 
 export function parseFeatureFlags(data) {
-  const flags = data?.feature_flags
+  const flags = data?.data?.feature_flags ?? data?.feature_flags
   if (!flags || typeof flags !== 'object' || Array.isArray(flags)) return {}
   return flags
 }
