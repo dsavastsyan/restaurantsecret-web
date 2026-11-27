@@ -2640,3 +2640,246 @@ body[data-rs-menu-guide-step="restaurants"] .navbar__center a[data-rs-menu-nav="
   margin: 16px 0 0;
   color: var(--rsm2-muted);
 }
+
+/* ---------- Обычные меню с нашей оценкой КБЖУ по составу (флаг plain_menus) ----------
+   Макет product/solutions/plain-menus/design, решения 27.11: оценка не должна выглядеть
+   как КБЖУ ресторана — нейтральный цвет, пунктир, «≈», штриховка полоски БЖУ. */
+.rsm2-plain-head {
+  padding: 18px 36px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rsm2-est-banner {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  border: 1.5px dashed #b3a68f;
+  background: #f1ece2;
+  color: #4a4034;
+  border-radius: 16px;
+  padding: 14px 18px;
+}
+
+.rsm2-est-banner p {
+  margin: 0;
+  font: 500 14px/1.45 Inter, sans-serif;
+}
+
+.rsm2-est-banner__icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px dashed #6f6454;
+  display: grid;
+  place-items: center;
+  font: 700 16px/1 Inter, sans-serif;
+  color: #6f6454;
+}
+
+.rsm2-est-hero-chip {
+  border: 1px dashed var(--rsm2-on-ink-muted);
+  color: #e7dfcf;
+  background: rgba(255, 253, 248, 0.06);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: 600 13px/1 Inter, sans-serif;
+  white-space: nowrap;
+}
+
+.rsm2-kbju-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--rsm2-border);
+  background: var(--rsm2-cream-alt-2);
+}
+
+.rsm2-kbju-tab {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  padding: 8px 16px;
+  font: 600 13px/1 Inter, sans-serif;
+  color: var(--rsm2-text-2);
+  cursor: pointer;
+}
+
+.rsm2-kbju-tab.is-on {
+  background: var(--rsm2-card);
+  color: var(--rsm2-ink);
+  box-shadow: var(--rsm2-elev-1);
+}
+
+.rsm2-kbju-tab--est.is-on {
+  border: 1px dashed #a99c88;
+  background: #ece7de;
+  color: #4a4034;
+}
+
+.rsm2-kbju-tab__count {
+  margin-left: 6px;
+  color: var(--rsm2-muted);
+  font-weight: 500;
+}
+
+.rsm2-est-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px dashed #a99c88;
+  background: #ece7de;
+  color: #6f6454;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: 700 12px/1.1 Inter, sans-serif;
+  white-space: nowrap;
+}
+
+.rsm2-est-badge--cover {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.rsm2-est-badge--row {
+  align-self: flex-start;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.rsm2-tile--est .rsm2-tile__cover {
+  justify-content: flex-end;
+}
+
+.rsm2-ring--est {
+  outline: 1.5px dashed #a99c88;
+  outline-offset: 3px;
+}
+
+.rsm2-ring--kcal-only {
+  background: #e4dcce;
+}
+
+.rsm2-ring--est strong {
+  font-style: italic;
+  color: #4a4034;
+}
+
+.rsm2-macrobar--est .rsm2-macrobar__seg {
+  background-image: repeating-linear-gradient(135deg, var(--rsm2-card) 0 2.5px, transparent 2.5px 6px);
+}
+
+.rsm2-est-num {
+  font-style: italic;
+}
+
+.rsm2-est-kcal-only {
+  font: 500 12px/1.35 Inter, sans-serif;
+  color: var(--rsm2-text-2);
+}
+
+.rsm2-est-basis {
+  margin: 0;
+  font: 500 11.5px/1.35 Inter, sans-serif;
+  color: #6f6454;
+}
+
+.rsm2-est-weight {
+  font-weight: 500;
+  color: var(--rsm2-muted);
+}
+
+.rsm2-est-how {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px dashed var(--rsm2-dashed);
+  border-radius: 12px;
+  background: var(--rsm2-cream-alt);
+  padding: 10px 12px;
+  font: 400 12.5px/1.45 Inter, sans-serif;
+  color: var(--rsm2-text-3);
+  cursor: default;
+}
+
+.rsm2-est-how b {
+  color: var(--rsm2-ink);
+  font-weight: 700;
+}
+
+.rsm2-est-how p {
+  margin: 0;
+}
+
+.rsm2-est-how p span {
+  color: var(--rsm2-muted);
+}
+
+.rsm2-est-how__src {
+  color: var(--rsm2-muted);
+  font-size: 11.5px;
+}
+
+.rsm2-tile__footer--est {
+  justify-content: flex-end;
+}
+
+.rsm2-row--est .rsm2-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rsm2-row__cover--est span {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px dashed #a99c88;
+  display: grid;
+  place-items: center;
+  font: 700 15px/1 Inter, sans-serif;
+  color: #6f6454;
+}
+
+.rsm2-tile--nodata,
+.rsm2-row--nodata {
+  filter: grayscale(1);
+  opacity: 0.62;
+  box-shadow: none;
+  cursor: default;
+}
+
+.rsm2-nodata-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #ede3d4;
+  color: #8a7d6a;
+  font: 700 12px/1.1 Inter, sans-serif;
+}
+
+.rsm2-tile--nodata .rsm2-tile__cover {
+  justify-content: flex-end;
+}
+
+.rsm2-nodata-text {
+  margin: 0;
+  font: 500 12.5px/1.35 Inter, sans-serif;
+  color: var(--rsm2-text-2);
+}
+
+.rsm2-section__title--muted {
+  color: var(--rsm2-muted);
+}
+
+@media (max-width: 900px) {
+  .rsm2-plain-head {
+    padding: 14px 16px 0;
+  }
+}
