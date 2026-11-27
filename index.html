@@ -3,6 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      // Убираем платёжный токен из адреса до загрузки аналитики, Sentry и внешних шрифтов.
+      (function () {
+        var match = /^\/([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\/subscription\/?$/.exec(location.pathname);
+        if (!match) return;
+        var referrer = document.createElement('meta');
+        referrer.name = 'referrer';
+        referrer.content = 'no-referrer';
+        document.head.appendChild(referrer);
+        window.__rsPayLinkToken = match[1];
+        try { sessionStorage.setItem('rsPayLinkToken', match[1]); } catch (e) {}
+        history.replaceState(null, '', '/subscription/checkout');
+      })();
+    </script>
     <meta name="apple-itunes-app" content="app-id=6799767816">
     <script>
       // Страницы из писем AnyEat (/promo/<token>, /unsubscribe/<token>): заставку RestaurantSecret не показываем.
@@ -10,7 +24,7 @@
       (function () {
         var saved = '';
         try { saved = sessionStorage.getItem('redirectPath') || ''; } catch (e) {}
-        var anyeat = /^\/(promo|unsubscribe)\//;
+        var anyeat = /^\/(promo|unsubscribe|subscription\/checkout|pay\/done)(\/|$)/;
         if (anyeat.test(location.pathname) || (location.pathname === '/' && anyeat.test(saved))) {
           document.documentElement.className += ' rs-no-splash';
         }

@@ -5,6 +5,8 @@ const distDir = resolve('dist')
 const source = resolve(distDir, 'index.html')
 const spaRoutes = [
   'auth/handoff',
+  'subscription/checkout',
+  'pay/done',
   'privacy',
   'privacy/versions/2025-11-25',
   'privacy/versions/2026-09-03',

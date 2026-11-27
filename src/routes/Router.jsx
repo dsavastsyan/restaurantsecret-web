@@ -68,6 +68,8 @@ const SubscriptionHistoryPage = lazy(() => import('../pages/account/Subscription
 const Favorites = lazy(() => import('../pages/account/Favorites.tsx'))
 const AnyEatComingSoon = lazy(() => import('../pages/account/AnyEatComingSoon.tsx'))
 const PaymentMethods = lazy(() => import('../pages/account/PaymentMethods.tsx'))
+const EmailSubscriptionCheckout = lazy(() => import('../pages/EmailSubscriptionCheckout.jsx'))
+const EmailSubscriptionDone = lazy(() => import('../pages/EmailSubscriptionDone.jsx'))
 const PromoLink = lazy(() => import('../pages/PromoLink.tsx'))
 const UnsubscribeLink = lazy(() => import('../pages/UnsubscribeLink.tsx'))
 
@@ -77,6 +79,8 @@ function AppRoutes({ onReady }) {
   return (
     <Suspense fallback={null}>
       <Routes>
+        <Route path="subscription/checkout" element={<EmailSubscriptionCheckout />} />
+        <Route path="pay/done" element={<EmailSubscriptionDone />} />
         <Route
           path="legal/ios/privacy"
           element={<IOSLegalDocument><Privacy /></IOSLegalDocument>}
