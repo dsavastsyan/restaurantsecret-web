@@ -1626,7 +1626,7 @@ export default function Catalog() {
                             {googleRating && <span className="catalog-card__rating" aria-label={`Рейтинг Google ${googleRating}`}>★ {googleRating}</span>}
                             {r?.autoUpdated && <AutoUpdatedBadge className="catalog-card__auto-updated" />}
                             {r?.kbjuKind === 'estimated' && (
-                              <span className="catalog-card__estimated" title="Ресторан не поделился КБЖУ, мы посчитали его по составу">≈ КБЖУ примерно</span>
+                              <span className="catalog-card__estimated" title="Ресторан не поделился КБЖУ, мы посчитали его по составу">КБЖУ по составу</span>
                             )}
                           </h3>
                           <div className="catalog-card__meta">

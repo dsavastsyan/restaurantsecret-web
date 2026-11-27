@@ -8,6 +8,14 @@ const waitForSuccessfulResponse = (page, predicate) =>
     return response.ok()
   })
 
+test('@smoke landing suggests restaurants with estimated KBJU', async ({ page }) => {
+  test.skip(!process.env.PLAYWRIGHT_BASE_URL, 'Requires the deployed staging preview with plain menus enabled')
+  await page.goto('/')
+  const search = page.getByPlaceholder('Найти ресторан или блюдо')
+  await search.fill('mouf')
+  await expect(page.locator('.search-input__dropdown')).toContainText('Mouflon', { timeout: 30_000 })
+})
+
 test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) => {
   // This is a deployed-preview integration check against the full staging
   // catalog, not a mocked UI test. The real catalog response can take longer
