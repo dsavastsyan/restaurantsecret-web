@@ -1,0 +1,55 @@
+/* Страница оплаты по ссылке из письма: поверх стилей PromoLink.css (pl-*) */
+.pay-plans { display: grid; gap: 12px; margin: 18px 0 14px; text-align: left; }
+.pay-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 2px solid var(--pl-coral-tint);
+  border-radius: 20px;
+  background: var(--pl-cream);
+  color: var(--pl-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.pay-plan:hover:not(:disabled) { border-color: var(--pl-coral); transform: translateY(-1px); box-shadow: 0 10px 22px -14px rgba(254, 98, 88, 0.8); }
+.pay-plan:disabled { opacity: 0.6; cursor: default; }
+.pay-plan__name { font-size: 17px; font-weight: 700; }
+.pay-plan__note { margin-top: 2px; font-size: 13px; color: var(--pl-muted); }
+.pay-plan__price { font-size: 22px; font-weight: 800; white-space: nowrap; }
+.pay-plan__tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--pl-coral);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  vertical-align: 2px;
+}
+.pay-consent { margin: 4px 0 0; color: var(--pl-muted); font-size: 12.5px; line-height: 1.5; text-align: center; }
+.pay-consent a { color: var(--pl-muted); }
+
+.pay-plan { gap: 14px; }
+.pay-plan__radio {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #e8c9c2;
+  border-radius: 50%;
+  background: #fff;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.pay-plan--on { border-color: var(--pl-coral); background: #fff; box-shadow: 0 10px 22px -14px rgba(254, 98, 88, 0.8); }
+.pay-plan--on .pay-plan__radio { border-color: var(--pl-coral); background: var(--pl-coral); box-shadow: inset 0 0 0 4px #fff; }
+.pay-plan__body { flex: 1; min-width: 0; }
+.pay-plan__free { margin-top: 4px; font-size: 15px; font-weight: 800; color: var(--pl-coral); }
+.pay-terms { margin: 14px 0 0; color: var(--pl-ink); font-size: 13.5px; line-height: 1.5; text-align: center; }
+.pay-terms b { font-weight: 800; }
+.pay-consent { margin-top: 10px; }
