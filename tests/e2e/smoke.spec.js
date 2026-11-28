@@ -40,6 +40,15 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
 
   const landingStatsResponse = await landingStatsResponsePromise
   const landingStats = await landingStatsResponse.json()
+  if (process.env.PLAYWRIGHT_BASE_URL) {
+    expect(new URL(landingStatsResponse.url()).searchParams.get('plain')).toBe('1')
+    const legacyStatsResponse = await page.request.get('/api/landing/stats?city=Москва')
+    expect(legacyStatsResponse.ok()).toBe(true)
+    const legacyStats = await legacyStatsResponse.json()
+    expect(landingStats.restaurants).toBeGreaterThan(legacyStats.restaurants)
+    expect(landingStats.dishes).toBeGreaterThan(legacyStats.dishes)
+    expect(landingStats.weeklyAdded).toBeGreaterThanOrEqual(legacyStats.weeklyAdded)
+  }
   expect(landingStats?.restaurants).toBeGreaterThan(0)
   expect(landingStats?.dishes).toBeGreaterThan(0)
 
