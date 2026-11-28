@@ -25,6 +25,13 @@ import { useMeta } from '@/lib/useMeta'
 import { hasQrMenuAccess } from '@/lib/qrMenuAccess'
 import MenuRedesignView from '@/components/MenuRedesign/MenuRedesignView'
 import { isServiceUnavailableError } from '@/lib/serviceUnavailable.js'
+import { isPlainMenusEnabled } from '@/lib/featureFlags.js'
+import {
+  plainMenuCounts,
+  plainMenuToCategories,
+  plainNoDataDishes,
+  resolvePlainView,
+} from '@/lib/plainMenu.js'
 
 const createDefaultPresets = () => ({ highProtein: false, lowFat: false, lowKcal: false })
 const createDefaultRange = () => ({
@@ -178,7 +185,15 @@ export default function Menu({
     loadFavoriteRestaurants: state.load,
   }))
 
-  const [menu, setMenu] = useState(() => previewMode ? normalizeMenu(previewMenu) : null)
+  const [loadedMenu, setMenu] = useState(() => previewMode ? normalizeMenu(previewMenu) : null)
+  // Вкладка у ресторана с КБЖУ-меню и обычным меню рядом: 'restaurant' | 'estimated'.
+  const [kbjuTab, setKbjuTab] = useState('restaurant')
+  const plainView = useMemo(() => resolvePlainView(loadedMenu, kbjuTab), [kbjuTab, loadedMenu])
+  // Обычное меню с оценкой КБЖУ подменяет категории: дальше страница работает как с любым меню.
+  const menu = useMemo(() => {
+    if (!loadedMenu || plainView.mode !== 'estimated') return loadedMenu
+    return { ...loadedMenu, categories: plainMenuToCategories(plainView.plainMenu) }
+  }, [loadedMenu, plainView])
   const [seoHint] = useState(() => (previewMode ? null : readSeoHint()))
   const [guideCatalogStats, setGuideCatalogStats] = useState(null)
   const [loading, setLoading] = useState(!previewMode)
@@ -245,6 +260,7 @@ export default function Menu({
     const nextMenuFilters = createMenuFiltersFromCatalog(routeSearchParams)
     setPresets(nextMenuFilters.presets)
     setRange(nextMenuFilters.range)
+    setKbjuTab('restaurant')
   }, [city, routeFilterKey, slug])
 
   // Fetch the menu.
@@ -260,12 +276,13 @@ export default function Menu({
 
       ; (async () => {
         try {
-          await fetchStatus(accessToken)
+          // Флаг читается параллельно со статусом подписки: лишнего ожидания нет.
+          const [, plainEnabled] = await Promise.all([fetchStatus(accessToken), isPlainMenusEnabled()])
           setLoading(true)
           setError(null)
           setRestaurantPoint(null)
           const raw = await apiGet(
-            `/restaurants/${slug}/menu?city=${encodeURIComponent(city)}`,
+            `/restaurants/${slug}/menu?city=${encodeURIComponent(city)}${plainEnabled ? '&plain=1' : ''}`,
             accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
           )
           const data = raw?.categories ? raw : { ...(raw || {}), name: raw?.name || slug, categories: [] }
@@ -483,6 +500,39 @@ export default function Menu({
     })),
     [categorySorts, groupedDishes, menuSort]
   )
+  // Вкладка «По составу» не меняет число блюд с КБЖУ ресторана в шапке и SEO.
+  const restaurantGroupCount = useMemo(
+    () => (plainView.tabs ? flattenMenuGroups(loadedMenu).length : menuGroups.length),
+    [loadedMenu, menuGroups.length, plainView.tabs],
+  )
+  // Позиции обычного меню без оценки: серым блоком в самом конце (решение 27.11).
+  // Фильтры по КБЖУ им не подходят по определению, поэтому при них блок скрыт.
+  const plain = useMemo(() => {
+    if (!plainView.tabs && plainView.mode !== 'estimated') return null
+    const hasNutritionFilters = Object.values(presets).some(Boolean)
+      || Object.values(range).some((bounds) => bounds.min !== '' || bounds.max !== '')
+    const q = query.trim()
+    const noData = plainView.mode === 'estimated' && !hasNutritionFilters
+      ? plainNoDataDishes(plainView.plainMenu).filter((dish) => {
+        if (selectedCategory !== 'all' && dish.category !== selectedCategory) return false
+        if (q && !matchesSearchQuery(dish.name, q) && !matchesSearchQuery(dish.ingredients, q)) return false
+        return dishMatchesIngredients(dish, ingredientFilter.selected, ingredientFilter.mode)
+      })
+      : []
+    return {
+      mode: plainView.mode,
+      counts: plainView.mode === 'estimated' ? plainMenuCounts(plainView.plainMenu) : null,
+      tabs: plainView.tabs
+        ? { ...plainView.tabs, restaurantCount: restaurantGroupCount }
+        : null,
+      onTabChange: (tab) => {
+        setKbjuTab(tab)
+        setSelectedCategory('all')
+        setAllCategoriesExpanded(false)
+      },
+      noData,
+    }
+  }, [ingredientFilter, plainView, presets, query, range, restaurantGroupCount, selectedCategory])
   const restaurantLinkUrl = useMemo(() => normalizeRestaurantLinkUrl(menu?.instagramUrl), [menu?.instagramUrl])
   // A slug ("horoshaya-devochka-nan") must never stand in for a real name —
   // fall back to a generic word instead of leaking the URL to the reader.
@@ -495,7 +545,7 @@ export default function Menu({
     rawSeoName && !isSlugLike(rawSeoName)
       ? rawSeoName.charAt(0).toUpperCase() + rawSeoName.slice(1)
       : 'ресторана'
-  const seoDishCount = menu ? menuGroups.length : (seoHint?.dishCount ?? menuGroups.length)
+  const seoDishCount = menu ? restaurantGroupCount : (seoHint?.dishCount ?? menuGroups.length)
   const seoDishWord = pluralizeRu(seoDishCount, ['позиция', 'позиции', 'позиций'])
   const seoDescription = useMemo(
     () => `${seoDishCount} ${seoDishWord} с полным КБЖУ. Постоянное обновление. Быстрые фильтры. Много белков. Мало жиров. Лучшая калорийность. Сравнивайте блюда ${seoRestaurantName} перед посещением ресторана.`,
@@ -632,6 +682,7 @@ export default function Menu({
       error={error}
       onRetry={() => setRetryNonce((value) => value + 1)}
       menu={menu}
+      plain={plain}
       query={query}
       setQuery={setQuery}
       selectedSection={selectedSection}

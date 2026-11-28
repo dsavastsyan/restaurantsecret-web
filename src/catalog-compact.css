@@ -1573,6 +1573,22 @@
   white-space: nowrap;
 }
 
+/* Ресторан только с обычным меню и нашей оценкой КБЖУ (флаг plain_menus): нейтральный цвет «состав неизвестен», пунктир. */
+.catalog-card__estimated {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  padding: 3px 9px;
+  border: 1px dashed #a99c88;
+  border-radius: 999px;
+  background: #ece7de;
+  color: #6f6454;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .catalog-search-line {
     grid-template-columns: minmax(0, 0.38fr) minmax(0, 1fr) minmax(96px, 104px);

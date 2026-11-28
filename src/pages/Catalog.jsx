@@ -166,8 +166,8 @@ export default function Catalog() {
   )
   const metroData = metroResponse || EMPTY_METRO_DATA
   const { data: landingStats } = useSWRLite(
-    hasSelectedCity ? 'landing-stats' : null,
-    () => getLandingStats(),
+    hasSelectedCity ? `landing-stats:${selectedCityId}` : null,
+    () => getLandingStats(selectedCityId),
     { enabled: hasSelectedCity },
   )
   const [selectedCuisines, setSelectedCuisines] = useState(() => initialCatalogFilters.selectedCuisines
@@ -1625,6 +1625,9 @@ export default function Catalog() {
                             <ScrollingRestaurantName name={r.name} />
                             {googleRating && <span className="catalog-card__rating" aria-label={`Рейтинг Google ${googleRating}`}>★ {googleRating}</span>}
                             {r?.autoUpdated && <AutoUpdatedBadge className="catalog-card__auto-updated" />}
+                            {r?.kbjuKind === 'estimated' && (
+                              <span className="catalog-card__estimated" title="Ресторан не поделился КБЖУ, мы посчитали его по составу">КБЖУ по составу</span>
+                            )}
                           </h3>
                           <div className="catalog-card__meta">
                             {r?.cuisine && (

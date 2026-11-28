@@ -71,6 +71,8 @@ export function expandRestaurantMapPayload(payload) {
       cuisine: restaurant.cuisine ?? null,
       primary_venue_type: restaurant.primary_venue_type ?? null,
       autoUpdated: Boolean(restaurant.autoUpdated),
+      // Только при plain=1: 'restaurant' или 'estimated' (обычное меню с нашей оценкой КБЖУ).
+      ...(restaurant.kbjuKind ? { kbjuKind: restaurant.kbjuKind } : {}),
     })
   }
 

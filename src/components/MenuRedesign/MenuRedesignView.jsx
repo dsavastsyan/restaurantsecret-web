@@ -7,6 +7,7 @@ import { MenuOutdatedModal } from '@/components/MenuOutdatedModal';
 import AutoUpdatedBadge from '@/components/AutoUpdatedBadge.jsx';
 import DishTileV2 from './DishTileV2';
 import DishRowV2 from './DishRowV2';
+import { KbjuTabs, PlainMenuBanner, PlainNoDataSection, PlainOfferTile } from './PlainMenuParts';
 import { HeartIcon, MapPinIcon, ShareIcon, SearchIcon, LockIcon } from './icons';
 import ServiceUnavailable from '@/components/ServiceUnavailable.jsx';
 import {
@@ -91,6 +92,7 @@ export default function MenuRedesignView({
   error,
   onRetry,
   menu,
+  plain = null,
 
   query,
   setQuery,
@@ -333,6 +335,10 @@ export default function MenuRedesignView({
     </>
   );
 
+  // Ресторан только с обычным меню: шапка считает позиции и оценки, а не «блюда с КБЖУ».
+  const isPlainOnly = plain?.mode === 'estimated' && !plain?.tabs && Boolean(plain?.counts);
+  const plainNoData = plain?.noData || [];
+
   const openDish = (dish, groupIsFree = false) => {
     const isFreeAccess = groupIsFree || freeDishKeys.has(buildDishAccessKey(dish));
     const draft = {
@@ -378,7 +384,28 @@ export default function MenuRedesignView({
             {/* heroDishCount falls back to the prerender's real embedded count
                 while still loading, so this never flashes a wrong "0 блюд" —
                 only hidden outright if we truly have no number at all. */}
-            {Number.isFinite(heroDishCount) && (
+            {isPlainOnly ? (
+              <div className="rsm2-hero__stats">
+                <div className="rsm2-hero__stat">
+                  <span className="rsm2-hero__stat-value">{plain.counts.total}</span>
+                  <span className="rsm2-hero__stat-label">позиций в меню</span>
+                </div>
+                <div className="rsm2-hero__rule" />
+                <div className="rsm2-hero__stat">
+                  <span className="rsm2-hero__stat-value">{plain.counts.estimated}</span>
+                  <span className="rsm2-hero__stat-label">с КБЖУ по составу</span>
+                </div>
+                {!!capturedAt && (
+                  <>
+                    <div className="rsm2-hero__rule" />
+                    <div className="rsm2-hero__stat">
+                      <span className="rsm2-hero__stat-value">{capturedAt}</span>
+                      <span className="rsm2-hero__stat-label">меню обновлено</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : Number.isFinite(heroDishCount) && (
               <div className="rsm2-hero__stats">
                 <div className="rsm2-hero__stat">
                   <span className="rsm2-hero__stat-value">{heroDishCount}</span>
@@ -397,6 +424,7 @@ export default function MenuRedesignView({
             )}
           </div>
           <div className="rsm2-hero__actions">
+            {isPlainOnly && <span className="rsm2-est-hero-chip">КБЖУ по составу</span>}
             {!readOnly && (
               <button
                 type="button"
@@ -432,6 +460,13 @@ export default function MenuRedesignView({
           </div>
         </div>
       </div>
+
+      {(plain?.tabs || plain?.mode === 'estimated') && (
+        <div className="rsm2-plain-head">
+          <KbjuTabs tabs={plain.tabs} onChange={plain.onTabChange} />
+          {plain.mode === 'estimated' && <PlainMenuBanner variant={plain.tabs ? 'tab' : 'menu'} />}
+        </div>
+      )}
 
       <div className="rsm2-filters">
         <div className="rsm2-filter-toolbar">
@@ -598,7 +633,7 @@ export default function MenuRedesignView({
                 </button>
               )}
             </div>
-          ) : groupedDishes.length ? (
+          ) : (groupedDishes.length || plainNoData.length) ? (
             <>
               {groupedDishes.map((section, sectionIndex) => (
               <div key={section.name}>
@@ -624,6 +659,9 @@ export default function MenuRedesignView({
                 <div className="rsm2-grid rsm2-desktop-only">
                   {section.dishes.map((dish, dishIndex) => {
                     const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
+                    if (dish.isEstimate) {
+                      return <PlainOfferTile key={`${section.name}-${dish.id}`} dish={dish} isFreeAccess={isFreeAccess} readOnly={readOnly} />;
+                    }
                     return (
                       <DishTileV2
                         key={`${section.name}-${dish.name}`}
@@ -644,6 +682,9 @@ export default function MenuRedesignView({
                 <div className="rsm2-grid rsm2-mobile-only">
                   {section.dishes.map((dish, dishIndex) => {
                     const isFreeAccess = freeDishKeys.has(buildDishAccessKey(dish));
+                    if (dish.isEstimate) {
+                      return <PlainOfferTile key={`${section.name}-${dish.id}`} dish={dish} isFreeAccess={isFreeAccess} readOnly={readOnly} compact />;
+                    }
                     return (
                       <DishRowV2
                         key={`${section.name}-${dish.name}`}
@@ -662,6 +703,7 @@ export default function MenuRedesignView({
                 </div>
               </div>
               ))}
+              <PlainNoDataSection dishes={plainNoData} />
             </>
           ) : (
             <div className="rsm2-empty">

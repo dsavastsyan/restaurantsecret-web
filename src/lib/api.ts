@@ -1,5 +1,6 @@
 // src/lib/api.ts
 import { IS_PREVIEW, PD_API_BASE, PUBLIC_API_BASE } from "@/config/api";
+import { isPlainMenusEnabled } from "@/lib/featureFlags";
 import { markOnboardingCompletedForToken } from "@/lib/onboarding";
 import { requestTurnstileToken } from "@/lib/turnstile";
 import { setToken } from "@/store/auth";
@@ -439,14 +440,16 @@ export function postFeedback(body: FeedbackRequest, token?: string) {
 }
 
 export async function searchSuggest(query: string): Promise<SearchSuggestions> {
+  const plain = (await isPlainMenusEnabled()) ? "&plain=1" : "";
   return publicGet<SearchSuggestions>(
-    `/search/suggest?query=${encodeURIComponent(query)}`
+    `/search/suggest?query=${encodeURIComponent(query)}${plain}`
   );
 }
 
 export async function searchFull(query: string, city = "Москва"): Promise<SearchResult> {
+  const plain = (await isPlainMenusEnabled()) ? "&plain=1" : "";
   return publicGet<SearchResult>(
-    `/search?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`
+    `/search?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}${plain}`
   );
 }
 
@@ -457,7 +460,8 @@ export async function searchStoreProducts(query: string, limit = 12): Promise<St
 }
 
 export async function getLandingStats(city = "Москва"): Promise<LandingStats> {
-  return publicGet<LandingStats>(`/landing/stats?city=${encodeURIComponent(city)}`);
+  const plain = (await isPlainMenusEnabled()) ? "&plain=1" : "";
+  return publicGet<LandingStats>(`/landing/stats?city=${encodeURIComponent(city)}${plain}`);
 }
 
 export async function getRestaurants(limit = 2000, city = "Москва"): Promise<RestaurantListResponse> {

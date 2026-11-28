@@ -8,6 +8,14 @@ const waitForSuccessfulResponse = (page, predicate) =>
     return response.ok()
   })
 
+test('@smoke landing suggests restaurants with estimated KBJU', async ({ page }) => {
+  test.skip(!process.env.PLAYWRIGHT_BASE_URL, 'Requires the deployed staging preview with plain menus enabled')
+  await page.goto('/')
+  const search = page.getByPlaceholder('Найти ресторан или блюдо')
+  await search.fill('mouf')
+  await expect(page.locator('.search-input__dropdown')).toContainText('Mouflon', { timeout: 30_000 })
+})
+
 test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) => {
   // This is a deployed-preview integration check against the full staging
   // catalog, not a mocked UI test. The real catalog response can take longer
@@ -32,6 +40,15 @@ test('@smoke landing to restaurant flow is gated by paywall', async ({ page }) =
 
   const landingStatsResponse = await landingStatsResponsePromise
   const landingStats = await landingStatsResponse.json()
+  if (process.env.PLAYWRIGHT_BASE_URL) {
+    expect(new URL(landingStatsResponse.url()).searchParams.get('plain')).toBe('1')
+    const legacyStatsResponse = await page.request.get('/api/landing/stats?city=Москва')
+    expect(legacyStatsResponse.ok()).toBe(true)
+    const legacyStats = await legacyStatsResponse.json()
+    expect(landingStats.restaurants).toBeGreaterThan(legacyStats.restaurants)
+    expect(landingStats.dishes).toBeGreaterThan(legacyStats.dishes)
+    expect(landingStats.weeklyAdded).toBeGreaterThanOrEqual(legacyStats.weeklyAdded)
+  }
   expect(landingStats?.restaurants).toBeGreaterThan(0)
   expect(landingStats?.dishes).toBeGreaterThan(0)
 
