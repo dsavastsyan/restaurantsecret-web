@@ -166,8 +166,8 @@ export default function Catalog() {
   )
   const metroData = metroResponse || EMPTY_METRO_DATA
   const { data: landingStats } = useSWRLite(
-    hasSelectedCity ? 'landing-stats' : null,
-    () => getLandingStats(),
+    hasSelectedCity ? `landing-stats:${selectedCityId}` : null,
+    () => getLandingStats(selectedCityId),
     { enabled: hasSelectedCity },
   )
   const [selectedCuisines, setSelectedCuisines] = useState(() => initialCatalogFilters.selectedCuisines

@@ -460,7 +460,8 @@ export async function searchStoreProducts(query: string, limit = 12): Promise<St
 }
 
 export async function getLandingStats(city = "Москва"): Promise<LandingStats> {
-  return publicGet<LandingStats>(`/landing/stats?city=${encodeURIComponent(city)}`);
+  const plain = (await isPlainMenusEnabled()) ? "&plain=1" : "";
+  return publicGet<LandingStats>(`/landing/stats?city=${encodeURIComponent(city)}${plain}`);
 }
 
 export async function getRestaurants(limit = 2000, city = "Москва"): Promise<RestaurantListResponse> {
